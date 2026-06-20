@@ -1,0 +1,6 @@
+# Runtime deps for the live engine (the demo runner uses only the stdlib).
+# yfinance>=0.2          # Yahoo Finance market data
+# requests>=2.31         # ForexFactory calendar scrape
+# pandas>=2.2            # candle aggregation
+# pytz>=2024.1           # session timezones
+# psycopg[binary]>=3.1   # write trades/summaries to Postgres (Supabase)

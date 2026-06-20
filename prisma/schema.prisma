@@ -1,0 +1,254 @@
+// Floqex data model. See the Architecture Overview for the domain design.
+// Postgres (Supabase). Money is stored as Decimal; times are UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Supabase: pooled URL for the app, direct URL for migrations.
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────── Identity ───────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts   Account[]
+  strategies Strategy[]
+
+  @@map("users")
+}
+
+// ─────────────────────── Accounts & Bots ────────────────────────
+
+enum Broker {
+  PAPER
+  OANDA
+  IBKR
+  TRADOVATE
+  ALPACA
+}
+
+enum AccountMode {
+  PAPER
+  LIVE
+}
+
+model Account {
+  id         String      @id @default(cuid())
+  userId     String
+  nickname   String
+  broker     Broker      @default(PAPER)
+  mode       AccountMode @default(PAPER)
+  externalId String?
+  balance    Decimal     @default(10000) @db.Decimal(18, 2)
+  currency   String      @default("USD")
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot        Bot?
+  trades     Trade[]
+  summaries  DailySummary[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+enum BotStatus {
+  RUNNING
+  WAITING
+  STOPPED
+}
+
+model Bot {
+  id                  String    @id @default(cuid())
+  accountId           String    @unique
+  strategyId          String
+  status              BotStatus @default(STOPPED)
+  autoAdjustmentsUsed Int       @default(0)
+  lastHeartbeat       DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  strategy    Strategy        @relation(fields: [strategyId], references: [id])
+  trades      Trade[]
+  adjustments BotAdjustment[]
+
+  @@index([strategyId])
+  @@map("bots")
+}
+
+// ───────────────────────── Strategies ───────────────────────────
+
+enum StrategyKind {
+  ORB
+  CUSTOM
+}
+
+model Strategy {
+  id        String       @id @default(cuid())
+  userId    String
+  name      String
+  kind      StrategyKind @default(ORB)
+  // Typed parameter set rendered by the Strategy Lab UI.
+  params    Json
+  version   Int          @default(1)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bots        Bot[]
+  adjustments BotAdjustment[]
+
+  @@index([userId])
+  @@map("strategies")
+}
+
+// ─────────────────────────── Trades ─────────────────────────────
+
+enum TradeDirection {
+  LONG
+  SHORT
+}
+
+enum TradeSession {
+  ASIA
+  NY
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+}
+
+model Trade {
+  id          String         @id @default(cuid())
+  botId       String
+  accountId   String
+  instrument  String
+  direction   TradeDirection
+  session     TradeSession
+  status      TradeStatus    @default(OPEN)
+
+  entryPrice  Decimal  @db.Decimal(18, 5)
+  exitPrice   Decimal? @db.Decimal(18, 5)
+  stopPrice   Decimal  @db.Decimal(18, 5)
+  targetPrice Decimal  @db.Decimal(18, 5)
+  sizeUnits   Decimal  @db.Decimal(18, 4)
+  riskPct     Decimal  @db.Decimal(6, 3)
+
+  grossPnl   Decimal? @db.Decimal(18, 2)
+  commission Decimal? @db.Decimal(18, 2)
+  netPnl     Decimal? @db.Decimal(18, 2)
+  rMultiple  Decimal? @db.Decimal(8, 3)
+  mfe        Decimal? @db.Decimal(8, 3) // max favourable excursion (R)
+  mae        Decimal? @db.Decimal(8, 3) // max adverse excursion (R)
+
+  // Evidence-loop context buckets
+  rangeBucket String? // SMALL | MEDIUM | LARGE
+  entryBucket String? // FIRST_HOUR | LATER
+  trendAgree  Boolean?
+
+  screenshotUrl String?
+  narrative     String?
+
+  openedAt  DateTime  @default(now())
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  bot     Bot     @relation(fields: [botId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, openedAt])
+  @@index([botId])
+  @@map("trades")
+}
+
+// ───────────────── Evidence-based optimisation ──────────────────
+
+enum AdjustmentSource {
+  BOT
+  USER
+}
+
+enum AdjustmentStatus {
+  APPLIED
+  PENDING
+  REJECTED
+}
+
+model BotAdjustment {
+  id           String           @id @default(cuid())
+  botId        String
+  strategyId   String
+  parameter    String
+  oldValue     String
+  newValue     String
+  source       AdjustmentSource @default(BOT)
+  status       AdjustmentStatus @default(APPLIED)
+  reasoning    String?
+  sampleSize   Int?
+  winRateDelta Decimal?         @db.Decimal(6, 3)
+  confidence   Decimal?         @db.Decimal(6, 3)
+  createdAt    DateTime         @default(now())
+
+  bot      Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@index([botId, createdAt])
+  @@map("bot_adjustments")
+}
+
+// ─────────────────────── Daily summaries ────────────────────────
+
+model DailySummary {
+  id           String   @id @default(cuid())
+  accountId    String
+  date         DateTime @db.Date
+  netPnl       Decimal  @default(0) @db.Decimal(18, 2)
+  tradeCount   Int      @default(0)
+  winCount     Int      @default(0)
+  lossCount    Int      @default(0)
+  startBalance Decimal  @db.Decimal(18, 2)
+  endBalance   Decimal  @db.Decimal(18, 2)
+  createdAt    DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, date])
+  @@map("daily_summaries")
+}
+
+// ───────────────────────── News events ──────────────────────────
+
+enum NewsImpact {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model NewsEvent {
+  id        String     @id @default(cuid())
+  eventTime DateTime
+  currency  String
+  impact    NewsImpact
+  name      String
+  createdAt DateTime   @default(now())
+
+  @@index([eventTime])
+  @@map("news_events")
+}
