@@ -21,7 +21,7 @@ export function HBars({
               <div
                 className={cn(
                   "absolute inset-y-0 rounded-[4px]",
-                  pos ? "left-0 bg-accent/80" : "left-0 bg-negative/80",
+                  pos ? "left-0 bg-positive/80" : "left-0 bg-negative/80",
                 )}
                 style={{ width: `${pct}%` }}
               />
@@ -61,7 +61,7 @@ export function VBars({
               <div
                 className={cn(
                   "w-full rounded-t-[4px]",
-                  pos ? "bg-accent/80" : "bg-negative/80",
+                  pos ? "bg-positive/80" : "bg-negative/80",
                 )}
                 style={{ height: `${Math.max(4, pct)}%` }}
               />
@@ -124,9 +124,9 @@ export function LineMini({ values }: { values: number[] }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
       {[0.25, 0.5, 0.75].map((p) => (
-        <line key={p} x1="0" y1={H * p} x2={W} y2={H * p} stroke="oklch(0.27 0.006 260 / 0.45)" strokeWidth="1" />
+        <line key={p} x1="0" y1={H * p} x2={W} y2={H * p} stroke="var(--color-line)" strokeWidth="1" />
       ))}
-      <path d={pts.join(" ")} fill="none" stroke="oklch(0.74 0.17 162)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pts.join(" ")} fill="none" stroke="var(--color-profit)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

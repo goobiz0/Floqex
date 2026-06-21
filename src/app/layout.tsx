@@ -38,7 +38,11 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-/** Clerk components themed to the Floqex dark palette (emerald accent, 8px controls). */
+/**
+ * Auth UI is custom-built with Clerk headless hooks (see src/components/auth).
+ * This appearance only themes Clerk-managed surfaces we still render, e.g.
+ * <UserButton/>, to the Floqex dark palette (emerald accent, 8px controls).
+ */
 const clerkAppearance = {
   theme: dark,
   variables: {
@@ -52,13 +56,6 @@ const clerkAppearance = {
     colorSuccess: "#10b981",
     borderRadius: "8px",
     fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
-  },
-  options: {
-    // Prominent "Continue with Google / GitHub" block buttons above the form.
-    // The buttons appear automatically for whichever providers are enabled in
-    // the Clerk Dashboard (Social Connections).
-    socialButtonsVariant: "blockButton",
-    socialButtonsPlacement: "top",
   },
 } as const;
 
