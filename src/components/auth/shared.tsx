@@ -42,6 +42,9 @@ export function clerkErrorMessage(err: unknown): string {
     case "form_code_incorrect":
     case "verification_failed":
       return "That code is incorrect or has expired.";
+    case "strategy_for_user_invalid":
+    case "form_conditional_match_not_found":
+      return "No account found with that email, or this account uses social login.";
     default:
       return detail.longMessage || detail.message || "Something went wrong. Please try again.";
   }
