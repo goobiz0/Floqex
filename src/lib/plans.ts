@@ -81,6 +81,11 @@ export const PLANS: Record<Plan, PlanConfig> = {
 
 export const PLAN_ORDER: Plan[] = ["FREE", "TRADER", "PRO"];
 
+/** True when the price id maps to a known paid tier. Side-effect free (no logging). */
+export function isPaidPriceId(priceId: string | null | undefined): boolean {
+  return priceId === PRICE_IDS.TRADER || priceId === PRICE_IDS.PRO;
+}
+
 /** Map a Stripe price id back to the plan it grants. */
 export function planFromPriceId(priceId: string | null | undefined): Plan {
   if (!priceId) return "FREE";

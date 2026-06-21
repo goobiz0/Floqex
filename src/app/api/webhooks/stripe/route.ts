@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
-import { planFromPriceId, type Plan } from "@/lib/plans";
+import { planFromPriceId, isPaidPriceId, type Plan } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -10,8 +10,9 @@ export const runtime = "nodejs";
 async function syncSubscription(customerId: string, sub: Stripe.Subscription) {
   // A subscription can hold multiple items (e.g. add-ons); pick the one whose
   // price maps to a known paid tier rather than assuming it is the first item.
+  // isPaidPriceId is side-effect free, so scanning never logs spurious warnings.
   const priceId =
-    sub.items.data.map((i) => i.price?.id).find((id) => id && planFromPriceId(id) !== "FREE") ??
+    sub.items.data.map((i) => i.price?.id).find((id) => isPaidPriceId(id)) ??
     sub.items.data[0]?.price?.id;
   const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
   const plan: Plan = active ? planFromPriceId(priceId) : "FREE";

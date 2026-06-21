@@ -159,18 +159,20 @@ export default function OnboardingPage() {
               {step === 3 && (
                 <Step icon={Wallet} title="Your paper account is ready" desc="A simulated account so you can watch the bot trade with real market data and zero risk.">
                   <div className="space-y-4">
-                    <Field label="Account nickname">
+                    <Field label="Account nickname" id="ob-nickname">
                       <input
+                        id="ob-nickname"
                         value={nickname}
                         onChange={(e) => setNickname(e.target.value)}
                         maxLength={40}
                         className="w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-sm text-fg focus-visible:border-accent focus-visible:outline-none"
                       />
                     </Field>
-                    <Field label="Your timezone" hint="Session times show in your local clock alongside the market's.">
+                    <Field label="Your timezone" id="ob-timezone" hint="Session times show in your local clock alongside the market's.">
                       <div className="relative">
                         <Clock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle" />
                         <select
+                          id="ob-timezone"
                           value={tz}
                           onChange={(e) => setTz(e.target.value)}
                           className="w-full appearance-none rounded-[var(--radius-control)] border border-line bg-surface py-2.5 pl-9 pr-3 text-sm text-fg focus-visible:border-accent focus-visible:outline-none"
@@ -193,8 +195,9 @@ export default function OnboardingPage() {
 
               {step === 4 && (
                 <Step icon={ChatCircleDots} title="Get the decision feed on Discord" desc="Optional. Paste a webhook to receive the bot's narration and milestone alerts.">
-                  <Field label="Discord webhook" hint="Server Settings → Integrations → Webhooks → Copy URL.">
+                  <Field label="Discord webhook" id="ob-discord" hint="Server Settings → Integrations → Webhooks → Copy URL.">
                     <input
+                      id="ob-discord"
                       value={discord}
                       onChange={(e) => setDiscord(e.target.value)}
                       placeholder="https://discord.com/api/webhooks/..."
@@ -325,15 +328,19 @@ function SelectGrid({
 function Field({
   label,
   hint,
+  id,
   children,
 }: {
   label: string;
   hint?: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <label className="text-sm font-medium text-fg">{label}</label>
+      <label htmlFor={id} className="text-sm font-medium text-fg">
+        {label}
+      </label>
       <div className="mt-1.5">{children}</div>
       {hint && <p className="mt-1.5 text-xs leading-relaxed text-fg-subtle">{hint}</p>}
     </div>
