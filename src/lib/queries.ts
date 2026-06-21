@@ -26,12 +26,23 @@ export type OverviewBot = {
   lastHeartbeat: string | null;
 };
 
+export type AgentEventKind = "INFO" | "SIGNAL" | "TRADE" | "RISK" | "NEWS" | "ADJUST";
+
+export type AgentEventRow = {
+  id: string;
+  /** Stable HH:MM:SS (UTC) so the client never disagrees with the server. */
+  t: string;
+  kind: AgentEventKind;
+  message: string;
+};
+
 export type OverviewData = {
   account: OverviewAccount | null;
   bot: OverviewBot | null;
   trades: TradeRow[];
   summaries: DailyRow[];
   openTrade: TradeRow | null;
+  agentEvents: AgentEventRow[];
   error: boolean;
 };
 
@@ -48,6 +59,7 @@ const EMPTY_OVERVIEW: OverviewData = {
   trades: [],
   summaries: [],
   openTrade: null,
+  agentEvents: [],
   error: false,
 };
 
@@ -122,6 +134,31 @@ function serializeSummary(s: DbSummary): DailyRow {
   };
 }
 
+/**
+ * Latest narrated decisions for the live agent feed, oldest-first for a
+ * terminal-log read. Guarded on its own so an unmigrated agent_events table
+ * degrades to an empty feed rather than taking down the whole overview.
+ */
+async function getAgentEvents(accountId: string): Promise<AgentEventRow[]> {
+  try {
+    const rows = await prisma.agentEvent.findMany({
+      where: { accountId },
+      orderBy: { ts: "desc" },
+      take: 40,
+    });
+    return rows
+      .reverse()
+      .map((e) => ({
+        id: e.id,
+        t: e.ts.toISOString().slice(11, 19),
+        kind: e.kind as AgentEventKind,
+        message: e.message,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getOverviewData(): Promise<OverviewData> {
   try {
     const { userId } = await auth();
@@ -137,7 +174,7 @@ export async function getOverviewData(): Promise<OverviewData> {
     const account = user?.accounts[0];
     if (!account) return EMPTY_OVERVIEW;
 
-    const [trades, summaries, openTrade] = await Promise.all([
+    const [trades, summaries, openTrade, agentEvents] = await Promise.all([
       prisma.trade.findMany({
         where: { accountId: account.id, status: "CLOSED" },
         orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
@@ -152,6 +189,7 @@ export async function getOverviewData(): Promise<OverviewData> {
         where: { accountId: account.id, status: "OPEN" },
         orderBy: { openedAt: "desc" },
       }),
+      getAgentEvents(account.id),
     ]);
 
     return {
@@ -174,6 +212,7 @@ export async function getOverviewData(): Promise<OverviewData> {
       trades: trades.map(serializeTrade),
       summaries: summaries.map(serializeSummary),
       openTrade: openTrade ? serializeTrade(openTrade) : null,
+      agentEvents,
       error: false,
     };
   } catch {

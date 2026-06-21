@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { Envelope, Lock } from "@phosphor-icons/react";
 import { useSignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,6 +224,7 @@ export function SignInForm() {
             type="email"
             autoComplete="email"
             required
+            icon={<Envelope />}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -234,6 +236,7 @@ export function SignInForm() {
             type="password"
             autoComplete="current-password"
             required
+            icon={<Lock />}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Envelope, Lock, User } from "@phosphor-icons/react";
 import { useSignUp } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,6 +143,7 @@ export function SignUpForm() {
               id="firstName"
               autoComplete="given-name"
               required
+              icon={<User />}
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
             />
@@ -151,6 +153,7 @@ export function SignUpForm() {
               id="lastName"
               autoComplete="family-name"
               required
+              icon={<User />}
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
             />
@@ -162,6 +165,7 @@ export function SignUpForm() {
             type="email"
             autoComplete="email"
             required
+            icon={<Envelope />}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -174,6 +178,7 @@ export function SignUpForm() {
             autoComplete="new-password"
             required
             minLength={8}
+            icon={<Lock />}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"

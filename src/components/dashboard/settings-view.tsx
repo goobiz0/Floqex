@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { DownloadSimple } from "@phosphor-icons/react";
+import { useState, useTransition } from "react";
+import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useUser } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
 import { updateCircuitBreaker } from "@/app/dashboard/accounts/actions";
-import { useTransition } from "react";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
 function csvCell(value: unknown): string {
@@ -82,11 +83,13 @@ export function SettingsView({
         <div className="mt-4 divide-y divide-line">
           <Channel label="Discord" desc="Decision feed and milestone alerts" checked={discord} onChange={setDiscord} />
           {discord && (
-            <div className="py-3">
-              <label className="text-sm text-fg-muted">Webhook URL</label>
-              <input
+            <div className="space-y-1.5 py-3">
+              <Label htmlFor="discord-webhook">Webhook URL</Label>
+              <Input
+                id="discord-webhook"
+                type="url"
+                icon={<DiscordLogo weight="fill" />}
                 placeholder="https://discord.com/api/webhooks/..."
-                className="mt-1.5 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus-visible:border-accent focus-visible:outline-none"
               />
             </div>
           )}
@@ -116,8 +119,8 @@ export function SettingsView({
       <Card className="p-5">
         <CardTitle>Alert thresholds</CardTitle>
         <div className="mt-4 space-y-5">
-          <Threshold label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" defaultValue={2.5} />
-          <Threshold label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" defaultValue={8} />
+          <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" defaultValue={2.5} />
+          <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" defaultValue={8} />
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-fg">Notify on every trade</p>
@@ -194,56 +197,63 @@ function ProfileSettings() {
   }
 
   return (
-    <Card className="overflow-hidden border border-line bg-elevated shadow-sm">
+    <Card className="overflow-hidden">
       <div className="border-b border-line bg-surface/30 px-6 py-5">
         <h2 className="text-base font-semibold text-fg">Personal details</h2>
         <p className="mt-1 text-sm text-fg-subtle">Update your name and profile settings.</p>
       </div>
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-[13px] font-medium text-fg">First name</label>
-            <input
+      <div className="space-y-6 p-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="first-name">First name</Label>
+            <Input
+              id="first-name"
+              icon={<User />}
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-fg shadow-sm transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/20"
             />
           </div>
-          <div>
-            <label className="mb-2 block text-[13px] font-medium text-fg">Last name</label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="last-name">Last name</Label>
+            <Input
+              id="last-name"
+              icon={<User />}
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-fg shadow-sm transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/20"
             />
           </div>
         </div>
-        <div className="max-w-md">
-          <label className="mb-2 block text-[13px] font-medium text-fg">Email address</label>
-          <div className="flex w-full items-center rounded-xl border border-line/50 bg-surface/30 px-4 py-2.5 shadow-inner">
-            <span className="text-sm text-fg-muted cursor-not-allowed">
-              {user?.primaryEmailAddress?.emailAddress || "Loading..."}
+        <div className="max-w-md space-y-1.5">
+          <Label htmlFor="email-address">Email address</Label>
+          <div className="flex h-10 w-full cursor-not-allowed items-center gap-2 rounded-[var(--radius-control)] border border-line bg-base/40 px-3">
+            <At className="h-4 w-4 shrink-0 text-fg-faint" />
+            <span className="truncate text-sm text-fg-muted">
+              {user?.primaryEmailAddress?.emailAddress || "Loading…"}
             </span>
           </div>
-          <p className="mt-2 text-[12px] text-fg-subtle">To change your email address, please contact support.</p>
+          <p className="text-xs text-fg-subtle">
+            To change your email address, please contact support.
+          </p>
         </div>
       </div>
-      <div className="flex items-center justify-between border-t border-line bg-surface/30 px-6 py-4">
-        <span className="text-[13px] text-fg-subtle">
+      <div className="flex items-center justify-between gap-4 border-t border-line bg-surface/30 px-6 py-4">
+        <span className="text-xs text-fg-subtle">
           Please use your real name to ensure compliance.
         </span>
         <div className="flex items-center gap-4">
           {success && (
-            <span className="text-[13px] font-medium text-positive animate-in fade-in slide-in-from-right-2">
-              Saved successfully
-            </span>
+            <span className="text-xs font-medium text-positive">Saved successfully</span>
           )}
-          <Button 
-            onClick={handleSave} 
-            disabled={saving || !isLoaded || (firstName === user?.firstName && lastName === user?.lastName)}
-            className="rounded-xl px-5 transition-transform active:scale-95"
+          <Button
+            onClick={handleSave}
+            size="sm"
+            disabled={
+              saving ||
+              !isLoaded ||
+              (firstName === user?.firstName && lastName === user?.lastName)
+            }
           >
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? "Saving…" : "Save changes"}
           </Button>
         </div>
       </div>
@@ -274,29 +284,30 @@ function Channel({
 }
 
 function Threshold({
+  id,
   label,
   help,
   suffix,
   defaultValue,
 }: {
+  id: string;
   label: string;
   help: string;
   suffix: string;
   defaultValue: number;
 }) {
   return (
-    <div>
-      <label className="text-sm font-medium text-fg">{label}</label>
-      <div className="mt-1.5 flex items-center gap-2">
-        <input
-          type="number"
-          defaultValue={defaultValue}
-          step={0.5}
-          className="tnum w-28 rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm text-fg focus-visible:border-accent focus-visible:outline-none"
-        />
-        <span className="text-sm text-fg-subtle">{suffix}</span>
-      </div>
-      <p className="mt-1.5 text-xs text-fg-subtle">{help}</p>
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="number"
+        defaultValue={defaultValue}
+        step={0.5}
+        trailing={suffix}
+        className="tnum w-32"
+      />
+      <p className="text-xs text-fg-subtle">{help}</p>
     </div>
   );
 }
@@ -342,17 +353,17 @@ function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
         <p className="text-xs text-fg-subtle">{account.broker}</p>
       </div>
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-muted">$</span>
-          <input
-            type="number"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            placeholder="No limit"
-            className="tnum w-32 rounded-[var(--radius-control)] border border-line bg-surface pl-7 pr-3 py-1.5 text-sm text-fg focus-visible:border-accent focus-visible:outline-none placeholder:text-fg-faint"
-          />
-        </div>
-        <Button 
+        <Input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="No limit"
+          icon={<CurrencyDollar />}
+          invalid={!isValidAmount}
+          className="tnum w-36"
+          aria-label={`Max daily drawdown for ${account.nickname}`}
+        />
+        <Button
           size="sm" 
           variant="secondary"
           onClick={handleSave}

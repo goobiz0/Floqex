@@ -73,8 +73,14 @@ async function main() {
   });
 
   // Idempotent: wipe prior demo history before regenerating.
+  await prisma.agentEvent.deleteMany({ where: { accountId: account.id } });
   await prisma.trade.deleteMany({ where: { accountId: account.id } });
   await prisma.dailySummary.deleteMany({ where: { accountId: account.id } });
+
+  // Narrated decisions for the most recent session feed the live agent feed.
+  // Tied to the real trades created below, so the demo feed mirrors real output.
+  type Ev = { ts: Date; kind: "INFO" | "SIGNAL" | "TRADE" | "RISK"; message: string };
+  const events: Ev[] = [];
 
   const rand = mulberry32(42);
   const dates: Date[] = [];
@@ -87,12 +93,24 @@ async function main() {
   }
 
   let balance = 10000;
+  const lastDate = dates[dates.length - 1];
   for (const date of dates) {
     const startBalance = balance;
     const nTrades = rand() < 0.5 ? 1 : 2;
     let dayPnl = 0;
     let wins = 0;
     let losses = 0;
+    const isLast = date === lastDate;
+
+    if (isLast) {
+      const openTs = new Date(date);
+      openTs.setUTCHours(13, 30, 0, 0);
+      events.push({
+        ts: openTs,
+        kind: "INFO",
+        message: "NY session open. Building the opening range on GC, NQ and ES.",
+      });
+    }
 
     for (let i = 0; i < nTrades; i++) {
       const win = rand() < 0.58;
@@ -146,6 +164,27 @@ async function main() {
           closedAt,
         },
       });
+
+      if (isLast) {
+        const signalTs = new Date(openedAt.getTime() - 2 * 60_000);
+        events.push({
+          ts: signalTs,
+          kind: "SIGNAL",
+          message: `${instrument} closed beyond the opening range — ${direction.toLowerCase()} breakout candidate.`,
+        });
+        events.push({
+          ts: openedAt,
+          kind: "TRADE",
+          message: `Entered ${direction} ${instrument} at ${entry}. Stop ${round2(stop)}, target ${round2(target)} (2R).`,
+        });
+        events.push({
+          ts: closedAt,
+          kind: win ? "TRADE" : "RISK",
+          message: win
+            ? `Target hit on ${instrument}. Booked ${netPnl >= 0 ? "+" : ""}${netPnl} at +2R.`
+            : `Stop hit on ${instrument}. Logged ${netPnl} at -1R and stepped aside.`,
+        });
+      }
     }
 
     await prisma.dailySummary.create({
@@ -162,8 +201,31 @@ async function main() {
     });
   }
 
+  // Close out the latest session feed.
+  if (events.length) {
+    const closeTs = new Date(lastDate);
+    closeTs.setUTCHours(20, 0, 0, 0);
+    events.push({
+      ts: closeTs,
+      kind: "INFO",
+      message: "NY session closed. Caps respected, no open positions carried.",
+    });
+    events.sort((a, b) => a.ts.getTime() - b.ts.getTime());
+    await prisma.agentEvent.createMany({
+      data: events.map((e) => ({
+        botId: bot.id,
+        accountId: account.id,
+        ts: e.ts,
+        kind: e.kind,
+        message: e.message,
+      })),
+    });
+  }
+
   await prisma.account.update({ where: { id: account.id }, data: { balance: round2(balance) } });
-  console.log(`Seeded demo account over ${dates.length} sessions, final balance ${round2(balance)}.`);
+  console.log(
+    `Seeded demo account over ${dates.length} sessions and ${events.length} agent events, final balance ${round2(balance)}.`,
+  );
 }
 
 main()
