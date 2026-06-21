@@ -1,82 +1,170 @@
-import { streamText, tool } from 'ai';
-import { openai } from '@ai-sdk/openai';
-import { z } from 'zod';
-import { auth } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/db';
-import { PLANS, type Plan } from '@/lib/plans';
+import { streamText, tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db";
+import { PLANS, type Plan } from "@/lib/plans";
+import {
+  coerceStrategyParams,
+  parseStrategyParams,
+  rawParamValue,
+  formatParamValue,
+  PARAM_LABELS,
+  PARAM_BOUNDS,
+  type StrategyParams,
+} from "@/lib/strategy-schema";
 
 export const maxDuration = 30;
+
+// Model is centralized so it can be swapped in one place. (Anthropic would need
+// the AI SDK core upgraded from v3 to a version whose provider matches.)
+function chatModel() {
+  return openai("gpt-4o");
+}
+
+const boundsHelp = (Object.keys(PARAM_BOUNDS) as (keyof typeof PARAM_BOUNDS)[])
+  .map((k) => `${k} ${PARAM_BOUNDS[k].min}-${PARAM_BOUNDS[k].max}${PARAM_BOUNDS[k].suffix ?? ""}`)
+  .join(", ");
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
   const { userId } = await auth();
+  if (!userId) return new Response("Unauthorized", { status: 401 });
 
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // Get user and check limits
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    include: { strategies: true, accounts: { include: { bot: true } } },
+    include: { strategies: { orderBy: { createdAt: "asc" } }, accounts: { include: { bot: true } } },
   });
+  if (!user) return new Response("User not found", { status: 404 });
 
-  if (!user) {
-    return new Response('User not found', { status: 404 });
-  }
+  const plan = PLANS[user.plan as Plan] ?? PLANS.FREE;
+  const strategy = user.strategies[0] ?? null;
+  const params = strategy ? coerceStrategyParams(strategy.params) : null;
+  const firstName = user.firstName ?? "there";
 
-  const plan = PLANS[user.plan as Plan] || PLANS.FREE;
-  let messageLimit = 5;
-  if (user.plan === 'TRADER') messageLimit = 50;
-  if (user.plan === 'PRO') messageLimit = 250;
-
-  // In a real app we'd track daily usage in a db table like `daily_api_usage`
-  // For now, we will just allow it and let the UI show fake progress.
-  // We can inject context about their accounts and strategies into the system prompt.
-
-  const contextStr = `
-Current User Plan: ${user.plan}
-Account limit: ${plan.accountLimit}
-Accounts Connected: ${user.accounts.length}
-Active Strategy Parameters: ${user.strategies[0] ? JSON.stringify(user.strategies[0].params) : 'None'}
-`;
+  const context = [
+    `User: ${firstName} on the ${plan.name} plan (${user.accounts.length}/${plan.accountLimit === Infinity ? "unlimited" : plan.accountLimit} accounts, live trading ${plan.liveTrading ? "enabled" : "locked"}).`,
+    params
+      ? `Current ORB strategy params: ${JSON.stringify(params)}.`
+      : `No strategy configured yet.`,
+  ].join("\n");
 
   const result = await streamText({
-    model: openai('gpt-4o'),
-    system: `You are Mochi, an incredibly friendly, supportive, and cheerful AI trading copilot built directly into Floqex!
-Your goal is to make trading approachable, fun, and completely stress-free for the user. 
-Always be extremely helpful and never be frustrating. If a user wants to do something, help them achieve it seamlessly. 
-Use a warm, encouraging tone, and don't be afraid to use a few playful emojis! ✨
-Even when discussing risk or potential losses, be constructive and reassuring. 
-Context about the user:
-${contextStr}
-`,
+    model: chatModel(),
+    system: `You are Mochi, the in-app assistant for Floqex, a platform where an automated bot trades an Opening Range Breakout (ORB) strategy on the user's behalf inside hard risk guardrails.
+
+How Floqex works, so you can answer accurately:
+- The bot trades the first 15-minute opening range of a session, going long on a breakout above the range high and short below the low, with the stop on the opposite side of the range and a profit target at a reward-to-risk multiple.
+- Sessions: Asia (Gold, Tokyo morning) and New York (Gold, NQ, ES). Paper accounts use real market data with simulated fills, so results are real, not random.
+- Risk is enforced server-side and cannot be bypassed: per-trade risk, a daily-loss circuit breaker, and trade caps. You may help the user tune these within their safe bounds, never outside them.
+
+Voice: warm, clear, and genuinely useful. Talk like a sharp trading desk colleague, not a hype bot. Be concise. Do not use emoji. Never invent numbers; when the user asks about their performance, accounts, or bot, call the relevant tool and answer from the real result. If a value is outside the allowed bounds (${boundsHelp}), explain the limit instead of forcing it.
+
+${context}`,
     messages,
     tools: {
-      updateRiskParams: tool({
-        description: 'Update the user\'s active strategy parameters (e.g. risk percent, max loss, target R).',
+      getPerformance: tool({
+        description: "Get the user's real closed-trade performance: trade count, win rate, net P&L, and profit factor.",
+        parameters: z.object({}),
+        execute: async () => {
+          const trades = await prisma.trade.findMany({
+            where: { account: { userId: user.id }, status: "CLOSED" },
+            select: { netPnl: true },
+          });
+          if (trades.length === 0) {
+            return { tradeCount: 0, note: "No closed trades yet. The bot trades during the next session window." };
+          }
+          const pnls = trades.map((t) => Number(t.netPnl ?? 0));
+          const wins = pnls.filter((p) => p > 0);
+          const grossWin = wins.reduce((a, b) => a + b, 0);
+          const grossLoss = Math.abs(pnls.filter((p) => p < 0).reduce((a, b) => a + b, 0));
+          return {
+            tradeCount: trades.length,
+            winRatePct: Math.round((wins.length / trades.length) * 1000) / 10,
+            netPnl: Math.round(pnls.reduce((a, b) => a + b, 0) * 100) / 100,
+            profitFactor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : null,
+          };
+        },
+      }),
+      getBotStatus: tool({
+        description: "Get the live status of the user's accounts and bots (status, mode, balance, last heartbeat).",
+        parameters: z.object({}),
+        execute: async () => {
+          const accounts = await prisma.account.findMany({
+            where: { userId: user.id },
+            select: {
+              nickname: true,
+              mode: true,
+              balance: true,
+              bot: { select: { status: true, lastHeartbeat: true } },
+            },
+          });
+          return accounts.map((a) => ({
+            account: a.nickname,
+            mode: a.mode,
+            balance: Number(a.balance),
+            botStatus: a.bot?.status ?? "NONE",
+            lastHeartbeat: a.bot?.lastHeartbeat?.toISOString() ?? null,
+          }));
+        },
+      }),
+      updateStrategyParams: tool({
+        description:
+          "Change the user's ORB strategy parameters. Pass only the fields to change. Values are validated against safe bounds; out-of-range requests are rejected.",
         parameters: z.object({
           riskPct: z.number().optional(),
-          maxLoss: z.number().optional(),
-          targetR: z.number().optional(),
+          dailyLoss: z.number().optional(),
+          maxTrades: z.number().optional(),
+          rrTarget: z.number().optional(),
+          rangeMinutes: z.number().optional(),
+          minRange: z.number().optional(),
+          maxRange: z.number().optional(),
+          trendFilter: z.boolean().optional(),
+          reEntry: z.boolean().optional(),
         }),
-        // @ts-ignore - AI SDK type mismatch with inferred tool execute
-        execute: async (args) => {
-          const { riskPct, maxLoss, targetR } = args;
-          if (!user.strategies[0]) return { success: false, message: 'No active strategy found.', updatedParams: null };
-          
-          const currentParams = user.strategies[0].params as any;
-          const newParams = { ...currentParams };
-          if (riskPct !== undefined) newParams.riskPct = riskPct;
-          if (maxLoss !== undefined) newParams.maxLoss = maxLoss;
-          if (targetR !== undefined) newParams.targetR = targetR;
+        execute: async (changes) => {
+          if (!strategy || !params) return { ok: false, message: "No strategy to update yet." };
+          const requested = Object.fromEntries(
+            Object.entries(changes).filter(([, v]) => v !== undefined),
+          );
+          const parsed = parseStrategyParams({ ...params, ...requested });
+          if (!parsed.ok) return { ok: false, message: parsed.error };
 
-          await prisma.strategy.update({
-            where: { id: user.strategies[0].id },
-            data: { params: newParams },
-          });
+          const bot = user.accounts.find((a) => a.bot)?.bot ?? null;
+          const changedKeys = (Object.keys(PARAM_LABELS) as (keyof StrategyParams)[]).filter(
+            (k) => params[k] !== parsed.params[k],
+          );
+          if (changedKeys.length === 0) return { ok: true, updated: [], note: "No changes; values already set." };
 
-          return { success: true, message: 'Parameters updated successfully in the database.', updatedParams: newParams };
+          await prisma.$transaction([
+            prisma.strategy.update({
+              where: { id: strategy.id },
+              data: { params: parsed.params as object, version: { increment: 1 } },
+            }),
+            ...(bot
+              ? changedKeys.map((k) =>
+                  prisma.botAdjustment.create({
+                    data: {
+                      botId: bot.id,
+                      strategyId: strategy.id,
+                      parameter: PARAM_LABELS[k],
+                      paramKey: k,
+                      oldValue: rawParamValue(k, params[k]),
+                      newValue: rawParamValue(k, parsed.params[k]),
+                      source: "USER",
+                      status: "APPLIED",
+                    },
+                  }),
+                )
+              : []),
+          ]);
+          return {
+            ok: true,
+            updated: changedKeys.map((k) => ({
+              param: PARAM_LABELS[k],
+              value: formatParamValue(k, parsed.params[k]),
+            })),
+          };
         },
       }),
     },
