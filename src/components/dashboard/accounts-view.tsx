@@ -8,12 +8,20 @@ import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatUSD } from "@/lib/utils";
 import { connectAccount, toggleBotStatus } from "@/app/dashboard/accounts/actions";
-import { PLANS, type Plan } from "@/lib/plans";
+import { PLANS, type Plan, type PlanConfig } from "@/lib/plans";
+import type { Broker } from "@prisma/client";
 import Link from "next/link";
 import { dashboardUrl } from "@/lib/urls";
 import { Copy } from "@phosphor-icons/react";
 
-type Acct = any; // Typed loosely here since it comes from Prisma
+type Acct = {
+  id: string;
+  nickname: string;
+  broker: string;
+  mode: string;
+  balance: number | string;
+  bot?: { status: string } | null;
+};
 
 const BROKERS = [
   { id: "PAPER", name: "Paper", note: "Simulated money, no broker needed" },
@@ -26,7 +34,6 @@ const BROKERS = [
 export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialAccounts?: Acct[], plan?: string }) {
   const [connecting, setConnecting] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
   const activePlan = PLANS[plan as Plan] || PLANS.FREE;
   const hitLimit = initialAccounts.length >= activePlan.accountLimit;
@@ -77,7 +84,7 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
              </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {initialAccounts.map((a: any) => {
+              {initialAccounts.map((a) => {
                 const botStatus = a.bot?.status || "STOPPED";
                 const isRunning = botStatus === "RUNNING";
                 
@@ -186,7 +193,7 @@ function ConnectFlow({
     startTransition(async () => {
       const res = await connectAccount({
         nickname: nickname || "Main account",
-        broker: (brokerMeta?.name === "Paper" ? "PAPER" : broker as any),
+        broker: (broker ?? "PAPER") as Broker,
         mode: isPaper ? "PAPER" : "LIVE",
         apiKey: isPaper ? undefined : apiKey,
         apiSecret: isPaper ? undefined : apiSecret,
@@ -353,6 +360,3 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
-
-// Keep type hack for local scope
-type PlanConfig = any;

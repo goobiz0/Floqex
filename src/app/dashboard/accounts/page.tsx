@@ -9,13 +9,22 @@ export const metadata: Metadata = { title: "Accounts" };
 export default async function AccountsPage() {
   const { userId } = await auth();
   const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
-  const accounts = user
+  const accountRows = user
     ? await prisma.account.findMany({
         where: { userId: user.id },
-        include: { bot: true },
+        include: { bot: { select: { status: true } } },
         orderBy: { createdAt: "asc" },
       })
     : [];
+  // Serialize at the Server/Client boundary: Decimal -> number, drop Date fields.
+  const accounts = accountRows.map((a) => ({
+    id: a.id,
+    nickname: a.nickname,
+    broker: a.broker,
+    mode: a.mode,
+    balance: Number(a.balance),
+    bot: a.bot ? { status: a.bot.status } : null,
+  }));
 
   return (
     <div className="space-y-6">

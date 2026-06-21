@@ -10,12 +10,19 @@ export default async function SettingsPage() {
   const { trades } = await getTradeData();
   const { userId } = await auth();
   const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
-  const accounts = user
+  const accountRows = user
     ? await prisma.account.findMany({
         where: { userId: user.id },
         select: { id: true, nickname: true, broker: true, maxDailyDrawdown: true },
       })
     : [];
+  // Serialize Prisma Decimal to a plain number at the Server/Client boundary.
+  const accounts = accountRows.map((a) => ({
+    id: a.id,
+    nickname: a.nickname,
+    broker: a.broker,
+    maxDailyDrawdown: a.maxDailyDrawdown ? Number(a.maxDailyDrawdown) : null,
+  }));
 
   return (
     <div className="space-y-6">

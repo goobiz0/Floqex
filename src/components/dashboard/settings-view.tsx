@@ -54,7 +54,20 @@ function exportCsv(trades: TradeRow[]) {
   URL.revokeObjectURL(url);
 }
 
-export function SettingsView({ trades, accounts = [] }: { trades: TradeRow[], accounts?: any[] }) {
+type SettingsAccount = {
+  id: string;
+  nickname: string;
+  broker: string;
+  maxDailyDrawdown: number | null;
+};
+
+export function SettingsView({
+  trades,
+  accounts = [],
+}: {
+  trades: TradeRow[];
+  accounts?: SettingsAccount[];
+}) {
   const [discord, setDiscord] = useState(true);
   const [email, setEmail] = useState(true);
   const [push, setPush] = useState(false);
@@ -173,7 +186,7 @@ function ProfileSettings() {
       await user.update({ firstName, lastName });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
+    } catch {
       alert("Failed to update profile. Please try again.");
     } finally {
       setSaving(false);
@@ -305,8 +318,10 @@ function DangerRow({ title, desc, action }: { title: string; desc: string; actio
   );
 }
 
-function CircuitBreakerRow({ account }: { account: any }) {
-  const [amount, setAmount] = useState(account.maxDailyDrawdown ? Number(account.maxDailyDrawdown) : "");
+function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
+  const [amount, setAmount] = useState(
+    account.maxDailyDrawdown != null ? String(account.maxDailyDrawdown) : "",
+  );
   const [pending, startTransition] = useTransition();
 
   function handleSave() {
