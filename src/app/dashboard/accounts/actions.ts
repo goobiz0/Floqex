@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { PLANS, type Plan } from "@/lib/plans";
+import { getOrCreateUser } from "@/lib/user";
+import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
 
 export async function connectAccount({
@@ -19,21 +21,11 @@ export async function connectAccount({
   apiKey?: string;
   apiSecret?: string;
 }) {
-  const { userId } = await auth();
-  if (!userId) return { ok: false, error: "Not signed in" };
-
   try {
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      include: {
-        _count: { select: { accounts: true } },
-        strategies: { take: 1 },
-      },
-    });
-
-    if (!user) {
-      return { ok: false, error: "User profile not synced to database yet. Please contact support." };
-    }
+    // getOrCreateUser tolerates the Clerk webhook lagging right after sign-up,
+    // so onboarding never fails with a "not synced yet" error.
+    const user = await getOrCreateUser();
+    if (!user) return { ok: false, error: "Not signed in" };
 
     const planConfig = PLANS[user.plan as Plan];
 
@@ -41,7 +33,8 @@ export async function connectAccount({
       return { ok: false, error: "Upgrade to Trader or Pro to connect a Live account." };
     }
 
-    if (user._count.accounts >= planConfig.accountLimit) {
+    const accountCount = await prisma.account.count({ where: { userId: user.id } });
+    if (accountCount >= planConfig.accountLimit) {
       return { ok: false, error: `Your ${planConfig.name} plan is limited to ${planConfig.accountLimit} account(s). Please upgrade.` };
     }
 
@@ -63,25 +56,25 @@ export async function connectAccount({
           if (!verifyRes.ok) {
             return { ok: false, error: "Invalid Alpaca API keys or insufficient permissions." };
           }
-        } catch (e) {
+        } catch {
           return { ok: false, error: "Could not reach Alpaca servers to verify keys." };
         }
       }
     }
 
-    let strategy = user.strategies[0];
+    let strategy = await prisma.strategy.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+    });
     if (!strategy) {
       strategy = await prisma.strategy.create({
         data: {
           userId: user.id,
-          name: "Default ORB",
+          name: "Opening Range Breakout",
           kind: "ORB",
-          params: {
-            "session": "NY",
-            "riskPct": 0.5,
-            "maxLoss": 3,
-            "targetR": 2,
-          },
+          // Matches the Strategy Lab contract (src/lib/strategy-schema.ts) so the
+          // params render and validate consistently once the account is created.
+          params: DEFAULT_PARAMS as object,
         },
       });
     }
