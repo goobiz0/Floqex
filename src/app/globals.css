@@ -28,8 +28,10 @@
   --color-accent-soft: oklch(0.696 0.17 162 / 0.14);
   --color-accent-ring: oklch(0.696 0.17 162 / 0.5);
 
-  /* Semantic */
-  --color-positive: oklch(0.696 0.17 162);
+  /* Semantic — profit is a distinct, lighter green so P&L never collides with
+     the brand accent (which stays --color-accent). */
+  --color-positive: oklch(0.78 0.15 162);
+  --color-profit: oklch(0.78 0.15 162);
   --color-negative: oklch(0.62 0.2 25);
   --color-negative-soft: oklch(0.62 0.2 25 / 0.14);
   --color-warning: oklch(0.78 0.16 78);
@@ -140,4 +142,38 @@
 @utility grid-faint {
   background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
   background-size: 28px 28px;
+}
+
+/* Emerald aurora: layered low-opacity glows for hero / auth / shell backdrops.
+   Single accent only (no second hue), honours reduced transparency. */
+@utility aurora {
+  background-image:
+    radial-gradient(
+      42% 56% at 12% 8%,
+      color-mix(in oklch, var(--color-accent) 14%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      48% 48% at 88% 0%,
+      color-mix(in oklch, var(--color-accent) 9%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 70% at 50% 112%,
+      color-mix(in oklch, var(--color-accent) 7%, transparent),
+      transparent 72%
+    );
+}
+
+/* Fixed, pointer-events-none film grain for depth. Apply once at the shell with
+   a low opacity (e.g. opacity-[0.025]); never on scrolling containers. */
+@utility film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .aurora {
+    background-image: none;
+  }
 }
