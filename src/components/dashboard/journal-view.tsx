@@ -1,49 +1,74 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, ArrowDown, X } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TRADES, dailyPnl, type MockTrade } from "@/lib/mock-data";
+import { dailyPnl, type TradeRow, type DailyRow } from "@/lib/metrics";
 import { cn, formatUSD } from "@/lib/utils";
 
-const YEAR = 2026;
-const MONTH = 5; // June (0-indexed)
-const MONTH_LABEL = "June 2026";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export function JournalView() {
+const dateOf = (t: TradeRow) => t.openedAt.slice(0, 10);
+const timeOf = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+export function JournalView({
+  trades,
+  summaries,
+}: {
+  trades: TradeRow[];
+  summaries: DailyRow[];
+}) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [active, setActive] = useState<MockTrade | null>(null);
-  const pnlByDay = useMemo(() => dailyPnl(), []);
+  const [active, setActive] = useState<TradeRow | null>(null);
+  const pnlByDay = useMemo(() => dailyPnl(summaries), [summaries]);
+
+  // Show the most recent month that has data (or the current month if empty).
+  const anchor = useMemo(() => {
+    const latest = summaries.length
+      ? summaries[summaries.length - 1].date
+      : trades.length
+        ? dateOf(trades[0])
+        : new Date().toISOString().slice(0, 10);
+    const [year, month] = latest.split("-").map(Number);
+    return { year, month: month - 1 };
+  }, [summaries, trades]);
+
+  const monthLabel = useMemo(
+    () =>
+      new Date(Date.UTC(anchor.year, anchor.month, 1)).toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+      }),
+    [anchor],
+  );
 
   const cells = useMemo(() => {
-    const firstDow = new Date(Date.UTC(YEAR, MONTH, 1)).getUTCDay();
+    const firstDow = new Date(Date.UTC(anchor.year, anchor.month, 1)).getUTCDay();
     const lead = (firstDow + 6) % 7; // Monday-start offset
-    const days = new Date(Date.UTC(YEAR, MONTH + 1, 0)).getUTCDate();
+    const days = new Date(Date.UTC(anchor.year, anchor.month + 1, 0)).getUTCDate();
     const out: (string | null)[] = Array.from({ length: lead }, () => null);
     for (let d = 1; d <= days; d++) {
-      out.push(`${YEAR}-06-${String(d).padStart(2, "0")}`);
+      out.push(
+        `${anchor.year}-${String(anchor.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+      );
     }
     return out;
-  }, []);
+  }, [anchor]);
 
   const rows = useMemo(() => {
-    const list = selectedDate
-      ? TRADES.filter((t) => t.date === selectedDate)
-      : TRADES;
-    return [...list].sort((a, b) =>
-      (b.date + b.time).localeCompare(a.date + a.time),
-    );
-  }, [selectedDate]);
+    const list = selectedDate ? trades.filter((t) => dateOf(t) === selectedDate) : trades;
+    return [...list].sort((a, b) => b.openedAt.localeCompare(a.openedAt));
+  }, [selectedDate, trades]);
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
       {/* Calendar */}
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-fg">{MONTH_LABEL}</h2>
+          <h2 className="text-sm font-medium text-fg">{monthLabel}</h2>
           {selectedDate && (
             <button
               type="button"
@@ -106,48 +131,44 @@ export function JournalView() {
           </Badge>
         </div>
         <ul className="max-h-[520px] divide-y divide-line overflow-y-auto">
-          {rows.map((t) => (
-            <li key={t.id}>
-              <button
-                type="button"
-                onClick={() => setActive(t)}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface/60"
-              >
-                <span
-                  className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px]",
-                    t.direction === "LONG"
-                      ? "bg-accent-soft text-accent"
-                      : "bg-negative-soft text-negative",
-                  )}
+          {rows.map((t) => {
+            const long = t.direction === "LONG";
+            const win = (t.netPnl ?? 0) >= 0;
+            return (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => setActive(t)}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface/60"
                 >
-                  {t.direction === "LONG" ? (
-                    <ArrowUp size={13} weight="bold" />
-                  ) : (
-                    <ArrowDown size={13} weight="bold" />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-fg">{t.instrument}</p>
-                  <p className="text-xs text-fg-subtle">
-                    {t.date} · {t.time}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "tnum text-sm font-medium",
-                    t.win ? "text-positive" : "text-negative",
-                  )}
-                >
-                  {formatUSD(t.netPnl, { sign: true })}
-                </span>
-              </button>
-            </li>
-          ))}
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px]",
+                      long ? "bg-accent-soft text-accent" : "bg-negative-soft text-negative",
+                    )}
+                  >
+                    {long ? <ArrowUp size={13} weight="bold" /> : <ArrowDown size={13} weight="bold" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-fg">{t.instrument}</p>
+                    <p className="text-xs text-fg-subtle">
+                      {dateOf(t)} · {timeOf(t.openedAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "tnum text-sm font-medium",
+                      win ? "text-positive" : "text-negative",
+                    )}
+                  >
+                    {formatUSD(t.netPnl ?? 0, { sign: true })}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
           {rows.length === 0 && (
-            <li className="px-4 py-10 text-center text-sm text-fg-subtle">
-              No trades on this day.
-            </li>
+            <li className="px-4 py-10 text-center text-sm text-fg-subtle">No trades yet.</li>
           )}
         </ul>
       </Card>
@@ -157,13 +178,7 @@ export function JournalView() {
   );
 }
 
-function TradeDetail({
-  trade,
-  onClose,
-}: {
-  trade: MockTrade | null;
-  onClose: () => void;
-}) {
+function TradeDetail({ trade, onClose }: { trade: TradeRow | null; onClose: () => void }) {
   const reduce = useReducedMotion();
 
   useEffect(() => {
@@ -196,16 +211,14 @@ function TradeDetail({
             }
             transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
             role="dialog"
-            aria-label={`Trade ${trade.id}`}
+            aria-label={`Trade detail: ${trade.instrument}`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge tone={trade.direction === "LONG" ? "positive" : "negative"}>
                   {trade.direction === "LONG" ? "Long" : "Short"}
                 </Badge>
-                <span className="text-sm font-medium text-fg">
-                  {trade.instrument}
-                </span>
+                <span className="text-sm font-medium text-fg">{trade.instrument}</span>
                 <span className="text-xs text-fg-subtle">{trade.session}</span>
               </div>
               <button
@@ -219,14 +232,21 @@ function TradeDetail({
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border border-line bg-line">
-              {[
-                ["Net P&L", formatUSD(trade.netPnl, { sign: true })],
-                ["R multiple", `${trade.rMultiple > 0 ? "+" : ""}${trade.rMultiple}R`],
-                ["Entry", trade.entry.toLocaleString()],
-                ["Exit", trade.exit.toLocaleString()],
-                ["Date", trade.date],
-                ["Time", trade.time],
-              ].map(([k, v]) => (
+              {(
+                [
+                  ["Net P&L", formatUSD(trade.netPnl ?? 0, { sign: true })],
+                  [
+                    "R multiple",
+                    trade.rMultiple != null
+                      ? `${trade.rMultiple > 0 ? "+" : ""}${trade.rMultiple}R`
+                      : "—",
+                  ],
+                  ["Entry", trade.entryPrice.toLocaleString()],
+                  ["Exit", trade.exitPrice != null ? trade.exitPrice.toLocaleString() : "—"],
+                  ["Date", dateOf(trade)],
+                  ["Time", timeOf(trade.openedAt)],
+                ] as const
+              ).map(([k, v]) => (
                 <div key={k} className="bg-elevated p-3">
                   <p className="text-xs text-fg-subtle">{k}</p>
                   <p className="tnum mt-0.5 text-sm font-medium text-fg">{v}</p>
@@ -234,33 +254,22 @@ function TradeDetail({
               ))}
             </div>
 
+            {trade.screenshotUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={trade.screenshotUrl}
+                alt={`Chart for the ${trade.instrument} trade`}
+                className="mt-5 w-full rounded-[var(--radius-control)] border border-line"
+              />
+            )}
+
             <div className="mt-5">
               <p className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">
                 Bot narrative
               </p>
               <p className="mt-2 border-l-2 border-accent bg-base/50 p-3 font-mono text-[0.8rem] leading-relaxed text-fg-muted">
-                {trade.session} session. Opening range healthy. Price closed{" "}
-                {trade.direction === "LONG" ? "above the range high" : "below the range low"}
-                , entered {trade.direction.toLowerCase()} at {trade.entry}.{" "}
-                {trade.win
-                  ? `Target hit, closed +${Math.abs(trade.rMultiple)}R.`
-                  : "Stop hit, closed -1R."}
+                {trade.narrative ?? "No narrative was recorded for this trade."}
               </p>
-            </div>
-
-            <div className="mt-5">
-              <label
-                htmlFor="annotate"
-                className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle"
-              >
-                Your notes
-              </label>
-              <textarea
-                id="annotate"
-                rows={3}
-                placeholder="Add a note about this trade"
-                className="mt-2 w-full resize-none rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus-visible:border-accent focus-visible:outline-none"
-              />
             </div>
           </motion.aside>
         </>

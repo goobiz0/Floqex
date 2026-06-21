@@ -1,7 +1,8 @@
 /**
  * Trade analytics — the single source of truth for every derived metric shown
  * in the dashboard. Pure functions over real, serialized trade rows (no Prisma
- * Decimal objects). Replaces src/lib/mock-data.ts as pages are wired to the DB.
+ * Decimal objects). The single source of truth now that the dashboard reads the
+ * database directly (the former mock-data generator has been removed).
  *
  * Field mapping (from prisma/schema.prisma `Trade`):
  *   win        := netPnl > 0            (a trade is a win when net P&L is positive)
@@ -27,6 +28,8 @@ export type TradeRow = {
   rMultiple: number | null;
   openedAt: string;
   closedAt: string | null;
+  narrative: string | null;
+  screenshotUrl: string | null;
 };
 
 export type DailyRow = {
@@ -128,12 +131,24 @@ export function byWeekday(trades: TradeRow[]): Record<string, number> {
   return out;
 }
 
+/** Rolling win-rate (%) over a trailing window. Expects chronological order. */
+export function rollingWinRate(trades: TradeRow[], window = 10): number[] {
+  const closed = trades.filter(isClosed);
+  const out: number[] = [];
+  for (let i = 0; i < closed.length; i++) {
+    const slice = closed.slice(Math.max(0, i - window + 1), i + 1);
+    const wins = slice.filter(isWin).length;
+    out.push((wins / slice.length) * 100);
+  }
+  return out;
+}
+
 export function rDistribution(trades: TradeRow[]): { label: string; count: number }[] {
   const buckets = [
-    { label: "≤ -1R", min: -Infinity, max: -0.5, count: 0 },
-    { label: "0R", min: -0.5, max: 0.5, count: 0 },
-    { label: "+1R", min: 0.5, max: 1.5, count: 0 },
-    { label: "≥ +2R", min: 1.5, max: Infinity, count: 0 },
+    { label: "≤ -0.5R", min: -Infinity, max: -0.5, count: 0 },
+    { label: "-0.5 to +0.5R", min: -0.5, max: 0.5, count: 0 },
+    { label: "+0.5 to +1.5R", min: 0.5, max: 1.5, count: 0 },
+    { label: "≥ +1.5R", min: 1.5, max: Infinity, count: 0 },
   ];
   for (const t of trades.filter(isClosed)) {
     const r = t.rMultiple ?? 0;

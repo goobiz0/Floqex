@@ -70,7 +70,7 @@ export default async function DashboardPage() {
     {
       label: "Total P&L",
       value: m.count ? formatUSD(m.total, { sign: true }) : "—",
-      tone: m.total >= 0 ? "positive" : "negative",
+      tone: m.count ? (m.total >= 0 ? "positive" : "negative") : undefined,
     },
     {
       label: "Expectancy",

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { SettingsView } from "@/components/dashboard/settings-view";
+import { getTradeData } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const { trades } = await getTradeData();
+
   return (
     <div className="space-y-6">
       <div>
@@ -12,7 +15,7 @@ export default function SettingsPage() {
           Notifications, alert thresholds, and data export.
         </p>
       </div>
-      <SettingsView />
+      <SettingsView trades={trades} />
     </div>
   );
 }

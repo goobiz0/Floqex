@@ -5,13 +5,13 @@ import { DownloadSimple } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { TRADES } from "@/lib/mock-data";
+import type { TradeRow } from "@/lib/metrics";
 
-function exportCsv() {
+function exportCsv(trades: TradeRow[]) {
   const header = [
     "id",
-    "date",
-    "time",
+    "openedAt",
+    "closedAt",
     "instrument",
     "direction",
     "session",
@@ -20,8 +20,19 @@ function exportCsv() {
     "rMultiple",
     "netPnl",
   ];
-  const rows = TRADES.map((t) =>
-    [t.id, t.date, t.time, t.instrument, t.direction, t.session, t.entry, t.exit, t.rMultiple, t.netPnl].join(","),
+  const rows = trades.map((t) =>
+    [
+      t.id,
+      t.openedAt,
+      t.closedAt ?? "",
+      t.instrument,
+      t.direction,
+      t.session,
+      t.entryPrice,
+      t.exitPrice ?? "",
+      t.rMultiple ?? "",
+      t.netPnl ?? "",
+    ].join(","),
   );
   const csv = [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
@@ -33,7 +44,7 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
-export function SettingsView() {
+export function SettingsView({ trades }: { trades: TradeRow[] }) {
   const [discord, setDiscord] = useState(true);
   const [email, setEmail] = useState(true);
   const [push, setPush] = useState(false);
@@ -81,7 +92,12 @@ export function SettingsView() {
             <p className="text-sm font-medium text-fg">Export trades</p>
             <p className="text-xs text-fg-subtle">Download your full trade history as CSV.</p>
           </div>
-          <Button variant="secondary" size="sm" onClick={exportCsv}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => exportCsv(trades)}
+            disabled={trades.length === 0}
+          >
             <DownloadSimple size={16} />
             Download CSV
           </Button>

@@ -32,13 +32,21 @@ export type OverviewData = {
   openTrade: TradeRow | null;
 };
 
-const EMPTY: OverviewData = {
+export type TradeData = {
+  hasAccount: boolean;
+  trades: TradeRow[];
+  summaries: DailyRow[];
+};
+
+const EMPTY_OVERVIEW: OverviewData = {
   account: null,
   bot: null,
   trades: [],
   summaries: [],
   openTrade: null,
 };
+
+const EMPTY_TRADES: TradeData = { hasAccount: false, trades: [], summaries: [] };
 
 function num(d: unknown): number {
   return Number(d as { toString(): string });
@@ -60,8 +68,20 @@ type DbTrade = {
   netPnl: unknown;
   grossPnl: unknown;
   rMultiple: unknown;
+  narrative: string | null;
+  screenshotUrl: string | null;
   openedAt: Date;
   closedAt: Date | null;
+};
+
+type DbSummary = {
+  date: Date;
+  netPnl: unknown;
+  tradeCount: number;
+  winCount: number;
+  lossCount: number;
+  startBalance: unknown;
+  endBalance: unknown;
 };
 
 function serializeTrade(t: DbTrade): TradeRow {
@@ -80,13 +100,27 @@ function serializeTrade(t: DbTrade): TradeRow {
     rMultiple: numOrNull(t.rMultiple),
     openedAt: t.openedAt.toISOString(),
     closedAt: t.closedAt ? t.closedAt.toISOString() : null,
+    narrative: t.narrative,
+    screenshotUrl: t.screenshotUrl,
+  };
+}
+
+function serializeSummary(s: DbSummary): DailyRow {
+  return {
+    date: s.date.toISOString().slice(0, 10),
+    netPnl: num(s.netPnl),
+    tradeCount: s.tradeCount,
+    winCount: s.winCount,
+    lossCount: s.lossCount,
+    startBalance: num(s.startBalance),
+    endBalance: num(s.endBalance),
   };
 }
 
 export async function getOverviewData(): Promise<OverviewData> {
   try {
     const { userId } = await auth();
-    if (!userId) return EMPTY;
+    if (!userId) return EMPTY_OVERVIEW;
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
@@ -96,12 +130,12 @@ export async function getOverviewData(): Promise<OverviewData> {
     });
 
     const account = user?.accounts[0];
-    if (!account) return EMPTY;
+    if (!account) return EMPTY_OVERVIEW;
 
     const [trades, summaries, openTrade] = await Promise.all([
       prisma.trade.findMany({
         where: { accountId: account.id, status: "CLOSED" },
-        orderBy: { openedAt: "desc" },
+        orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
         take: 250,
       }),
       prisma.dailySummary.findMany({
@@ -133,20 +167,47 @@ export async function getOverviewData(): Promise<OverviewData> {
           }
         : null,
       trades: trades.map(serializeTrade),
-      summaries: summaries.map(
-        (s): DailyRow => ({
-          date: s.date.toISOString().slice(0, 10),
-          netPnl: num(s.netPnl),
-          tradeCount: s.tradeCount,
-          winCount: s.winCount,
-          lossCount: s.lossCount,
-          startBalance: num(s.startBalance),
-          endBalance: num(s.endBalance),
-        }),
-      ),
+      summaries: summaries.map(serializeSummary),
       openTrade: openTrade ? serializeTrade(openTrade) : null,
     };
   } catch {
-    return EMPTY;
+    return EMPTY_OVERVIEW;
+  }
+}
+
+/** Closed trades + daily summaries for the user's account (journal/analytics/settings). */
+export async function getTradeData(): Promise<TradeData> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY_TRADES;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { accounts: { take: 1, orderBy: { createdAt: "asc" } } },
+    });
+
+    const account = user?.accounts[0];
+    if (!account) return EMPTY_TRADES;
+
+    const [trades, summaries] = await Promise.all([
+      prisma.trade.findMany({
+        where: { accountId: account.id, status: "CLOSED" },
+        orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
+        take: 1000,
+      }),
+      prisma.dailySummary.findMany({
+        where: { accountId: account.id },
+        orderBy: { date: "asc" },
+        take: 400,
+      }),
+    ]);
+
+    return {
+      hasAccount: true,
+      trades: trades.map(serializeTrade),
+      summaries: summaries.map(serializeSummary),
+    };
+  } catch {
+    return EMPTY_TRADES;
   }
 }

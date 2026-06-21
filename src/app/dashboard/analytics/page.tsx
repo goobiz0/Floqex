@@ -2,49 +2,70 @@ import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { HBars, VBars, Histogram, LineMini } from "@/components/dashboard/charts";
+import { getTradeData } from "@/lib/queries";
 import {
-  TRADES,
   summaryMetrics,
   byInstrument,
   bySession,
   byWeekday,
   rDistribution,
-} from "@/lib/mock-data";
+  rollingWinRate,
+} from "@/lib/metrics";
 import { formatUSD } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Analytics" };
 
-function rollingWinRate(window = 10): number[] {
-  const out: number[] = [];
-  for (let i = 0; i < TRADES.length; i++) {
-    const slice = TRADES.slice(Math.max(0, i - window + 1), i + 1);
-    const wins = slice.filter((t) => t.win).length;
-    out.push((wins / slice.length) * 100);
-  }
-  return out;
-}
-
 const usd0 = (n: number) => formatUSD(n).replace(".00", "");
 
-export default function AnalyticsPage() {
-  const m = summaryMetrics();
-  const instr = byInstrument();
-  const sess = bySession();
-  const wd = byWeekday();
+export default async function AnalyticsPage() {
+  const { hasAccount, trades } = await getTradeData();
+  const m = summaryMetrics(trades);
+
+  const header = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight text-fg">Analytics</h1>
+      <p className="text-sm text-fg-subtle">
+        Where the edge comes from, broken down by instrument and session.
+      </p>
+    </div>
+  );
+
+  if (!m.count) {
+    return (
+      <div className="space-y-4">
+        {header}
+        <Card className="p-10 text-center">
+          <p className="text-sm text-fg-muted">
+            {hasAccount ? "Not enough data yet" : "No account yet"}
+          </p>
+          <p className="mt-1 text-xs text-fg-subtle">
+            Analytics populate once your bot has closed some trades.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  const instr = byInstrument(trades);
+  const sess = bySession(trades);
+  const wd = byWeekday(trades);
+  const roll = rollingWinRate([...trades].reverse()); // trades are newest-first
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">Analytics</h1>
-        <p className="text-sm text-fg-subtle">
-          Where the edge comes from, broken down by instrument and session.
-        </p>
-      </div>
+      {header}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MetricCard label="Total P&L" value={formatUSD(m.total, { sign: true })} tone="positive" />
+        <MetricCard
+          label="Total P&L"
+          value={formatUSD(m.total, { sign: true })}
+          tone={m.total >= 0 ? "positive" : "negative"}
+        />
         <MetricCard label="Win rate" value={`${m.winRate.toFixed(1)}%`} />
-        <MetricCard label="Profit factor" value={m.profitFactor.toFixed(2)} />
+        <MetricCard
+          label="Profit factor"
+          value={Number.isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : "∞"}
+        />
         <MetricCard label="Trades" value={String(m.count)} />
       </div>
 
@@ -85,16 +106,18 @@ export default function AnalyticsPage() {
         <Card className="p-5">
           <CardTitle>R-multiple distribution</CardTitle>
           <div className="mt-5">
-            <Histogram
-              data={rDistribution().map((b) => ({ label: b.label, count: b.count }))}
-            />
+            <Histogram data={rDistribution(trades)} />
           </div>
         </Card>
 
         <Card className="p-5 lg:col-span-2">
           <CardTitle>Win rate over time (rolling 10)</CardTitle>
           <div className="mt-5">
-            <LineMini values={rollingWinRate()} />
+            {roll.length > 1 ? (
+              <LineMini values={roll} />
+            ) : (
+              <p className="text-sm text-fg-subtle">Not enough trades yet.</p>
+            )}
           </div>
         </Card>
       </div>
