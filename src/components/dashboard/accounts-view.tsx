@@ -11,6 +11,7 @@ import { connectAccount, toggleBotStatus } from "@/app/dashboard/accounts/action
 import { PLANS, type Plan } from "@/lib/plans";
 import Link from "next/link";
 import { dashboardUrl } from "@/lib/urls";
+import { Copy } from "@phosphor-icons/react";
 
 type Acct = any; // Typed loosely here since it comes from Prisma
 
@@ -37,6 +38,11 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
         alert(res.error);
       }
     });
+  }
+
+  function handleCopy(url: string) {
+    navigator.clipboard.writeText(url);
+    alert("Webhook URL copied to clipboard!");
   }
 
   return (
@@ -103,27 +109,45 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                            <StatusDot tone={isRunning ? "positive" : botStatus === "WAITING" ? "warning" : "neutral"} pulse={isRunning} />
                            {isRunning ? "Bot running" : botStatus === "WAITING" ? "Bot waiting" : "Bot stopped"}
                         </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          disabled={pending}
-                          aria-checked={isRunning}
-                          onClick={() => handleToggle(a.id)}
-                          className={cn(
-                            "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                            isRunning ? "bg-accent" : "bg-surface",
-                            pending && "opacity-50 cursor-not-allowed"
-                          )}
-                        >
-                          <span
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-fg-subtle uppercase tracking-wider">
+                            Engine {isRunning ? "ON" : "OFF"}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            disabled={pending}
+                            aria-checked={isRunning}
+                            onClick={() => handleToggle(a.id)}
                             className={cn(
-                              "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
-                              isRunning ? "translate-x-4" : "translate-x-0",
+                              "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                              isRunning ? "bg-accent" : "bg-surface border border-line",
+                              pending && "opacity-50 cursor-not-allowed"
                             )}
-                          />
-                        </button>
+                          >
+                            <span
+                              className={cn(
+                                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
+                                isRunning ? "translate-x-4" : "translate-x-0 bg-fg-muted",
+                              )}
+                            />
+                          </button>
+                        </div>
                       </div>
                     </div>
+                    {activePlan.id === "PRO" && (
+                      <div className="mt-4 border-t border-line pt-4">
+                        <p className="text-xs font-medium text-fg-subtle mb-1">TradingView Webhook URL</p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded bg-surface px-2 py-1.5 text-[11px] text-fg-muted border border-line">
+                            {typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/tradingview/{a.id}
+                          </code>
+                          <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => handleCopy(`${window.location.origin}/api/webhooks/tradingview/${a.id}`)}>
+                            <Copy size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </Card>
                 );
               })}

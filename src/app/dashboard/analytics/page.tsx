@@ -35,7 +35,7 @@ export default async function AnalyticsPage() {
     return (
       <div className="space-y-4">
         {header}
-        <DashboardError />
+        <DashboardError title="Analytics unavailable" message="We couldn't load your performance metrics. Ensure your accounts are active." />
       </div>
     );
   }

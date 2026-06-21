@@ -18,7 +18,7 @@ export default async function JournalPage() {
         </p>
       </div>
       {error ? (
-        <DashboardError />
+        <DashboardError title="Trade journal unavailable" message="We couldn't retrieve your trade history. Your database connection might be temporarily down." />
       ) : hasAccount ? (
         <JournalView trades={trades} summaries={summaries} />
       ) : (

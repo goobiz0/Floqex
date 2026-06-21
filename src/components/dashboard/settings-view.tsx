@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useUser } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
+import { updateCircuitBreaker } from "@/app/dashboard/accounts/actions";
+import { useTransition } from "react";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
 function csvCell(value: unknown): string {
@@ -52,7 +54,7 @@ function exportCsv(trades: TradeRow[]) {
   URL.revokeObjectURL(url);
 }
 
-export function SettingsView({ trades }: { trades: TradeRow[] }) {
+export function SettingsView({ trades, accounts = [] }: { trades: TradeRow[], accounts?: any[] }) {
   const [discord, setDiscord] = useState(true);
   const [email, setEmail] = useState(true);
   const [push, setPush] = useState(false);
@@ -77,6 +79,24 @@ export function SettingsView({ trades }: { trades: TradeRow[] }) {
           )}
           <Channel label="Email" desc="Daily summary and important alerts" checked={email} onChange={setEmail} />
           <Channel label="Push" desc="Browser push notifications" checked={push} onChange={setPush} />
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <CardTitle>Circuit Breakers (Max Daily Drawdown)</CardTitle>
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-fg-subtle mb-4">
+            If an account hits its daily loss limit, Mochi will automatically stop the bot for 24 hours to prevent revenge trading.
+          </p>
+          {accounts.length === 0 ? (
+            <p className="text-sm text-fg-muted">No accounts connected yet.</p>
+          ) : (
+            <div className="divide-y divide-line border-t border-line">
+              {accounts.map(acc => (
+                <CircuitBreakerRow key={acc.id} account={acc} />
+              ))}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -281,6 +301,48 @@ function DangerRow({ title, desc, action }: { title: string; desc: string; actio
       >
         {action}
       </button>
+    </div>
+  );
+}
+
+function CircuitBreakerRow({ account }: { account: any }) {
+  const [amount, setAmount] = useState(account.maxDailyDrawdown ? Number(account.maxDailyDrawdown) : "");
+  const [pending, startTransition] = useTransition();
+
+  function handleSave() {
+    startTransition(async () => {
+      const val = amount === "" ? null : Number(amount);
+      const res = await updateCircuitBreaker(account.id, val);
+      if (!res.ok) alert(res.error);
+    });
+  }
+
+  return (
+    <div className="flex items-center justify-between py-4">
+      <div>
+        <p className="text-sm font-medium text-fg">{account.nickname}</p>
+        <p className="text-xs text-fg-subtle">{account.broker}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-muted">$</span>
+          <input
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            placeholder="No limit"
+            className="tnum w-32 rounded-[var(--radius-control)] border border-line bg-surface pl-7 pr-3 py-1.5 text-sm text-fg focus-visible:border-accent focus-visible:outline-none placeholder:text-fg-faint"
+          />
+        </div>
+        <Button 
+          size="sm" 
+          variant="secondary"
+          onClick={handleSave}
+          disabled={pending || Number(account.maxDailyDrawdown) === Number(amount) || (amount === "" && account.maxDailyDrawdown === null)}
+        >
+          {pending ? "Saving..." : "Save"}
+        </Button>
+      </div>
     </div>
   );
 }

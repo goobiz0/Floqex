@@ -18,7 +18,7 @@ export default async function StrategyPage() {
         </p>
       </div>
       {data.error ? (
-        <DashboardError />
+        <DashboardError title="Strategy lab unavailable" message="We couldn't load your active strategies or parameters. Please try again." />
       ) : data.hasStrategy && data.params ? (
         <StrategyLab
           initialParams={data.params}

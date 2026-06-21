@@ -28,7 +28,7 @@ export default async function BillingPage() {
       </div>
 
       {data.error ? (
-        <DashboardError />
+        <DashboardError title="Billing data unavailable" message="We couldn't load your subscription details from Stripe. Please try refreshing." />
       ) : (
         <>
           <Card className="p-6">

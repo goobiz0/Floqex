@@ -47,6 +47,15 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        
+        // Link the newly created customer ID to our internal user via metadata
+        if (session.metadata?.userId && session.customer) {
+          await prisma.user.update({
+            where: { id: session.metadata.userId },
+            data: { stripeCustomerId: session.customer as string },
+          });
+        }
+
         if (session.subscription && session.customer) {
           const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
           await syncSubscription(session.customer as string, sub);

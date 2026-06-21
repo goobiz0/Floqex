@@ -35,7 +35,7 @@ function fmtWhen(iso: string) {
 export default async function DashboardPage() {
   const data = await getOverviewData();
 
-  if (data.error) return <DashboardError />;
+  if (data.error) return <DashboardError title="Dashboard unavailable" message="We couldn't load your active bots or recent activity. Please check your connection or try again later." />;
 
   // No account yet — a brand-new user sees a real, composed empty state, never fake numbers.
   if (!data.account) {

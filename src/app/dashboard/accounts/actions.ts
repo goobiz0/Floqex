@@ -49,7 +49,24 @@ export async function connectAccount({
       if (!apiKey || apiKey.length < 5 || !apiSecret || apiSecret.length < 5) {
         return { ok: false, error: "Invalid API credentials for the selected broker." };
       }
-      // In a real app, verify keys against the broker API here, then encrypt before saving.
+
+      // Verify keys if Alpaca
+      if (broker === "ALPACA") {
+        const baseUrl = mode === "PAPER" ? "https://paper-api.alpaca.markets" : "https://api.alpaca.markets";
+        try {
+          const verifyRes = await fetch(`${baseUrl}/v2/account`, {
+            headers: {
+              "APCA-API-KEY-ID": apiKey,
+              "APCA-API-SECRET-KEY": apiSecret,
+            },
+          });
+          if (!verifyRes.ok) {
+            return { ok: false, error: "Invalid Alpaca API keys or insufficient permissions." };
+          }
+        } catch (e) {
+          return { ok: false, error: "Could not reach Alpaca servers to verify keys." };
+        }
+      }
     }
 
     let strategy = user.strategies[0];
@@ -153,5 +170,31 @@ export async function emergencyStop() {
   } catch (err) {
     console.error("emergencyStop error", err);
     return { ok: false, error: "Could not execute emergency stop" };
+  }
+}
+
+export async function updateCircuitBreaker(accountId: string, amount: number | null) {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Not signed in" };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    if (!account || account.userId !== user.id) {
+      return { ok: false, error: "Account not found" };
+    }
+
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { maxDailyDrawdown: amount },
+    });
+
+    revalidatePath("/dashboard/settings");
+    return { ok: true };
+  } catch (err) {
+    console.error("updateCircuitBreaker error", err);
+    return { ok: false, error: "Could not update circuit breaker" };
   }
 }

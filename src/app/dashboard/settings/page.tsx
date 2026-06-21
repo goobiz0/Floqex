@@ -1,11 +1,21 @@
 import type { Metadata } from "next";
 import { SettingsView } from "@/components/dashboard/settings-view";
 import { getTradeData } from "@/lib/queries";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const { trades } = await getTradeData();
+  const { userId } = await auth();
+  const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
+  const accounts = user
+    ? await prisma.account.findMany({
+        where: { userId: user.id },
+        select: { id: true, nickname: true, broker: true, maxDailyDrawdown: true },
+      })
+    : [];
 
   return (
     <div className="space-y-6">
@@ -15,7 +25,7 @@ export default async function SettingsPage() {
           Notifications, alert thresholds, and data export.
         </p>
       </div>
-      <SettingsView trades={trades} />
+      <SettingsView trades={trades} accounts={accounts} />
     </div>
   );
 }

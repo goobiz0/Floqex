@@ -39,7 +39,6 @@ export async function GET(req: Request) {
       const userPlan = PLANS[bot.account.user.plan as Plan] || PLANS.FREE;
 
       // 2. Enforce Circuit Breaker (Max Daily Loss)
-      // Check today's daily summary for this account
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
       
@@ -50,9 +49,11 @@ export async function GET(req: Request) {
         }
       });
 
-      // If circuit breaker hit (e.g. netPnl is worse than -$500, or whatever limit the user set)
-      // For now, we hardcode a basic check, but it would ideally pull from the user's settings table.
-      if (summary && summary.netPnl.toNumber() < -500) {
+      // Circuit Breaker uses the account's configured limit, or ignores if null.
+      // E.g., if maxDailyDrawdown is 500, we trip if netPnl < -500
+      const limit = bot.account.maxDailyDrawdown ? Number(bot.account.maxDailyDrawdown) : null;
+
+      if (limit !== null && summary && summary.netPnl.toNumber() < -limit) {
         await prisma.bot.update({
           where: { id: bot.id },
           data: { status: "STOPPED" },
