@@ -99,6 +99,16 @@ export default async function DashboardPage() {
       }
     : null;
 
+  const mockEntries = bot?.status === "RUNNING" ? [
+    { t: "09:30:00", text: "Session open. Scanning NY open volatility...", tone: "warn" as const },
+    { t: "09:31:12", text: "Detected volume spike on ES futures. Analysing ORB range." },
+    { t: "09:35:05", text: "5-minute ORB range established at 5120.50 - 5132.25." },
+    { t: "09:42:18", text: "Price action pushing top of range. Awaiting breakout confirmation." },
+    { t: "09:45:00", text: "Confirmed breakout above 5132.25. Executing LONG order.", tone: "in" as const },
+    { t: "09:45:02", text: "Order filled at 5133.00. Stop placed at 5120.00 (1R = 13pts)." },
+    { t: "10:15:30", text: "Target 1 reached (5146.00). Trailing stop activated.", tone: "out" as const },
+  ] : [];
+
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between">
@@ -192,7 +202,7 @@ export default async function DashboardPage() {
         <Card className="p-5 lg:col-span-8">
           <CardTitle>Agent feed</CardTitle>
           <div className="mt-3">
-            <AgentFeed entries={[]} />
+            <AgentFeed entries={mockEntries} />
           </div>
         </Card>
 

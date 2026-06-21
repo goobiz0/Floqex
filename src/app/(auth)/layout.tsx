@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { ArrowLeft, ShieldCheck, ChartLineUp, Eye } from "@phosphor-icons/react/dist/ssr";
 import { Wordmark } from "@/components/brand/wordmark";
-import { marketingUrl } from "@/lib/urls";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { marketingUrl, dashboardUrl } from "@/lib/urls";
 
 const points = [
   { icon: ShieldCheck, text: "Hard risk limits the bot can never widen" },
@@ -9,7 +11,12 @@ const points = [
   { icon: ChartLineUp, text: "Start on paper, go live when you are ready" },
 ];
 
-export default function AuthLayout({ children }: { children: ReactNode }) {
+export default async function AuthLayout({ children }: { children: ReactNode }) {
+  const { userId } = await auth();
+  if (userId) {
+    redirect(dashboardUrl());
+  }
+
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2">
       {/* Brand panel */}

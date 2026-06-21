@@ -1,16 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { HandPalm } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { emergencyStop } from "@/app/dashboard/accounts/actions";
 
 export function EmergencyStop() {
   const [stopped, setStopped] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function handleStop() {
+    startTransition(async () => {
+      const res = await emergencyStop();
+      if (res.ok) {
+        setStopped(true);
+        setTimeout(() => setStopped(false), 5000); // Revert UI after a few seconds
+      } else {
+        alert(res.error);
+      }
+    });
+  }
 
   return (
     <button
       type="button"
-      onClick={() => setStopped((s) => !s)}
+      disabled={pending || stopped}
+      onClick={handleStop}
       aria-pressed={stopped}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium",

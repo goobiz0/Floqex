@@ -1,21 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Plus, ArrowLeft, ArrowRight, Check, Wallet } from "@phosphor-icons/react";
+import { Plus, ArrowLeft, ArrowRight, Check, Wallet, Info } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatUSD } from "@/lib/utils";
+import { connectAccount, toggleBotStatus } from "@/app/dashboard/accounts/actions";
+import { PLANS, type Plan } from "@/lib/plans";
+import Link from "next/link";
+import { dashboardUrl } from "@/lib/urls";
 
-type Acct = {
-  id: string;
-  nickname: string;
-  broker: string;
-  mode: "PAPER" | "LIVE";
-  balance: number;
-  active: boolean;
-};
+type Acct = any; // Typed loosely here since it comes from Prisma
 
 const BROKERS = [
   { id: "PAPER", name: "Paper", note: "Simulated money, no broker needed" },
@@ -25,19 +22,21 @@ const BROKERS = [
   { id: "ALPACA", name: "Alpaca", note: "US equities and crypto" },
 ];
 
-export function AccountsView() {
-  const [accounts, setAccounts] = useState<Acct[]>([
-    { id: "a1", nickname: "Main account", broker: "Paper", mode: "PAPER", balance: 12847.2, active: true },
-  ]);
+export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialAccounts?: Acct[], plan?: string }) {
   const [connecting, setConnecting] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
-  function toggle(id: string) {
-    setAccounts((a) => a.map((x) => (x.id === id ? { ...x, active: !x.active } : x)));
-  }
+  const activePlan = PLANS[plan as Plan] || PLANS.FREE;
+  const hitLimit = initialAccounts.length >= activePlan.accountLimit;
 
-  function add(acct: Acct) {
-    setAccounts((a) => [acct, ...a]);
-    setConnecting(false);
+  function handleToggle(id: string) {
+    startTransition(async () => {
+      const res = await toggleBotStatus(id);
+      if (!res.ok) {
+        alert(res.error);
+      }
+    });
   }
 
   return (
@@ -45,79 +44,145 @@ export function AccountsView() {
       {!connecting ? (
         <>
           <div className="flex items-center justify-between">
-            <CardTitle>Connected accounts</CardTitle>
+            <CardTitle>Connected accounts ({initialAccounts.length}/{activePlan.accountLimit === Number.POSITIVE_INFINITY ? '∞' : activePlan.accountLimit})</CardTitle>
             <Button size="sm" onClick={() => setConnecting(true)}>
               <Plus size={16} weight="bold" />
               Connect account
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {accounts.map((a) => (
-              <Card key={a.id} className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
-                      <Wallet size={20} />
-                    </span>
-                    <div>
-                      <p className="font-medium text-fg">{a.nickname}</p>
-                      <p className="text-xs text-fg-subtle">{a.broker}</p>
+          {hitLimit && (
+            <div className="rounded-[var(--radius-card)] border border-accent/20 bg-accent-soft/30 p-4 flex items-start gap-3 text-sm text-fg">
+               <Info size={18} className="text-accent mt-0.5" weight="fill" />
+               <div>
+                  <p className="font-medium">Account limit reached</p>
+                  <p className="text-fg-muted mt-1">Your current {activePlan.name} plan is limited to {activePlan.accountLimit} account(s). Upgrade to connect more brokers and run multiple bots simultaneously.</p>
+                  <Link href={dashboardUrl("/settings")} className="font-medium text-accent hover:text-accent-hover mt-2 inline-block">View plans</Link>
+               </div>
+            </div>
+          )}
+
+          {initialAccounts.length === 0 ? (
+             <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-line rounded-[var(--radius-card)]">
+               <Wallet size={32} className="text-fg-faint mb-4" />
+               <p className="text-sm font-medium text-fg">No accounts connected</p>
+               <p className="text-xs text-fg-subtle mt-1 mb-4">Connect a paper or live account to start your bot.</p>
+               <Button size="sm" onClick={() => setConnecting(true)}>Connect an account</Button>
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {initialAccounts.map((a: any) => {
+                const botStatus = a.bot?.status || "STOPPED";
+                const isRunning = botStatus === "RUNNING";
+                
+                return (
+                  <Card key={a.id} className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
+                          <Wallet size={20} />
+                        </span>
+                        <div>
+                          <p className="font-medium text-fg">{a.nickname}</p>
+                          <p className="text-xs text-fg-subtle">{a.broker}</p>
+                        </div>
+                      </div>
+                      <Badge tone={a.mode === "LIVE" ? "warning" : "neutral"}>
+                        {a.mode === "LIVE" ? "Live" : "Paper"}
+                      </Badge>
                     </div>
-                  </div>
-                  <Badge tone={a.mode === "LIVE" ? "warning" : "neutral"}>
-                    {a.mode === "LIVE" ? "Live" : "Paper"}
-                  </Badge>
-                </div>
-                <div className="mt-5 flex items-end justify-between">
-                  <div>
-                    <p className="text-xs text-fg-subtle">Balance</p>
-                    <p className="tnum mt-0.5 text-xl font-semibold text-fg">
-                      {formatUSD(a.balance)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={a.active}
-                    onClick={() => toggle(a.id)}
-                    className={cn(
-                      "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)]",
-                      a.active ? "bg-accent" : "bg-surface",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
-                        a.active ? "translate-x-4" : "translate-x-0",
-                      )}
-                    />
-                  </button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                    <div className="mt-5 flex items-end justify-between">
+                      <div>
+                        <p className="text-xs text-fg-subtle">Balance</p>
+                        <p className="tnum mt-0.5 text-xl font-semibold text-fg">
+                          {formatUSD(Number(a.balance))}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-fg-muted">
+                           <StatusDot tone={isRunning ? "positive" : botStatus === "WAITING" ? "warning" : "neutral"} pulse={isRunning} />
+                           {isRunning ? "Bot running" : botStatus === "WAITING" ? "Bot waiting" : "Bot stopped"}
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          disabled={pending}
+                          aria-checked={isRunning}
+                          onClick={() => handleToggle(a.id)}
+                          className={cn(
+                            "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                            isRunning ? "bg-accent" : "bg-surface",
+                            pending && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
+                              isRunning ? "translate-x-4" : "translate-x-0",
+                            )}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </>
       ) : (
-        <ConnectFlow onCancel={() => setConnecting(false)} onConnect={add} />
+        <ConnectFlow planConfig={activePlan} onCancel={() => setConnecting(false)} onComplete={() => setConnecting(false)} />
       )}
     </div>
   );
 }
 
 function ConnectFlow({
+  planConfig,
   onCancel,
-  onConnect,
+  onComplete,
 }: {
+  planConfig: PlanConfig;
   onCancel: () => void;
-  onConnect: (a: Acct) => void;
+  onComplete: () => void;
 }) {
   const [step, setStep] = useState(0);
   const [broker, setBroker] = useState<string | null>(null);
   const [nickname, setNickname] = useState("");
-  const isPaper = broker === "PAPER";
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
+  const isPaper = broker === "PAPER";
   const brokerMeta = BROKERS.find((b) => b.id === broker);
+
+  async function submit() {
+    setError(null);
+    startTransition(async () => {
+      const res = await connectAccount({
+        nickname: nickname || "Main account",
+        broker: (brokerMeta?.name === "Paper" ? "PAPER" : broker as any),
+        mode: isPaper ? "PAPER" : "LIVE",
+        apiKey: isPaper ? undefined : apiKey,
+        apiSecret: isPaper ? undefined : apiSecret,
+      });
+      if (res.ok) {
+        onComplete();
+      } else {
+        setError(res.error || "Failed to connect account.");
+      }
+    });
+  }
+
+  function next() {
+    setError(null);
+    if (step === 0 && !isPaper && !planConfig.liveTrading) {
+       setError("Your current plan does not support Live trading brokers. Please upgrade.");
+       return;
+    }
+    setStep(s => s + 1);
+  }
 
   return (
     <Card className="mx-auto max-w-2xl p-6 sm:p-8">
@@ -139,12 +204,13 @@ function ConnectFlow({
             <motion.div key="s0" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <h2 className="text-lg font-semibold text-fg">Choose a broker</h2>
               <p className="mt-1 text-sm text-fg-muted">Start on paper if you want to try the bot first.</p>
+              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded">{error}</p>}
               <div className="mt-4 grid gap-2">
                 {BROKERS.map((b) => (
                   <button
                     key={b.id}
                     type="button"
-                    onClick={() => setBroker(b.id)}
+                    onClick={() => { setBroker(b.id); setError(null); }}
                     className={cn(
                       "flex items-center justify-between rounded-[var(--radius-control)] border px-4 py-3 text-left transition-colors",
                       broker === b.id ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong",
@@ -166,12 +232,13 @@ function ConnectFlow({
               <h2 className="text-lg font-semibold text-fg">
                 {isPaper ? "Name your paper account" : `Connect ${brokerMeta?.name}`}
               </h2>
+              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded">{error}</p>}
               <div className="mt-4 space-y-4">
                 <Field label="Account nickname" value={nickname} onChange={setNickname} placeholder="Main account" />
                 {!isPaper && (
                   <>
-                    <Field label="API key" placeholder="Your broker API key" />
-                    <Field label="API secret" placeholder="Your broker API secret" type="password" />
+                    <Field label="API key" value={apiKey} onChange={setApiKey} placeholder="Your broker API key" />
+                    <Field label="API secret" value={apiSecret} onChange={setApiSecret} placeholder="Your broker API secret" type="password" />
                   </>
                 )}
                 {!isPaper && (
@@ -186,6 +253,7 @@ function ConnectFlow({
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <h2 className="text-lg font-semibold text-fg">Review</h2>
+              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded mb-2">{error}</p>}
               <dl className="mt-4 space-y-2 text-sm">
                 <Row k="Broker" v={brokerMeta?.name ?? ""} />
                 <Row k="Nickname" v={nickname || "Main account"} />
@@ -201,32 +269,24 @@ function ConnectFlow({
         <Button
           variant="ghost"
           size="sm"
+          disabled={pending}
           onClick={() => (step === 0 ? onCancel() : setStep((s) => s - 1))}
         >
           <ArrowLeft size={16} />
           {step === 0 ? "Cancel" : "Back"}
         </Button>
         {step < 2 ? (
-          <Button size="sm" disabled={step === 0 && !broker} onClick={() => setStep((s) => s + 1)}>
+          <Button size="sm" disabled={step === 0 && !broker} onClick={next}>
             Continue
             <ArrowRight size={16} weight="bold" />
           </Button>
         ) : (
           <Button
             size="sm"
-            onClick={() =>
-              onConnect({
-                id: `a${Date.now()}`,
-                nickname: nickname || "Main account",
-                broker: brokerMeta?.name ?? "Paper",
-                mode: isPaper ? "PAPER" : "LIVE",
-                balance: isPaper ? 10000 : 0,
-                active: false,
-              })
-            }
+            disabled={pending}
+            onClick={submit}
           >
-            <Check size={16} weight="bold" />
-            Connect
+            {pending ? "Connecting..." : <><Check size={16} weight="bold" /> Connect</>}
           </Button>
         )}
       </div>
@@ -269,3 +329,6 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
+
+// Keep type hack for local scope
+type PlanConfig = any;

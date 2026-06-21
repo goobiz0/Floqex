@@ -2,10 +2,22 @@ import type { Metadata } from "next";
 import { UserButton } from "@clerk/nextjs";
 import { Card, CardTitle } from "@/components/ui/card";
 import { AccountsView } from "@/components/dashboard/accounts-view";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Accounts" };
 
-export default function AccountsPage() {
+export default async function AccountsPage() {
+  const { userId } = await auth();
+  const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
+  const accounts = user
+    ? await prisma.account.findMany({
+        where: { userId: user.id },
+        include: { bot: true },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,7 +27,7 @@ export default function AccountsPage() {
         </p>
       </div>
 
-      <AccountsView />
+      <AccountsView initialAccounts={accounts} plan={user?.plan ?? "FREE"} />
 
       <Card className="p-5">
         <CardTitle>Profile</CardTitle>
