@@ -323,9 +323,12 @@ function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
     account.maxDailyDrawdown != null ? String(account.maxDailyDrawdown) : "",
   );
   const [pending, startTransition] = useTransition();
-  const parsedAmount = amount.trim() === "" ? null : Number(amount);
+  const trimmed = amount.trim();
+  const parsedAmount = trimmed === "" ? null : Number(trimmed);
+  const isValidAmount = parsedAmount === null || Number.isFinite(parsedAmount);
 
   function handleSave() {
+    if (!isValidAmount) return;
     startTransition(async () => {
       const res = await updateCircuitBreaker(account.id, parsedAmount);
       if (!res.ok) alert(res.error);
@@ -353,7 +356,7 @@ function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
           size="sm" 
           variant="secondary"
           onClick={handleSave}
-          disabled={pending || parsedAmount === account.maxDailyDrawdown}
+          disabled={pending || !isValidAmount || parsedAmount === account.maxDailyDrawdown}
         >
           {pending ? "Saving..." : "Save"}
         </Button>

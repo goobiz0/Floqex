@@ -37,17 +37,20 @@ export default function SecurityPage() {
 
       <section className="relative mx-auto max-w-[1100px] px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {PILLARS.map((p) => (
-            <Reveal key={p.title}>
-              <Card className="flex h-full flex-col p-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
-                  <p.icon size={20} />
-                </div>
-                <h2 className="mt-4 font-semibold text-fg">{p.title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-fg-muted">{p.body}</p>
-              </Card>
-            </Reveal>
-          ))}
+          {PILLARS.map((p) => {
+            const Icon = p.icon;
+            return (
+              <Reveal key={p.title}>
+                <Card className="flex h-full flex-col p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
+                    <Icon size={20} />
+                  </div>
+                  <h2 className="mt-4 font-semibold text-fg">{p.title}</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-fg-muted">{p.body}</p>
+                </Card>
+              </Reveal>
+            );
+          })}
         </div>
       </section>
 
