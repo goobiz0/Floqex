@@ -41,9 +41,10 @@
   --color-line: oklch(0.27 0.006 260 / 0.6);
   --color-line-strong: oklch(0.4 0.006 260 / 0.7);
 
-  /* Radius (one scale: cards 12, controls 8, pills full) */
-  --radius-control: 8px;
-  --radius-card: 12px;
+  /* Radius (soft, generous scale: controls 10, cards 18, large 26, pills full) */
+  --radius-control: 10px;
+  --radius-card: 18px;
+  --radius-lg: 26px;
   --radius-pill: 9999px;
 
   /* Shadows: tinted, never pure black */

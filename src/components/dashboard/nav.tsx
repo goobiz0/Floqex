@@ -13,6 +13,7 @@ import {
   Gear,
   UserCircle,
   SignOut,
+  CaretRight,
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -49,21 +50,31 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2 text-sm transition-colors",
+        "group flex items-center gap-3 rounded-[var(--radius-control)] py-1.5 pl-1.5 pr-2.5 text-sm transition-colors",
         active
-          ? "bg-accent-soft text-fg"
-          : "text-fg-muted hover:bg-surface/70 hover:text-fg",
+          ? "bg-surface text-fg shadow-[var(--shadow-sm)]"
+          : "text-fg-muted hover:bg-surface/50 hover:text-fg",
       )}
     >
-      {active && (
-        <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent" />
-      )}
-      <Icon
-        size={20}
-        weight={active ? "fill" : "regular"}
-        className={active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted"}
+      <span
+        className={cn(
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] transition-colors",
+          active
+            ? "bg-accent-soft text-accent"
+            : "text-fg-subtle group-hover:text-fg-muted",
+        )}
+      >
+        <Icon size={18} weight={active ? "fill" : "regular"} />
+      </span>
+      <span className="flex-1 truncate">{item.label}</span>
+      <CaretRight
+        size={13}
+        weight="bold"
+        className={cn(
+          "shrink-0 transition-colors",
+          active ? "text-fg-subtle" : "text-fg-faint group-hover:text-fg-subtle",
+        )}
       />
-      {item.label}
     </Link>
   );
 }
@@ -87,13 +98,13 @@ export function Sidebar() {
         </Link>
       </div>
       <nav className="flex-1 overflow-y-auto px-3">
-        <SectionLabel>Main</SectionLabel>
+        <SectionLabel>Navigate</SectionLabel>
         <div className="space-y-0.5">
           {MAIN.map((item) => (
             <NavLink key={item.href} item={item} active={isActive(item.href)} />
           ))}
         </div>
-        <SectionLabel>Settings</SectionLabel>
+        <SectionLabel>Manage</SectionLabel>
         <div className="space-y-0.5">
           {SETTINGS.map((item) => (
             <NavLink key={item.href} item={item} active={isActive(item.href)} />
