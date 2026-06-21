@@ -10,12 +10,15 @@ import { OtpInput } from "./otp-input";
 import { clerkErrorMessage } from "./shared";
 import { dashboardUrl } from "@/lib/urls";
 
+type Step = "request" | "reset" | "mfa" | "mfa-backup";
+
 export function ForgotPasswordForm() {
   const { signIn } = useSignIn();
-  const [step, setStep] = useState<"request" | "reset">("request");
+  const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(""); // Used for both reset code and MFA code
   const [password, setPassword] = useState("");
+  const [backupCode, setBackupCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const ready = Boolean(signIn);
@@ -66,17 +69,162 @@ export function ForgotPasswordForm() {
         setSubmitting(false);
         return;
       }
+
+      if (signIn.status === "needs_second_factor") {
+        setStep("mfa");
+        setCode(""); // Clear the reset code so they can enter the MFA code
+        setSubmitting(false);
+        return;
+      }
+
       if (signIn.status === "complete") {
         await signIn.finalize();
         window.location.assign(dashboardUrl());
         return;
       }
+      
       setError("Could not reset your password. Please try again.");
       setSubmitting(false);
     } catch (err) {
       setError(clerkErrorMessage(err));
       setSubmitting(false);
     }
+  }
+
+  async function onVerifyMFA(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!signIn) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { error: verifyError } = await signIn.mfa.verifyTOTP({ code });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
+        return;
+      }
+
+      if (signIn.status === "complete") {
+        await signIn.finalize();
+        window.location.assign(dashboardUrl());
+        return;
+      }
+      
+      setError("Additional verification is required.");
+      setSubmitting(false);
+    } catch (err) {
+      setError(clerkErrorMessage(err));
+      setSubmitting(false);
+    }
+  }
+
+  async function onVerifyBackupCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!signIn) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { error: verifyError } = await signIn.mfa.verifyBackupCode({ code: backupCode });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
+        return;
+      }
+
+      if (signIn.status === "complete") {
+        await signIn.finalize();
+        window.location.assign(dashboardUrl());
+        return;
+      }
+      
+      setError("Additional verification is required.");
+      setSubmitting(false);
+    } catch (err) {
+      setError(clerkErrorMessage(err));
+      setSubmitting(false);
+    }
+  }
+
+  if (step === "mfa") {
+    return (
+      <form onSubmit={onVerifyMFA} className="space-y-5" noValidate>
+        <p className="text-sm text-fg-muted">
+          Your password was reset successfully. Enter the 6-digit code from your authenticator app to complete sign-in.
+        </p>
+        <div className="space-y-1.5">
+          <Label htmlFor="mfa-code">Authenticator code</Label>
+          <OtpInput id="mfa-code" value={code} onChange={setCode} disabled={submitting} />
+        </div>
+        {error ? (
+          <p className="text-sm text-negative" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={!ready || submitting || code.length < 6}
+        >
+          {submitting ? "Verifying…" : "Verify code"}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setStep("mfa-backup");
+            setCode("");
+            setError(null);
+          }}
+          className="text-xs text-fg-subtle transition-colors hover:text-fg"
+        >
+          Use a backup code
+        </button>
+      </form>
+    );
+  }
+
+  if (step === "mfa-backup") {
+    return (
+      <form onSubmit={onVerifyBackupCode} className="space-y-5" noValidate>
+        <p className="text-sm text-fg-muted">
+          Your password was reset successfully. Enter one of your emergency recovery codes to complete sign-in.
+        </p>
+        <Field id="backupCode" label="Backup code">
+          <Input
+            id="backupCode"
+            type="text"
+            required
+            value={backupCode}
+            onChange={(e) => setBackupCode(e.target.value)}
+            placeholder="xxxx-xxxx-xxxx-xxxx"
+          />
+        </Field>
+        {error ? (
+          <p className="text-sm text-negative" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={!ready || submitting || backupCode.length < 8}
+        >
+          {submitting ? "Verifying…" : "Verify backup code"}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setStep("mfa");
+            setBackupCode("");
+            setError(null);
+          }}
+          className="text-xs text-fg-subtle transition-colors hover:text-fg"
+        >
+          Use authenticator app
+        </button>
+      </form>
+    );
   }
 
   if (step === "reset") {
