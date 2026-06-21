@@ -123,6 +123,12 @@ describe("rDistribution", () => {
     ]);
     expect(dist.map((b) => b.count)).toEqual([1, 1, 1, 2]);
   });
+
+  it("classifies boundary R values by the half-open [min, max) intervals", () => {
+    // -0.5 falls into the middle bucket, +0.5 into the next one up.
+    const dist = rDistribution([trade({ rMultiple: -0.5 }), trade({ rMultiple: 0.5 })]);
+    expect(dist.map((b) => b.count)).toEqual([0, 1, 1, 0]);
+  });
 });
 
 describe("rollingWinRate", () => {
