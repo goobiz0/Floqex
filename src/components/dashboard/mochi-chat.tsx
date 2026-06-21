@@ -194,9 +194,11 @@ export function MochiChat() {
               className="flex items-end gap-2 border-t border-line p-3"
             >
               <textarea
+                aria-label="Message Mochi assistant"
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return;
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     if (input.trim()) e.currentTarget.form?.requestSubmit();

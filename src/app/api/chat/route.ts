@@ -130,7 +130,10 @@ ${context}`,
           const parsed = parseStrategyParams({ ...params, ...requested });
           if (!parsed.ok) return { ok: false, message: parsed.error };
 
-          const bot = user.accounts.find((a) => a.bot)?.bot ?? null;
+          // All of the user's bots share this strategy, so log the change for each.
+          const bots = user.accounts
+            .map((a) => a.bot)
+            .filter((b): b is NonNullable<typeof b> => b != null);
           const changedKeys = (Object.keys(PARAM_LABELS) as (keyof StrategyParams)[]).filter(
             (k) => params[k] !== parsed.params[k],
           );
@@ -141,22 +144,22 @@ ${context}`,
               where: { id: strategy.id },
               data: { params: parsed.params as object, version: { increment: 1 } },
             }),
-            ...(bot
-              ? changedKeys.map((k) =>
-                  prisma.botAdjustment.create({
-                    data: {
-                      botId: bot.id,
-                      strategyId: strategy.id,
-                      parameter: PARAM_LABELS[k],
-                      paramKey: k,
-                      oldValue: rawParamValue(k, params[k]),
-                      newValue: rawParamValue(k, parsed.params[k]),
-                      source: "USER",
-                      status: "APPLIED",
-                    },
-                  }),
-                )
-              : []),
+            ...bots.flatMap((bot) =>
+              changedKeys.map((k) =>
+                prisma.botAdjustment.create({
+                  data: {
+                    botId: bot.id,
+                    strategyId: strategy.id,
+                    parameter: PARAM_LABELS[k],
+                    paramKey: k,
+                    oldValue: rawParamValue(k, params[k]),
+                    newValue: rawParamValue(k, parsed.params[k]),
+                    source: "USER",
+                    status: "APPLIED",
+                  },
+                }),
+              ),
+            ),
           ]);
           return {
             ok: true,

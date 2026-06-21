@@ -323,11 +323,11 @@ function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
     account.maxDailyDrawdown != null ? String(account.maxDailyDrawdown) : "",
   );
   const [pending, startTransition] = useTransition();
+  const parsedAmount = amount.trim() === "" ? null : Number(amount);
 
   function handleSave() {
     startTransition(async () => {
-      const val = amount === "" ? null : Number(amount);
-      const res = await updateCircuitBreaker(account.id, val);
+      const res = await updateCircuitBreaker(account.id, parsedAmount);
       if (!res.ok) alert(res.error);
     });
   }
@@ -353,7 +353,7 @@ function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
           size="sm" 
           variant="secondary"
           onClick={handleSave}
-          disabled={pending || Number(account.maxDailyDrawdown) === Number(amount) || (amount === "" && account.maxDailyDrawdown === null)}
+          disabled={pending || parsedAmount === account.maxDailyDrawdown}
         >
           {pending ? "Saving..." : "Save"}
         </Button>
