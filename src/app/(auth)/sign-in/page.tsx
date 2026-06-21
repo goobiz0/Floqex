@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignInForm } from "@/components/auth/sign-in-form";
-import { authUrl } from "@/lib/urls";
+import { authUrl, appUrl } from "@/lib/urls";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default function SignInPage() {
+export default async function SignInPage() {
+  const { userId } = await auth();
+  if (userId) redirect(appUrl("/dashboard"));
+
   return (
     <AuthShell
       title="Welcome back"

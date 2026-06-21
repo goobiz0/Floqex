@@ -6,6 +6,21 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChatCircle, X, PaperPlaneRight, Robot, Sparkle } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
+function MochiThinking() {
+  return (
+    <div className="flex max-w-[85%] items-center gap-3 rounded-[20px] rounded-bl-[6px] border border-line/50 bg-surface px-4 py-2.5 shadow-sm">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" />
+        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.15s]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.3s]" />
+      </div>
+      <div className="text-[12.5px] font-medium text-fg-muted">
+        Thinking...
+      </div>
+    </div>
+  );
+}
+
 export function MochiChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [isHoveringTrigger, setIsHoveringTrigger] = useState(false);
@@ -133,7 +148,37 @@ export function MochiChat() {
                           : "bg-surface border border-line/50 text-fg rounded-bl-[6px]"
                       )}
                     >
-                      {m.content}
+                      {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
+                      
+                      {m.toolInvocations?.map((tool: any) => {
+                        const isCalling = tool.state === 'call';
+                        return (
+                          <div 
+                            key={tool.toolCallId} 
+                            className={cn(
+                              "mt-2 text-[12px] rounded-lg p-2.5 border font-medium flex items-center gap-2",
+                              isCalling 
+                                ? "bg-accent/10 border-accent/20 text-accent" 
+                                : "bg-surface border-line text-fg-muted"
+                            )}
+                          >
+                            {isCalling ? (
+                              <>
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                                </span>
+                                {tool.toolName === 'updateRiskParams' ? 'Updating strategy parameters...' : `Running ${tool.toolName}...`}
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-positive">✓</span>
+                                {tool.toolName === 'updateRiskParams' ? 'Strategy parameters updated' : `${tool.toolName} complete`}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 );
@@ -148,11 +193,7 @@ export function MochiChat() {
                   <div className="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
                     <Robot size={14} weight="bold" />
                   </div>
-                  <div className="flex max-w-[85%] items-center gap-1.5 rounded-[20px] rounded-bl-[6px] border border-line/50 bg-surface px-4 py-3 shadow-sm">
-                    <span className="h-1.5 w-1.5 rounded-full bg-fg-muted/60 animate-bounce" />
-                    <span className="h-1.5 w-1.5 rounded-full bg-fg-muted/60 animate-bounce [animation-delay:0.15s]" />
-                    <span className="h-1.5 w-1.5 rounded-full bg-fg-muted/60 animate-bounce [animation-delay:0.3s]" />
-                  </div>
+                  <MochiThinking />
                 </motion.div>
               )}
               <div ref={bottomRef} className="h-px" />
