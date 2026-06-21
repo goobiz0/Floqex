@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { JournalView } from "@/components/dashboard/journal-view";
 import { Card } from "@/components/ui/card";
 import { getTradeData } from "@/lib/queries";
+import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Journal" };
 
 export default async function JournalPage() {
-  const { hasAccount, trades, summaries } = await getTradeData();
+  const { hasAccount, trades, summaries, error } = await getTradeData();
 
   return (
     <div className="space-y-4">
@@ -16,7 +17,9 @@ export default async function JournalPage() {
           Daily P&L and a record of every trade with the bot’s reasoning.
         </p>
       </div>
-      {hasAccount ? (
+      {error ? (
+        <DashboardError />
+      ) : hasAccount ? (
         <JournalView trades={trades} summaries={summaries} />
       ) : (
         <Card className="p-10 text-center">

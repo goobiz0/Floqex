@@ -8,6 +8,7 @@ import {
   Flask,
   ChartBar,
   Wallet,
+  CreditCard,
   Gear,
   type Icon,
 } from "@phosphor-icons/react";
@@ -26,6 +27,7 @@ const MAIN: NavItem[] = [
 
 const SETTINGS: NavItem[] = [
   { href: "/dashboard/accounts", label: "Accounts", icon: Wallet },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Gear },
 ];
 

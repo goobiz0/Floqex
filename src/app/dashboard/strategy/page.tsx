@@ -1,20 +1,39 @@
 import type { Metadata } from "next";
 import { StrategyLab } from "@/components/dashboard/strategy-lab";
+import { Card } from "@/components/ui/card";
+import { getStrategyData } from "@/lib/queries";
+import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Strategy Lab" };
 
-export default function StrategyPage() {
+export default async function StrategyPage() {
+  const data = await getStrategyData();
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">
-          Strategy Lab
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight text-fg">Strategy Lab</h1>
         <p className="text-sm text-fg-subtle">
           Tune the rules within safe bounds. Every change is logged.
         </p>
       </div>
-      <StrategyLab />
+      {data.error ? (
+        <DashboardError />
+      ) : data.hasStrategy && data.params ? (
+        <StrategyLab
+          initialParams={data.params}
+          changeLog={data.changeLog}
+          pending={data.pending}
+          autoAdjustmentsUsed={data.autoAdjustmentsUsed}
+        />
+      ) : (
+        <Card className="p-10 text-center">
+          <p className="text-sm text-fg-muted">No strategy yet</p>
+          <p className="mt-1 text-xs text-fg-subtle">
+            Finish onboarding to create your ORB strategy, then tune it here.
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

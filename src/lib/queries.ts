@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "./db";
 import type { TradeRow, DailyRow } from "./metrics";
+import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
+import type { Plan } from "./plans";
 
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.
@@ -214,5 +216,153 @@ export async function getTradeData(): Promise<TradeData> {
     };
   } catch {
     return { ...EMPTY_TRADES, error: true };
+  }
+}
+
+export type AdjustmentRow = {
+  id: string;
+  parameter: string;
+  paramKey: string | null;
+  oldValue: string;
+  newValue: string;
+  source: "BOT" | "USER";
+  status: "APPLIED" | "PENDING" | "REJECTED";
+  reasoning: string | null;
+  sampleSize: number | null;
+  winRateDelta: number | null;
+  confidence: number | null;
+  createdAt: string;
+};
+
+export type StrategyData = {
+  hasStrategy: boolean;
+  params: StrategyParams | null;
+  changeLog: AdjustmentRow[];
+  pending: AdjustmentRow[];
+  autoAdjustmentsUsed: number;
+  error: boolean;
+};
+
+const EMPTY_STRATEGY: StrategyData = {
+  hasStrategy: false,
+  params: null,
+  changeLog: [],
+  pending: [],
+  autoAdjustmentsUsed: 0,
+  error: false,
+};
+
+type DbAdjustment = {
+  id: string;
+  parameter: string;
+  paramKey: string | null;
+  oldValue: string;
+  newValue: string;
+  source: string;
+  status: string;
+  reasoning: string | null;
+  sampleSize: number | null;
+  winRateDelta: unknown;
+  confidence: unknown;
+  createdAt: Date;
+};
+
+function serializeAdjustment(a: DbAdjustment): AdjustmentRow {
+  return {
+    id: a.id,
+    parameter: a.parameter,
+    paramKey: a.paramKey,
+    oldValue: a.oldValue,
+    newValue: a.newValue,
+    source: a.source as AdjustmentRow["source"],
+    status: a.status as AdjustmentRow["status"],
+    reasoning: a.reasoning,
+    sampleSize: a.sampleSize,
+    winRateDelta: numOrNull(a.winRateDelta),
+    confidence: numOrNull(a.confidence),
+    createdAt: a.createdAt.toISOString(),
+  };
+}
+
+/** The user's strategy params, change log, pending suggestions, and auto-adjust meter. */
+export async function getStrategyData(): Promise<StrategyData> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY_STRATEGY;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: {
+        accounts: { take: 1, orderBy: { createdAt: "asc" }, include: { bot: true } },
+        strategies: { take: 1, orderBy: { createdAt: "asc" } },
+      },
+    });
+
+    const bot = user?.accounts[0]?.bot ?? null;
+    const strategy = bot
+      ? await prisma.strategy.findUnique({ where: { id: bot.strategyId } })
+      : (user?.strategies[0] ?? null);
+    if (!strategy) return EMPTY_STRATEGY;
+
+    const adjustments = bot
+      ? await prisma.botAdjustment.findMany({
+          where: { botId: bot.id },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        })
+      : [];
+
+    return {
+      hasStrategy: true,
+      params: coerceStrategyParams(strategy.params),
+      changeLog: adjustments.filter((a) => a.status !== "PENDING").map(serializeAdjustment),
+      pending: adjustments.filter((a) => a.status === "PENDING").map(serializeAdjustment),
+      autoAdjustmentsUsed: bot?.autoAdjustmentsUsed ?? 0,
+      error: false,
+    };
+  } catch {
+    return { ...EMPTY_STRATEGY, error: true };
+  }
+}
+
+export type BillingData = {
+  plan: Plan;
+  status: string | null;
+  currentPeriodEnd: string | null;
+  accountCount: number;
+  hasCustomer: boolean;
+  error: boolean;
+};
+
+/** The signed-in user's current plan, subscription status, and account usage. */
+export async function getBillingData(): Promise<BillingData> {
+  const EMPTY: BillingData = {
+    plan: "FREE",
+    status: null,
+    currentPeriodEnd: null,
+    accountCount: 0,
+    hasCustomer: false,
+    error: false,
+  };
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY;
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { _count: { select: { accounts: true } } },
+    });
+    if (!user) return EMPTY;
+    return {
+      plan: user.plan as Plan,
+      status: user.stripeSubStatus,
+      currentPeriodEnd: user.stripeCurrentPeriodEnd
+        ? user.stripeCurrentPeriodEnd.toISOString()
+        : null,
+      accountCount: user._count.accounts,
+      hasCustomer: Boolean(user.stripeCustomerId),
+      error: false,
+    };
+  } catch {
+    return { ...EMPTY, error: true };
   }
 }
