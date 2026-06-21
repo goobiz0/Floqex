@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "./db";
-import type { TradeRow, DailyRow } from "./metrics";
+import { summaryMetrics, equitySeries, maxDrawdown, type TradeRow, type DailyRow } from "./metrics";
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
 
@@ -462,5 +462,57 @@ export async function getBotsData(): Promise<BotsData> {
     return { bots, plan: user.plan as Plan, error: false };
   } catch {
     return { ...EMPTY, error: true };
+  }
+}
+
+export type DemoPreview = {
+  balance: number;
+  changePct: number | null;
+  changeAmount: number | null;
+  winRate: number;
+  profitFactor: number | null; // null when undefined (no losses yet)
+  maxDrawdownPct: number;
+  spark: number[];
+  botRunning: boolean;
+};
+
+/**
+ * Public, read-only aggregates for the marketing preview — scoped to the single
+ * fixed demo account (no auth, no PII, equity/trade aggregates only, per the
+ * security model). Returns null when the demo isn't seeded so the marketing
+ * page can fall back to a labelled sample rather than fabricating numbers.
+ */
+export async function getDemoPreview(): Promise<DemoPreview | null> {
+  try {
+    const clerkId = process.env.DEMO_CLERK_ID || "demo_floqex_account";
+    const account = await prisma.account.findFirst({
+      where: { user: { clerkId } },
+      include: {
+        bot: { select: { status: true } },
+        summaries: { orderBy: { date: "asc" }, take: 120 },
+        trades: { where: { status: "CLOSED" }, take: 1000 },
+      },
+    });
+    if (!account || account.summaries.length === 0) return null;
+
+    const summaries = account.summaries.map(serializeSummary);
+    const trades = account.trades.map(serializeTrade);
+    const m = summaryMetrics(trades);
+    const series = equitySeries(summaries);
+    const dd = maxDrawdown(series);
+    const last = summaries[summaries.length - 1];
+
+    return {
+      balance: num(account.balance),
+      changePct: last && last.startBalance ? (last.netPnl / last.startBalance) * 100 : null,
+      changeAmount: last ? last.netPnl : null,
+      winRate: m.winRate,
+      profitFactor: Number.isFinite(m.profitFactor) ? m.profitFactor : null,
+      maxDrawdownPct: dd.pct,
+      spark: series.map((p) => p.equity),
+      botRunning: account.bot?.status === "RUNNING",
+    };
+  } catch {
+    return null;
   }
 }

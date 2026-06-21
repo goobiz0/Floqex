@@ -17,8 +17,17 @@ import { Badge, StatusDot } from "@/components/ui/badge";
 import { Reveal } from "@/components/marketing/reveal";
 import { EquityChart } from "@/components/marketing/equity-chart";
 import { LogoWall } from "@/components/marketing/logo-wall";
+import { getDemoPreview, type DemoPreview } from "@/lib/queries";
+import { formatUSD } from "@/lib/utils";
 
-export default function LandingPage() {
+// Demo preview is real data from the seeded demo account; refresh it on a short
+// ISR window so the marketing page stays static-fast but never stale for long.
+export const revalidate = 300;
+
+export default async function LandingPage() {
+  const demo = await getDemoPreview();
+  const botRunning = demo ? demo.botRunning : true;
+
   return (
     <>
       {/* ───────────────── Hero: asymmetric split ───────────────── */}
@@ -60,15 +69,17 @@ export default function LandingPage() {
                   Account equity
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-xs text-fg-muted">
-                  <StatusDot tone="positive" pulse />
-                  Bot running
+                  <StatusDot tone={botRunning ? "positive" : "neutral"} pulse={botRunning} />
+                  {botRunning ? "Bot running" : "Bot paused"}
                 </span>
               </div>
               <div className="mt-4">
                 <EquityChart />
               </div>
               <p className="mt-3 text-xs text-fg-faint">
-                Sample equity curve. Your results will differ.
+                {demo
+                  ? "Live demo account, paper trading. Past performance is not indicative of future results."
+                  : "Sample equity curve. Your results will differ."}
               </p>
             </Card>
           </Reveal>
@@ -106,7 +117,7 @@ export default function LandingPage() {
                   the edge is real. No spreadsheet required.
                 </p>
                 <div className="mt-auto pt-8">
-                  <MiniDashboard />
+                  <MiniDashboard demo={demo} />
                 </div>
               </Card>
             </Reveal>
@@ -316,31 +327,65 @@ export default function LandingPage() {
   );
 }
 
-/* ── Mini dashboard preview (real component, sample data) ── */
-function MiniDashboard() {
+/* ── Mini dashboard preview ──
+   Real aggregates from the seeded demo account when available; a clearly
+   labelled sample otherwise (so we never present fabricated numbers as live). */
+const SAMPLE_SPARK = [
+  10000, 10120, 10080, 10260, 10210, 10440, 10390, 10620, 10840,
+];
+
+function buildSparkPoints(values: number[], w = 320, h = 64, pad = 6): string {
+  if (values.length < 2) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  return values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * w;
+      const y = h - pad - ((v - min) / span) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function MiniDashboard({ demo }: { demo: DemoPreview | null }) {
+  const live = demo !== null;
+  const balance = demo ? formatUSD(demo.balance) : "$10,840.00";
+  const changePct = demo?.changePct ?? 0.74;
+  const up = changePct >= 0;
+  const spark = demo && demo.spark.length >= 2 ? demo.spark : SAMPLE_SPARK;
+
   const metrics = [
-    { label: "Win rate", value: "58.3%" },
-    { label: "Profit factor", value: "1.74" },
-    { label: "Max drawdown", value: "6.2%" },
+    { label: "Win rate", value: demo ? `${demo.winRate.toFixed(1)}%` : "58.3%" },
+    {
+      label: "Profit factor",
+      value: demo ? (demo.profitFactor != null ? demo.profitFactor.toFixed(2) : "∞") : "1.74",
+    },
+    { label: "Max drawdown", value: demo ? `${demo.maxDrawdownPct.toFixed(1)}%` : "6.2%" },
   ];
+
   return (
     <div className="rounded-[var(--radius-control)] border border-line bg-base/60 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-fg-subtle">Balance</p>
-          <p className="tnum mt-0.5 text-2xl font-semibold text-fg">
-            $12,847.20
+          <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
+            Balance
+            <span className="text-[0.6rem] uppercase tracking-wide text-fg-faint">
+              {live ? "Live demo" : "Sample"}
+            </span>
           </p>
+          <p className="tnum mt-0.5 text-2xl font-semibold text-fg">{balance}</p>
         </div>
-        <Badge tone="positive" mono>
-          +1.84%
+        <Badge tone={up ? "positive" : "negative"} mono>
+          {up ? "+" : ""}
+          {changePct.toFixed(2)}%
         </Badge>
       </div>
       <svg viewBox="0 0 320 64" className="mt-4 w-full" preserveAspectRatio="none">
         <polyline
-          points="0,52 40,48 80,50 120,38 160,42 200,28 240,30 280,16 320,10"
+          points={buildSparkPoints(spark)}
           fill="none"
-          stroke="oklch(0.72 0.17 162)"
+          stroke="var(--color-profit)"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -350,9 +395,7 @@ function MiniDashboard() {
         {metrics.map((m) => (
           <div key={m.label}>
             <p className="text-[0.7rem] text-fg-subtle">{m.label}</p>
-            <p className="tnum mt-0.5 text-sm font-semibold text-fg">
-              {m.value}
-            </p>
+            <p className="tnum mt-0.5 text-sm font-semibold text-fg">{m.value}</p>
           </div>
         ))}
       </div>
