@@ -5,26 +5,25 @@ const columns = [
   {
     title: "Product",
     links: [
-      { href: "#features", label: "Features" },
-      { href: "#how", label: "How it works" },
-      { href: "#pricing", label: "Pricing" },
-      { href: "/sign-up", label: "Get started" },
+      { href: "/#features", label: "Features" },
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/security", label: "Security" },
     ],
   },
   {
-    title: "Company",
+    title: "Account",
     links: [
-      { href: "#", label: "About" },
-      { href: "#", label: "Journal" },
-      { href: "#", label: "Contact" },
+      { href: "/sign-in", label: "Sign in" },
+      { href: "/sign-up", label: "Get started" },
     ],
   },
   {
     title: "Legal",
     links: [
-      { href: "#", label: "Terms" },
-      { href: "#", label: "Privacy" },
-      { href: "#", label: "Risk disclosure" },
+      { href: "/terms", label: "Terms" },
+      { href: "/privacy", label: "Privacy" },
+      { href: "/risk-disclosure", label: "Risk disclosure" },
     ],
   },
 ];

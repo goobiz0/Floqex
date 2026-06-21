@@ -23,6 +23,9 @@ project settings for production. See `.env.example` for the full list:
 - **Clerk** publishable + secret keys, the four auth-routing URLs, and the webhook secret.
 - **Database** `DATABASE_URL` (pooled, port 6543) and `DIRECT_URL` (direct, port 5432).
 - **Supabase** project URL + publishable key (for future storage/realtime use).
+- **Stripe** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the `NEXT_PUBLIC_STRIPE_PRICE_*` ids.
+- **Security** `ENCRYPTION_KEY` (`openssl rand -base64 32`) for broker-credential encryption at rest.
+- **Mochi** `OPENAI_API_KEY` for the in-app assistant.
 
 ## Clerk
 
@@ -48,9 +51,18 @@ To apply against a fresh database:
 ```bash
 # Set DATABASE_URL and DIRECT_URL first
 npm run db:push        # or: npx prisma migrate deploy
+npm run db:seed        # creates the "Floqex Demo" account for the preview
 ```
 
 `prisma generate` runs automatically on `postinstall`.
+
+## Stripe (billing)
+
+Add a webhook to `https://dashboard.floqex.com/api/webhooks/stripe` subscribed to
+`checkout.session.completed` and `customer.subscription.created/updated/deleted`, and
+put its signing secret in `STRIPE_WEBHOOK_SECRET`. The Trader and Pro products/prices
+exist in test mode; create live-mode prices and update `NEXT_PUBLIC_STRIPE_PRICE_*`
+before charging real cards.
 
 ## Build
 
@@ -60,7 +72,28 @@ npm run build
 npm run start
 ```
 
-## Bot engine
+## Trading engine (cron)
 
-The Python engine in `engine/` runs separately (a worker, not part of the web deploy).
-See `engine/README.md`. It writes the same shapes the app reads (trades, summaries).
+The engine runs as a Next route at `/api/cron/engine`, driven by a scheduler. Wire it
+with a Vercel Cron in `vercel.json` and protect it with a `CRON_SECRET` checked in the
+route before enabling:
+
+```json
+{ "crons": [{ "path": "/api/cron/engine", "schedule": "*/5 * * * *" }] }
+```
+
+It writes the same shapes the app reads (trades, daily summaries, bot heartbeat). The
+standalone Python worker in `engine/` remains available for local experimentation.
+
+## CI
+
+`.github/workflows/ci.yml` runs typecheck, lint, and the vitest metrics tests on every
+PR. `next build` is left to Vercel, which holds the runtime secrets a server build needs.
+
+## Live realtime (still to configure)
+
+Live dashboard surfaces currently refresh via revalidation. For push updates, wire
+Supabase Realtime with Row-Level Security keyed on the Clerk JWT (Clerk as a Supabase
+third-party auth provider) so a client can only subscribe to its own rows. Until then,
+every read goes through server queries scoped to the signed-in user, so no table is
+client-readable without an ownership check.

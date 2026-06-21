@@ -2,46 +2,43 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useChat } from "ai/react";
-import { motion, AnimatePresence } from "motion/react";
-import { ChatCircle, X, PaperPlaneRight, Robot, Sparkle } from "@phosphor-icons/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { ChatCircle, X, PaperPlaneRight, Robot, Check } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-function MochiThinking() {
+const SUGGESTIONS = [
+  "How am I doing so far?",
+  "Is my bot running?",
+  "Explain the ORB strategy",
+  "Lower my risk to 0.5%",
+];
+
+function ThinkingDots() {
   return (
-    <div className="flex max-w-[85%] items-center gap-3 rounded-[20px] rounded-bl-[6px] border border-line/50 bg-surface px-4 py-2.5 shadow-sm">
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" />
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.15s]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.3s]" />
+    <div className="flex items-center gap-3 rounded-[18px] rounded-bl-[6px] border border-line bg-surface px-4 py-3">
+      <div className="flex items-center gap-1">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0.15s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0.3s]" />
       </div>
-      <div className="text-[12.5px] font-medium text-fg-muted">
-        Thinking...
-      </div>
+      <span className="text-xs font-medium text-fg-subtle">Thinking</span>
     </div>
   );
 }
 
 export function MochiChat() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isHoveringTrigger, setIsHoveringTrigger] = useState(false);
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const reduce = useReducedMotion();
+  const { messages, input, setInput, handleInputChange, handleSubmit, isLoading } = useChat({
     api: "/api/chat",
   });
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, isOpen]);
 
-  // Premium spring physics for animations
-  const spring = {
-    type: "spring" as const,
-    damping: 20,
-    stiffness: 200,
-    mass: 0.5,
-  };
+  const spring = { type: "spring" as const, damping: 26, stiffness: 280, mass: 0.6 };
 
   return (
     <>
@@ -49,24 +46,15 @@ export function MochiChat() {
         {!isOpen && (
           <motion.button
             type="button"
-            initial={{ scale: 0.8, opacity: 0 }}
+            aria-label="Open Mochi assistant"
+            initial={reduce ? false : { scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
+            exit={reduce ? undefined : { scale: 0.9, opacity: 0 }}
             transition={spring}
-            onMouseEnter={() => setIsHoveringTrigger(true)}
-            onMouseLeave={() => setIsHoveringTrigger(false)}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 group flex h-14 w-14 items-center justify-center rounded-full bg-accent text-base shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-accent/20 transition-all hover:shadow-[0_8px_40px_rgb(0,0,0,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="group fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-base shadow-[0_10px_30px_-8px_var(--color-accent-ring)] transition-transform hover:scale-[1.04] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            <motion.div
-              animate={{ rotate: isHoveringTrigger ? 10 : 0 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
-            >
-              <ChatCircle size={26} weight="fill" className="text-white" />
-            </motion.div>
-            
-            {/* Pulsing indicator ring */}
-            <span className="absolute inset-0 -z-10 rounded-full bg-accent/40 animate-ping [animation-duration:3s]" />
+            <ChatCircle size={26} weight="fill" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -74,177 +62,161 @@ export function MochiChat() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95, filter: "blur(10px)" }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 20, scale: 0.95, filter: "blur(5px)" }}
+            role="dialog"
+            aria-label="Mochi assistant"
+            initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.97, transition: { duration: 0.15 } }}
             transition={spring}
-            className="fixed bottom-6 right-6 z-50 flex h-[600px] w-[380px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border border-line bg-elevated/95 shadow-2xl backdrop-blur-xl ring-1 ring-black/5"
+            className="fixed bottom-6 right-6 z-50 flex h-[600px] max-h-[calc(100dvh-3rem)] w-[380px] max-w-[calc(100vw-3rem)] origin-bottom-right flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-line/50 bg-gradient-to-b from-surface/50 to-transparent px-5 py-4">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-hover text-white shadow-sm ring-1 ring-white/10">
-                  <Robot size={22} weight="duotone" />
-                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-elevated bg-positive" />
+                <div className="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-accent text-base">
+                  <Robot size={20} weight="fill" />
+                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-elevated bg-profit" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold tracking-tight text-fg flex items-center gap-1.5">
-                    Mochi <Sparkle size={14} weight="fill" className="text-accent" />
-                  </h3>
-                  <p className="text-[11px] font-medium tracking-wide text-fg-subtle">TRADING COPILOT</p>
+                  <h3 className="text-sm font-semibold tracking-tight text-fg">Mochi</h3>
+                  <p className="text-xs text-fg-subtle">Your trading copilot</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface hover:text-fg active:scale-95"
+                aria-label="Close"
+                className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] text-fg-subtle transition-colors hover:bg-surface hover:text-fg active:scale-95"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-line scrollbar-track-transparent">
-              {messages.length === 0 && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="flex flex-col items-center justify-center h-full text-center px-4"
-                >
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface border border-line/50 shadow-sm">
-                    <Robot size={32} weight="duotone" className="text-fg-subtle" />
+            {/* Messages */}
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              {messages.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center px-2 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[var(--radius-card)] bg-accent-soft text-accent">
+                    <Robot size={28} weight="fill" />
                   </div>
-                  <p className="text-sm font-medium text-fg">How can I help you trade today?</p>
-                  <p className="mt-2 text-xs leading-relaxed text-fg-muted">
-                    I can analyze your risk profile, backtest ideas, or tweak your live parameters.
+                  <p className="mt-4 text-sm font-medium text-fg">How can I help?</p>
+                  <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
+                    Ask about your performance, the bot, or tune your strategy in plain English.
                   </p>
-                </motion.div>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setInput(s)}
+                        className="rounded-[var(--radius-pill)] border border-line bg-surface px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-line-strong hover:text-fg"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((m) => {
+                  const isUser = m.role === "user";
+                  return (
+                    <motion.div
+                      key={m.id}
+                      initial={reduce ? false : { opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className={cn("flex w-full gap-2", isUser ? "justify-end" : "justify-start")}
+                    >
+                      {!isUser && (
+                        <div className="mt-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                          <Robot size={13} weight="fill" />
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          "max-w-[82%] rounded-[18px] px-3.5 py-2.5 text-[13px] leading-relaxed",
+                          isUser
+                            ? "rounded-br-[6px] bg-accent text-base"
+                            : "rounded-bl-[6px] border border-line bg-surface text-fg",
+                        )}
+                      >
+                        {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
+                        {m.toolInvocations?.map((inv) => {
+                          const done = inv.state === "result";
+                          const labels: Record<string, [string, string]> = {
+                            updateStrategyParams: ["Updating strategy", "Strategy updated"],
+                            getPerformance: ["Reading performance", "Performance loaded"],
+                            getBotStatus: ["Checking bot status", "Status loaded"],
+                          };
+                          const [running, finished] = labels[inv.toolName] ?? [
+                            `Running ${inv.toolName}`,
+                            `${inv.toolName} done`,
+                          ];
+                          return (
+                            <div
+                              key={inv.toolCallId}
+                              className={cn(
+                                "mt-2 flex items-center gap-2 rounded-[var(--radius-control)] border px-2.5 py-1.5 text-xs font-medium",
+                                done
+                                  ? "border-line bg-base/50 text-fg-muted"
+                                  : "border-accent/30 bg-accent-soft text-accent",
+                              )}
+                            >
+                              {done ? (
+                                <Check size={13} weight="bold" className="text-profit" />
+                              ) : (
+                                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                              )}
+                              {done ? finished : running}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  );
+                })
               )}
 
-              {messages.map((m, i) => {
-                const isUser = m.role === "user";
-                return (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, scale: 0.95, originY: 1 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2 }}
-                    className={cn(
-                      "flex w-full",
-                      isUser ? "justify-end" : "justify-start"
-                    )}
-                  >
-                    {!isUser && (
-                      <div className="mr-2 mt-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                        <Robot size={14} weight="bold" />
-                      </div>
-                    )}
-                    <div
-                      className={cn(
-                        "relative max-w-[85%] rounded-[20px] px-4 py-2.5 text-[13.5px] leading-relaxed shadow-sm",
-                        isUser
-                          ? "bg-accent text-white rounded-br-[6px]"
-                          : "bg-surface border border-line/50 text-fg rounded-bl-[6px]"
-                      )}
-                    >
-                      {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
-                      
-                      {m.toolInvocations?.map((tool: any) => {
-                        const isCalling = tool.state === 'call';
-                        return (
-                          <div 
-                            key={tool.toolCallId} 
-                            className={cn(
-                              "mt-2 text-[12px] rounded-lg p-2.5 border font-medium flex items-center gap-2",
-                              isCalling 
-                                ? "bg-accent/10 border-accent/20 text-accent" 
-                                : "bg-surface border-line text-fg-muted"
-                            )}
-                          >
-                            {isCalling ? (
-                              <>
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-                                </span>
-                                {tool.toolName === 'updateRiskParams' ? 'Updating strategy parameters...' : `Running ${tool.toolName}...`}
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-positive">✓</span>
-                                {tool.toolName === 'updateRiskParams' ? 'Strategy parameters updated' : `${tool.toolName} complete`}
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                );
-              })}
-
-              {isLoading && (
-                <motion.div 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
-                  className="flex w-full justify-start items-end"
-                >
-                  <div className="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                    <Robot size={14} weight="bold" />
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
+                <div className="flex justify-start gap-2">
+                  <div className="mt-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                    <Robot size={13} weight="fill" />
                   </div>
-                  <MochiThinking />
-                </motion.div>
+                  <ThinkingDots />
+                </div>
               )}
               <div ref={bottomRef} className="h-px" />
             </div>
 
-            {/* Limits & Input Area */}
-            <div className="border-t border-line/50 bg-gradient-to-t from-surface/50 to-transparent p-4 pb-5">
-              {/* Energy Bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between px-1 mb-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle flex items-center gap-1">
-                    <Sparkle size={10} weight="fill" /> Mochi Energy
-                  </span>
-                  <span className="text-[10px] font-medium text-accent">3/5 limit</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface shadow-inner border border-line/50">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: "60%" }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className="h-full bg-gradient-to-r from-accent to-accent-hover rounded-full" 
-                  />
-                </div>
-              </div>
-              
-              <form onSubmit={handleSubmit} className="relative flex items-end gap-2 group">
-                <div className="relative w-full">
-                  <textarea
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (input.trim()) handleSubmit(e as any);
-                      }
-                    }}
-                    placeholder="Ask Mochi..."
-                    rows={1}
-                    className="w-full resize-none rounded-xl border border-line bg-surface px-4 py-3 text-[13.5px] text-fg placeholder:text-fg-faint shadow-sm transition-all focus-visible:border-accent focus-visible:bg-base focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/20 max-h-32"
-                    style={{ minHeight: '44px' }}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isLoading || !input.trim()}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-white shadow-sm transition-all hover:bg-accent-hover active:scale-95 disabled:opacity-50 disabled:hover:bg-accent"
-                >
-                  <PaperPlaneRight size={18} weight="fill" />
-                </button>
-              </form>
-            </div>
+            {/* Composer */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex items-end gap-2 border-t border-line p-3"
+            >
+              <textarea
+                aria-label="Message Mochi assistant"
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return;
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.trim()) e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder="Ask Mochi anything"
+                rows={1}
+                className="max-h-32 min-h-[44px] w-full resize-none rounded-[var(--radius-control)] border border-line bg-surface px-3.5 py-3 text-[13px] text-fg placeholder:text-fg-faint transition-colors focus-visible:border-accent focus-visible:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                aria-label="Send"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-base transition-transform hover:enabled:scale-[1.03] active:enabled:scale-95 disabled:opacity-40"
+              >
+                <PaperPlaneRight size={18} weight="fill" />
+              </button>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>

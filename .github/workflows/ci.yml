@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least-privilege token: this workflow only needs to read the repo.
+permissions:
+  contents: read
+
+# Cancel superseded runs for the same ref so rapid pushes don't pile up.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # postinstall already runs `prisma generate`; keep it explicit for clarity.
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      # `next build` is intentionally left to Vercel, which has the runtime env
+      # (Clerk, database, Stripe) that a server build needs.

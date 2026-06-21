@@ -81,10 +81,19 @@ export const PLANS: Record<Plan, PlanConfig> = {
 
 export const PLAN_ORDER: Plan[] = ["FREE", "TRADER", "PRO"];
 
+/** True when the price id maps to a known paid tier. Side-effect free (no logging). */
+export function isPaidPriceId(priceId: string | null | undefined): boolean {
+  return priceId === PRICE_IDS.TRADER || priceId === PRICE_IDS.PRO;
+}
+
 /** Map a Stripe price id back to the plan it grants. */
 export function planFromPriceId(priceId: string | null | undefined): Plan {
+  if (!priceId) return "FREE";
   if (priceId === PRICE_IDS.PRO) return "PRO";
   if (priceId === PRICE_IDS.TRADER) return "TRADER";
+  // A non-null price we don't recognize means env drift or a new product.
+  // Surface it rather than silently downgrading a paying customer to FREE.
+  console.error(`Unrecognized Stripe price id: ${priceId}`);
   return "FREE";
 }
 

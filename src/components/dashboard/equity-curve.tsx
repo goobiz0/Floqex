@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { cn, formatUSD } from "@/lib/utils";
+import { formatUSD } from "@/lib/utils";
+import { Segmented } from "@/components/ui/segmented";
 import type { EquityPoint } from "@/lib/metrics";
 
 const TIMEFRAMES = ["1W", "1M", "3M", "6M", "1Y", "ALL"] as const;
@@ -52,21 +53,12 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <div className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5">
-          {TIMEFRAMES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTf(t)}
-              className={cn(
-                "rounded-[6px] px-2.5 py-1 text-xs font-medium transition-colors",
-                tf === t ? "bg-overlay text-fg" : "text-fg-subtle hover:text-fg-muted",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          size="sm"
+          options={TIMEFRAMES.map((t) => ({ value: t, label: t }))}
+          value={tf}
+          onChange={setTf}
+        />
         {data ? <span className="tnum text-xs text-fg-subtle">{formatUSD(data.last)}</span> : null}
       </div>
 

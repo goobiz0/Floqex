@@ -47,12 +47,12 @@ export function EquityChart() {
       >
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="oklch(0.696 0.17 162)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="oklch(0.696 0.17 162)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--color-profit)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--color-profit)" stopOpacity="0" />
           </linearGradient>
           <linearGradient id={lineGradId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="oklch(0.6 0.16 162)" />
-            <stop offset="100%" stopColor="oklch(0.78 0.17 162)" />
+            <stop offset="0%" stopColor="var(--color-accent)" />
+            <stop offset="100%" stopColor="var(--color-profit)" />
           </linearGradient>
         </defs>
 
@@ -64,7 +64,7 @@ export function EquityChart() {
             y1={y}
             x2="600"
             y2={y}
-            stroke="oklch(0.27 0.006 260 / 0.5)"
+            stroke="var(--color-line)"
             strokeWidth="1"
           />
         ))}
@@ -98,7 +98,7 @@ export function EquityChart() {
           cx={600}
           cy={44}
           r="4.5"
-          fill="oklch(0.78 0.17 162)"
+          fill="var(--color-profit)"
           initial={reduce ? false : { opacity: 0, scale: 0.5 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}

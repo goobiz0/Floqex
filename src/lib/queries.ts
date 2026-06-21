@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "./db";
-import type { TradeRow, DailyRow } from "./metrics";
+import { summaryMetrics, equitySeries, maxDrawdown, type TradeRow, type DailyRow } from "./metrics";
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
 
@@ -26,12 +26,23 @@ export type OverviewBot = {
   lastHeartbeat: string | null;
 };
 
+export type AgentEventKind = "INFO" | "SIGNAL" | "TRADE" | "RISK" | "NEWS" | "ADJUST";
+
+export type AgentEventRow = {
+  id: string;
+  /** Stable HH:MM:SS (UTC) so the client never disagrees with the server. */
+  t: string;
+  kind: AgentEventKind;
+  message: string;
+};
+
 export type OverviewData = {
   account: OverviewAccount | null;
   bot: OverviewBot | null;
   trades: TradeRow[];
   summaries: DailyRow[];
   openTrade: TradeRow | null;
+  agentEvents: AgentEventRow[];
   error: boolean;
 };
 
@@ -48,6 +59,7 @@ const EMPTY_OVERVIEW: OverviewData = {
   trades: [],
   summaries: [],
   openTrade: null,
+  agentEvents: [],
   error: false,
 };
 
@@ -122,6 +134,31 @@ function serializeSummary(s: DbSummary): DailyRow {
   };
 }
 
+/**
+ * Latest narrated decisions for the live agent feed, oldest-first for a
+ * terminal-log read. Guarded on its own so an unmigrated agent_events table
+ * degrades to an empty feed rather than taking down the whole overview.
+ */
+async function getAgentEvents(accountId: string): Promise<AgentEventRow[]> {
+  try {
+    const rows = await prisma.agentEvent.findMany({
+      where: { accountId },
+      orderBy: { ts: "desc" },
+      take: 40,
+    });
+    return rows
+      .reverse()
+      .map((e) => ({
+        id: e.id,
+        t: e.ts.toISOString().slice(11, 19),
+        kind: e.kind as AgentEventKind,
+        message: e.message,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getOverviewData(): Promise<OverviewData> {
   try {
     const { userId } = await auth();
@@ -137,7 +174,7 @@ export async function getOverviewData(): Promise<OverviewData> {
     const account = user?.accounts[0];
     if (!account) return EMPTY_OVERVIEW;
 
-    const [trades, summaries, openTrade] = await Promise.all([
+    const [trades, summaries, openTrade, agentEvents] = await Promise.all([
       prisma.trade.findMany({
         where: { accountId: account.id, status: "CLOSED" },
         orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
@@ -152,6 +189,7 @@ export async function getOverviewData(): Promise<OverviewData> {
         where: { accountId: account.id, status: "OPEN" },
         orderBy: { openedAt: "desc" },
       }),
+      getAgentEvents(account.id),
     ]);
 
     return {
@@ -174,6 +212,7 @@ export async function getOverviewData(): Promise<OverviewData> {
       trades: trades.map(serializeTrade),
       summaries: summaries.map(serializeSummary),
       openTrade: openTrade ? serializeTrade(openTrade) : null,
+      agentEvents,
       error: false,
     };
   } catch {
@@ -364,5 +403,116 @@ export async function getBillingData(): Promise<BillingData> {
     };
   } catch {
     return { ...EMPTY, error: true };
+  }
+}
+
+export type BotRow = {
+  accountId: string;
+  botId: string | null;
+  nickname: string;
+  broker: string;
+  mode: string;
+  status: "RUNNING" | "WAITING" | "STOPPED" | "NONE";
+  strategyName: string | null;
+  balance: number;
+  todayPnl: number;
+  spark: number[];
+  lastHeartbeat: string | null;
+};
+
+export type BotsData = { bots: BotRow[]; plan: Plan; error: boolean };
+
+/** Every account's bot with its status, strategy, today's P&L, and a sparkline. */
+export async function getBotsData(): Promise<BotsData> {
+  const EMPTY: BotsData = { bots: [], plan: "FREE", error: false };
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY;
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: {
+        accounts: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            bot: { include: { strategy: { select: { name: true } } } },
+            summaries: { orderBy: { date: "desc" }, take: 14 },
+          },
+        },
+      },
+    });
+    if (!user) return EMPTY;
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const bots: BotRow[] = user.accounts.map((a) => {
+      const today = a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey);
+      return {
+        accountId: a.id,
+        botId: a.bot?.id ?? null,
+        nickname: a.nickname,
+        broker: a.broker,
+        mode: a.mode,
+        status: (a.bot?.status ?? "NONE") as BotRow["status"],
+        strategyName: a.bot?.strategy?.name ?? null,
+        balance: Number(a.balance),
+        todayPnl: today ? Number(today.netPnl) : 0,
+        spark: [...a.summaries].reverse().map((s) => Number(s.endBalance)),
+        lastHeartbeat: a.bot?.lastHeartbeat?.toISOString() ?? null,
+      };
+    });
+    return { bots, plan: user.plan as Plan, error: false };
+  } catch {
+    return { ...EMPTY, error: true };
+  }
+}
+
+export type DemoPreview = {
+  balance: number;
+  changePct: number | null;
+  changeAmount: number | null;
+  winRate: number;
+  profitFactor: number | null; // null when undefined (no losses yet)
+  maxDrawdownPct: number;
+  spark: number[];
+  botRunning: boolean;
+};
+
+/**
+ * Public, read-only aggregates for the marketing preview — scoped to the single
+ * fixed demo account (no auth, no PII, equity/trade aggregates only, per the
+ * security model). Returns null when the demo isn't seeded so the marketing
+ * page can fall back to a labelled sample rather than fabricating numbers.
+ */
+export async function getDemoPreview(): Promise<DemoPreview | null> {
+  try {
+    const clerkId = process.env.DEMO_CLERK_ID || "demo_floqex_account";
+    const account = await prisma.account.findFirst({
+      where: { user: { clerkId } },
+      include: {
+        bot: { select: { status: true } },
+        summaries: { orderBy: { date: "asc" }, take: 120 },
+        trades: { where: { status: "CLOSED" }, take: 1000 },
+      },
+    });
+    if (!account || account.summaries.length === 0) return null;
+
+    const summaries = account.summaries.map(serializeSummary);
+    const trades = account.trades.map(serializeTrade);
+    const m = summaryMetrics(trades);
+    const series = equitySeries(summaries);
+    const dd = maxDrawdown(series);
+    const last = summaries[summaries.length - 1];
+
+    return {
+      balance: num(account.balance),
+      changePct: last && last.startBalance ? (last.netPnl / last.startBalance) * 100 : null,
+      changeAmount: last ? last.netPnl : null,
+      winRate: m.winRate,
+      profitFactor: Number.isFinite(m.profitFactor) ? m.profitFactor : null,
+      maxDrawdownPct: dd.pct,
+      spark: series.map((p) => p.equity),
+      botRunning: account.bot?.status === "RUNNING",
+    };
+  } catch {
+    return null;
   }
 }

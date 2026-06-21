@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Envelope, Lock } from "@phosphor-icons/react";
 import { useSignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -244,6 +245,7 @@ export function ForgotPasswordForm() {
             autoComplete="new-password"
             required
             minLength={8}
+            icon={<Lock />}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -274,6 +276,7 @@ export function ForgotPasswordForm() {
           type="email"
           autoComplete="email"
           required
+          icon={<Envelope />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
