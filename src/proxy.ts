@@ -56,14 +56,23 @@ export default clerkMiddleware(
 
     // ── accounts.floqex.com — auth only ──
     if (sub === "accounts") {
+      const isAuthPath = AUTH_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+      );
+
+      // Signed-in users on auth pages → redirect to the dashboard subdomain.
+      if (pathname === "/" || isAuthPath) {
+        const { userId } = await auth();
+        if (userId) {
+          return NextResponse.redirect(`https://dashboard.${root}/`);
+        }
+      }
+
       if (pathname === "/") {
         const rewritten = url.clone();
         rewritten.pathname = "/sign-in";
         return NextResponse.rewrite(rewritten);
       }
-      const isAuthPath = AUTH_PREFIXES.some(
-        (p) => pathname === p || pathname.startsWith(`${p}/`),
-      );
       if (!isAuthPath && !pathname.startsWith("/api")) {
         const redirect = url.clone();
         redirect.pathname = "/sign-in";
@@ -73,6 +82,17 @@ export default clerkMiddleware(
     }
 
     // ── apex / localhost / previews — path-based routing ──
+    // Signed-in users on auth pages → redirect to /dashboard.
+    const isAuthRoute = AUTH_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    );
+    if (isAuthRoute) {
+      const { userId } = await auth();
+      if (userId) {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+    }
+
     if (isProtectedRoute(req)) {
       await auth.protect();
     }

@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { TradeRow } from "@/lib/metrics";
 
+function csvField(v: string | number | null | undefined): string {
+  const s = v == null ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 function exportCsv(trades: TradeRow[]) {
   const header = [
     "id",
@@ -32,7 +37,7 @@ function exportCsv(trades: TradeRow[]) {
       t.exitPrice ?? "",
       t.rMultiple ?? "",
       t.netPnl ?? "",
-    ].join(","),
+    ].map(csvField).join(","),
   );
   const csv = [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });

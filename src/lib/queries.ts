@@ -30,12 +30,14 @@ export type OverviewData = {
   trades: TradeRow[];
   summaries: DailyRow[];
   openTrade: TradeRow | null;
+  error: boolean;
 };
 
 export type TradeData = {
   hasAccount: boolean;
   trades: TradeRow[];
   summaries: DailyRow[];
+  error: boolean;
 };
 
 const EMPTY_OVERVIEW: OverviewData = {
@@ -44,9 +46,10 @@ const EMPTY_OVERVIEW: OverviewData = {
   trades: [],
   summaries: [],
   openTrade: null,
+  error: false,
 };
 
-const EMPTY_TRADES: TradeData = { hasAccount: false, trades: [], summaries: [] };
+const EMPTY_TRADES: TradeData = { hasAccount: false, trades: [], summaries: [], error: false };
 
 function num(d: unknown): number {
   return Number(d as { toString(): string });
@@ -169,9 +172,10 @@ export async function getOverviewData(): Promise<OverviewData> {
       trades: trades.map(serializeTrade),
       summaries: summaries.map(serializeSummary),
       openTrade: openTrade ? serializeTrade(openTrade) : null,
+      error: false,
     };
   } catch {
-    return EMPTY_OVERVIEW;
+    return { ...EMPTY_OVERVIEW, error: true };
   }
 }
 
@@ -206,8 +210,9 @@ export async function getTradeData(): Promise<TradeData> {
       hasAccount: true,
       trades: trades.map(serializeTrade),
       summaries: summaries.map(serializeSummary),
+      error: false,
     };
   } catch {
-    return EMPTY_TRADES;
+    return { ...EMPTY_TRADES, error: true };
   }
 }
