@@ -366,3 +366,62 @@ export async function getBillingData(): Promise<BillingData> {
     return { ...EMPTY, error: true };
   }
 }
+
+export type BotRow = {
+  accountId: string;
+  botId: string | null;
+  nickname: string;
+  broker: string;
+  mode: string;
+  status: "RUNNING" | "WAITING" | "STOPPED" | "NONE";
+  strategyName: string | null;
+  balance: number;
+  todayPnl: number;
+  spark: number[];
+  lastHeartbeat: string | null;
+};
+
+export type BotsData = { bots: BotRow[]; plan: Plan; error: boolean };
+
+/** Every account's bot with its status, strategy, today's P&L, and a sparkline. */
+export async function getBotsData(): Promise<BotsData> {
+  const EMPTY: BotsData = { bots: [], plan: "FREE", error: false };
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY;
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: {
+        accounts: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            bot: { include: { strategy: { select: { name: true } } } },
+            summaries: { orderBy: { date: "desc" }, take: 14 },
+          },
+        },
+      },
+    });
+    if (!user) return EMPTY;
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const bots: BotRow[] = user.accounts.map((a) => {
+      const today = a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey);
+      return {
+        accountId: a.id,
+        botId: a.bot?.id ?? null,
+        nickname: a.nickname,
+        broker: a.broker,
+        mode: a.mode,
+        status: (a.bot?.status ?? "NONE") as BotRow["status"],
+        strategyName: a.bot?.strategy?.name ?? null,
+        balance: Number(a.balance),
+        todayPnl: today ? Number(today.netPnl) : 0,
+        spark: [...a.summaries].reverse().map((s) => Number(s.endBalance)),
+        lastHeartbeat: a.bot?.lastHeartbeat?.toISOString() ?? null,
+      };
+    });
+    return { bots, plan: user.plan as Plan, error: false };
+  } catch {
+    return { ...EMPTY, error: true };
+  }
+}

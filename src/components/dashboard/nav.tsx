@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   SquaresFour,
+  Robot,
   Notebook,
   Flask,
   ChartBar,
   Wallet,
   CreditCard,
   Gear,
+  UserCircle,
   SignOut,
   type Icon,
 } from "@phosphor-icons/react";
@@ -21,6 +23,7 @@ type NavItem = { href: string; label: string; icon: Icon };
 
 const MAIN: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: SquaresFour },
+  { href: "/dashboard/bots", label: "Bots", icon: Robot },
   { href: "/dashboard/journal", label: "Journal", icon: Notebook },
   { href: "/dashboard/strategy", label: "Strategy", icon: Flask },
   { href: "/dashboard/analytics", label: "Analytics", icon: ChartBar },
@@ -29,6 +32,7 @@ const MAIN: NavItem[] = [
 const SETTINGS: NavItem[] = [
   { href: "/dashboard/accounts", label: "Accounts", icon: Wallet },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  { href: "/dashboard/profile", label: "Profile", icon: UserCircle },
   { href: "/dashboard/settings", label: "Settings", icon: Gear },
 ];
 
