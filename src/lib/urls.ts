@@ -46,3 +46,8 @@ export function dashboardUrl(path = "/"): string {
   if (p === "/") return "/dashboard";
   return p.startsWith("/dashboard") ? p : `/dashboard${p}`;
 }
+
+/** First-run onboarding (lives at /onboarding, served on the dashboard host). */
+export function onboardingUrl(): string {
+  return useSubdomains ? `https://dashboard.${ROOT}/onboarding` : "/onboarding";
+}
