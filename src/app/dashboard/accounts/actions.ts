@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { PLANS, type Plan } from "@/lib/plans";
 import { getOrCreateUser } from "@/lib/user";
 import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
+import { encrypt } from "@/lib/crypto";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
 
 export async function connectAccount({
@@ -79,6 +80,21 @@ export async function connectAccount({
       });
     }
 
+    // Live credentials are stored encrypted at rest (never returned to the
+    // client). Paper accounts carry no connection, so onboarding never needs the
+    // encryption key.
+    const connection =
+      broker !== "PAPER" && apiKey && apiSecret
+        ? {
+            create: {
+              provider: broker,
+              encrypted: encrypt(JSON.stringify({ apiKey, apiSecret })),
+              status: "CONNECTED",
+              lastVerifiedAt: new Date(),
+            },
+          }
+        : undefined;
+
     await prisma.account.create({
       data: {
         userId: user.id,
@@ -94,6 +110,7 @@ export async function connectAccount({
             status: "STOPPED",
           },
         },
+        connection,
       },
     });
 
