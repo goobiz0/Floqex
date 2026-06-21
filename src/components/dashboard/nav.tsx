@@ -10,7 +10,6 @@ import {
   Wallet,
   CreditCard,
   Gear,
-  Gear,
   SignOut,
   type Icon,
 } from "@phosphor-icons/react";

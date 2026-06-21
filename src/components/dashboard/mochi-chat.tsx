@@ -22,10 +22,10 @@ export function MochiChat() {
 
   // Premium spring physics for animations
   const spring = {
-    type: "spring",
-    damping: 25,
-    stiffness: 300,
-    mass: 0.8,
+    type: "spring" as const,
+    damping: 20,
+    stiffness: 200,
+    mass: 0.5,
   };
 
   return (

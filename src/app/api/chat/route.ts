@@ -41,12 +41,13 @@ Accounts Connected: ${user.accounts.length}
 Active Strategy Parameters: ${user.strategies[0] ? JSON.stringify(user.strategies[0].params) : 'None'}
 `;
 
-  const result = streamText({
+  const result = await streamText({
     model: openai('gpt-4o'),
-    system: `You are Mochi, a playful, friendly, yet razor-sharp trading AI assistant built directly into Floqex. 
-You analyze trades, explain market dynamics, and suggest strategy parameter changes. 
-Keep your responses short, punchy, and conversational. 
-If the user asks for something outside of trading or platform help, gently steer them back.
+    system: `You are Mochi, an incredibly friendly, supportive, and cheerful AI trading copilot built directly into Floqex!
+Your goal is to make trading approachable, fun, and completely stress-free for the user. 
+Always be extremely helpful and never be frustrating. If a user wants to do something, help them achieve it seamlessly. 
+Use a warm, encouraging tone, and don't be afraid to use a few playful emojis! ✨
+Even when discussing risk or potential losses, be constructive and reassuring. 
 Context about the user:
 ${contextStr}
 `,
@@ -55,12 +56,14 @@ ${contextStr}
       updateRiskParams: tool({
         description: 'Update the user\'s active strategy parameters (e.g. risk percent, max loss, target R).',
         parameters: z.object({
-          riskPct: z.number().optional().describe('Risk percentage per trade (e.g., 0.5 for 0.5%).'),
-          maxLoss: z.number().optional().describe('Max total loss per day in R (e.g., 3 for 3R).'),
-          targetR: z.number().optional().describe('Target reward multiple (e.g., 2 for 2R).'),
+          riskPct: z.number().optional(),
+          maxLoss: z.number().optional(),
+          targetR: z.number().optional(),
         }),
-        execute: async ({ riskPct, maxLoss, targetR }) => {
-          if (!user.strategies[0]) return { success: false, message: 'No active strategy found.' };
+        // @ts-ignore - AI SDK type mismatch with inferred tool execute
+        execute: async (args) => {
+          const { riskPct, maxLoss, targetR } = args;
+          if (!user.strategies[0]) return { success: false, message: 'No active strategy found.', updatedParams: null };
           
           const currentParams = user.strategies[0].params as any;
           const newParams = { ...currentParams };
