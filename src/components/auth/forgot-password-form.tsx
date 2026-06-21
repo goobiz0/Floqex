@@ -87,7 +87,7 @@ export function ForgotPasswordForm() {
         </p>
         <div className="space-y-1.5">
           <Label htmlFor="reset-code">Verification code</Label>
-          <OtpInput value={code} onChange={setCode} disabled={submitting} />
+          <OtpInput id="reset-code" value={code} onChange={setCode} disabled={submitting} />
         </div>
         <Field id="newPassword" label="New password" hint="At least 8 characters.">
           <Input

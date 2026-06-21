@@ -8,11 +8,14 @@ export function OtpInput({
   onChange,
   length = 6,
   disabled,
+  id,
 }: {
   value: string;
   onChange: (value: string) => void;
   length?: number;
   disabled?: boolean;
+  /** Applied to the first cell so an external <label htmlFor> can target it. */
+  id?: string;
 }) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const chars = Array.from({ length }, (_, i) => value[i] ?? "");
@@ -47,6 +50,8 @@ export function OtpInput({
       {chars.map((char, index) => (
         <input
           key={index}
+          id={index === 0 ? id : undefined}
+          aria-label={`Verification code digit ${index + 1} of ${length}`}
           ref={(el) => {
             refs.current[index] = el;
           }}

@@ -44,7 +44,8 @@ export function SignInForm() {
   }
 
   async function onOAuth(strategy: OAuthStrategy) {
-    if (!signIn) return;
+    if (!signIn || submitting) return;
+    setSubmitting(true);
     setError(null);
     try {
       const { error: ssoError } = await signIn.sso({
@@ -55,6 +56,8 @@ export function SignInForm() {
       if (ssoError) setError(clerkErrorMessage(ssoError));
     } catch (err) {
       setError(clerkErrorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 

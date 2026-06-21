@@ -61,7 +61,9 @@ export default clerkMiddleware(
         rewritten.pathname = "/sign-in";
         return NextResponse.rewrite(rewritten);
       }
-      const isAuthPath = AUTH_PREFIXES.some((p) => pathname.startsWith(p));
+      const isAuthPath = AUTH_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+      );
       if (!isAuthPath && !pathname.startsWith("/api")) {
         const redirect = url.clone();
         redirect.pathname = "/sign-in";

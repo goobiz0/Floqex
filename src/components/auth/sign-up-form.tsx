@@ -79,7 +79,8 @@ export function SignUpForm() {
   }
 
   async function onOAuth(strategy: OAuthStrategy) {
-    if (!signUp) return;
+    if (!signUp || submitting) return;
+    setSubmitting(true);
     setError(null);
     try {
       const { error: ssoError } = await signUp.sso({
@@ -90,6 +91,8 @@ export function SignUpForm() {
       if (ssoError) setError(clerkErrorMessage(ssoError));
     } catch (err) {
       setError(clerkErrorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
