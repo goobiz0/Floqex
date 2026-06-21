@@ -99,7 +99,7 @@ export default async function DashboardPage() {
       }
     : null;
 
-  const mockEntries = bot?.status === "RUNNING" ? [
+  const mockEntries = data.bot?.status === "RUNNING" ? [
     { t: "09:30:00", text: "Session open. Scanning NY open volatility...", tone: "warn" as const },
     { t: "09:31:12", text: "Detected volume spike on ES futures. Analysing ORB range." },
     { t: "09:35:05", text: "5-minute ORB range established at 5120.50 - 5132.25." },

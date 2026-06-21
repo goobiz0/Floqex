@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { UserButton } from "@clerk/nextjs";
 import { Card, CardTitle } from "@/components/ui/card";
 import { AccountsView } from "@/components/dashboard/accounts-view";
 import { auth } from "@clerk/nextjs/server";
@@ -31,14 +30,17 @@ export default async function AccountsPage() {
 
       <Card className="p-5">
         <CardTitle>Profile</CardTitle>
-        <div className="mt-4 flex items-center gap-3">
-          <UserButton appearance={{ elements: { userButtonAvatarBox: "h-10 w-10" } }} />
-          <div>
-            <p className="text-sm font-medium text-fg">Your Clerk profile</p>
-            <p className="text-xs text-fg-subtle">
-              Manage your name, email, and security from the avatar menu.
-            </p>
-          </div>
+        <div className="mt-4 flex flex-col items-start gap-2">
+          <p className="text-sm font-medium text-fg">Your personal details</p>
+          <p className="text-xs text-fg-subtle mb-2">
+            Manage your name, email, and security preferences from the settings page.
+          </p>
+          <a
+            href="/dashboard/settings"
+            className="inline-flex h-8 items-center justify-center rounded-[var(--radius-control)] border border-line bg-surface px-3 text-xs font-medium text-fg hover:bg-surface/80 hover:text-fg"
+          >
+            Manage profile
+          </a>
         </div>
       </Card>
     </div>

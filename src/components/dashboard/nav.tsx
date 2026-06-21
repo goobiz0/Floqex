@@ -10,9 +10,11 @@ import {
   Wallet,
   CreditCard,
   Gear,
+  Gear,
+  SignOut,
   type Icon,
 } from "@phosphor-icons/react";
-import { UserButton } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { Wordmark } from "@/components/brand/wordmark";
 import { cn } from "@/lib/utils";
 
@@ -95,16 +97,45 @@ export function Sidebar() {
           ))}
         </div>
       </nav>
-      <div className="flex items-center gap-3 border-t border-line p-3">
-        <UserButton
-          appearance={{ elements: { userButtonAvatarBox: "h-8 w-8" } }}
-        />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-fg">Your account</p>
-          <p className="truncate text-xs text-fg-subtle">Paper trading</p>
+      <UserProfileBlock />
+    </aside>
+  );
+}
+
+function UserProfileBlock() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+
+  if (!user) return null;
+
+  const name = user.firstName && user.lastName 
+    ? `${user.firstName} ${user.lastName}`
+    : user.firstName || user.primaryEmailAddress?.emailAddress || "User";
+
+  return (
+    <div className="border-t border-line p-3">
+      <div className="flex items-center gap-3 mb-3">
+        {user.imageUrl ? (
+          <img src={user.imageUrl} alt={name} className="h-8 w-8 rounded-[var(--radius-control)] object-cover" />
+        ) : (
+          <div className="h-8 w-8 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center text-accent font-medium text-xs">
+            {name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-fg">{name}</p>
+          <p className="truncate text-xs text-fg-subtle">{user.primaryEmailAddress?.emailAddress}</p>
         </div>
       </div>
-    </aside>
+      <button
+        type="button"
+        onClick={() => signOut()}
+        className="w-full flex items-center justify-center gap-2 rounded-[var(--radius-control)] py-1.5 text-xs font-medium text-fg-muted hover:bg-surface hover:text-fg transition-colors"
+      >
+        <SignOut size={14} />
+        Sign out
+      </button>
+    </div>
   );
 }
 

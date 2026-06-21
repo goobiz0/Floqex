@@ -5,6 +5,7 @@ import { DownloadSimple } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useUser } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
@@ -59,6 +60,8 @@ export function SettingsView({ trades }: { trades: TradeRow[] }) {
 
   return (
     <div className="max-w-2xl space-y-4">
+      <ProfileSettings />
+
       <Card className="p-5">
         <CardTitle>Notification channels</CardTitle>
         <div className="mt-4 divide-y divide-line">
@@ -127,6 +130,91 @@ export function SettingsView({ trades }: { trades: TradeRow[] }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+function ProfileSettings() {
+  const { user, isLoaded } = useUser();
+  const [firstName, setFirstName] = useState(user?.firstName || "");
+  const [lastName, setLastName] = useState(user?.lastName || "");
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  if (isLoaded && user && firstName === "" && lastName === "" && (user.firstName || user.lastName)) {
+    setFirstName(user.firstName || "");
+    setLastName(user.lastName || "");
+  }
+
+  async function handleSave() {
+    if (!user) return;
+    setSaving(true);
+    setSuccess(false);
+    try {
+      await user.update({ firstName, lastName });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      alert("Failed to update profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden border border-line bg-elevated shadow-sm">
+      <div className="border-b border-line bg-surface/30 px-6 py-5">
+        <h2 className="text-base font-semibold text-fg">Personal details</h2>
+        <p className="mt-1 text-sm text-fg-subtle">Update your name and profile settings.</p>
+      </div>
+      <div className="p-6 space-y-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-[13px] font-medium text-fg">First name</label>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-fg shadow-sm transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/20"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-[13px] font-medium text-fg">Last name</label>
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-fg shadow-sm transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/20"
+            />
+          </div>
+        </div>
+        <div className="max-w-md">
+          <label className="mb-2 block text-[13px] font-medium text-fg">Email address</label>
+          <div className="flex w-full items-center rounded-xl border border-line/50 bg-surface/30 px-4 py-2.5 shadow-inner">
+            <span className="text-sm text-fg-muted cursor-not-allowed">
+              {user?.primaryEmailAddress?.emailAddress || "Loading..."}
+            </span>
+          </div>
+          <p className="mt-2 text-[12px] text-fg-subtle">To change your email address, please contact support.</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t border-line bg-surface/30 px-6 py-4">
+        <span className="text-[13px] text-fg-subtle">
+          Please use your real name to ensure compliance.
+        </span>
+        <div className="flex items-center gap-4">
+          {success && (
+            <span className="text-[13px] font-medium text-positive animate-in fade-in slide-in-from-right-2">
+              Saved successfully
+            </span>
+          )}
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || !isLoaded || (firstName === user?.firstName && lastName === user?.lastName)}
+            className="rounded-xl px-5 transition-transform active:scale-95"
+          >
+            {saving ? "Saving..." : "Save changes"}
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 
