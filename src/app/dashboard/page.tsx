@@ -12,6 +12,7 @@ import { getOverviewData } from "@/lib/queries";
 import { summaryMetrics, equitySeries, maxDrawdown } from "@/lib/metrics";
 import { cn, formatUSD } from "@/lib/utils";
 import { onboardingUrl } from "@/lib/urls";
+import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -33,6 +34,8 @@ function fmtWhen(iso: string) {
 
 export default async function DashboardPage() {
   const data = await getOverviewData();
+
+  if (data.error) return <DashboardError />;
 
   // No account yet — a brand-new user sees a real, composed empty state, never fake numbers.
   if (!data.account) {

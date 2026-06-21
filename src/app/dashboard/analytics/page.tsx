@@ -12,13 +12,14 @@ import {
   rollingWinRate,
 } from "@/lib/metrics";
 import { formatUSD } from "@/lib/utils";
+import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Analytics" };
 
 const usd0 = (n: number) => formatUSD(n).replace(".00", "");
 
 export default async function AnalyticsPage() {
-  const { hasAccount, trades } = await getTradeData();
+  const { hasAccount, trades, error } = await getTradeData();
   const m = summaryMetrics(trades);
 
   const header = (
@@ -29,6 +30,15 @@ export default async function AnalyticsPage() {
       </p>
     </div>
   );
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        {header}
+        <DashboardError />
+      </div>
+    );
+  }
 
   if (!m.count) {
     return (

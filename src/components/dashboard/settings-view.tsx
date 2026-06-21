@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { TradeRow } from "@/lib/metrics";
 
+/** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
+function csvCell(value: unknown): string {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
 function exportCsv(trades: TradeRow[]) {
   const header = [
     "id",
@@ -32,9 +37,11 @@ function exportCsv(trades: TradeRow[]) {
       t.exitPrice ?? "",
       t.rMultiple ?? "",
       t.netPnl ?? "",
-    ].join(","),
+    ]
+      .map(csvCell)
+      .join(","),
   );
-  const csv = [header.join(","), ...rows].join("\n");
+  const csv = [header.map(csvCell).join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
