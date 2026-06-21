@@ -128,6 +128,24 @@ export async function toggleBotStatus(accountId: string) {
 
     const newStatus: BotStatus = account.bot.status === "RUNNING" ? "STOPPED" : "RUNNING";
 
+    // Enforce the plan's bot limit server-side: a downgraded user can always
+    // stop a bot, but cannot start one beyond their allowance (the oldest N
+    // accounts), regardless of what the UI shows.
+    if (newStatus === "RUNNING") {
+      const limit = PLANS[user.plan as Plan].accountLimit;
+      if (Number.isFinite(limit)) {
+        const allowed = await prisma.account.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+          take: limit,
+        });
+        if (!allowed.some((a) => a.id === account.id)) {
+          return { ok: false, error: "Plan limit reached. Upgrade to start this bot." };
+        }
+      }
+    }
+
     await prisma.bot.update({
       where: { id: account.bot.id },
       data: { status: newStatus },

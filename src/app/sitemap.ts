@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-const base = new URL(root?.startsWith("http") ? root : `https://${root ?? "floqex.com"}`).origin;
+const base = new URL(root?.startsWith("http") ? root : `https://${root || "floqex.com"}`).origin;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes: { path: string; priority: number; freq: "weekly" | "monthly" }[] = [
