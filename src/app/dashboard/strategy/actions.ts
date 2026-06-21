@@ -6,8 +6,9 @@ import { prisma } from "@/lib/db";
 import {
   parseStrategyParams,
   coerceStrategyParams,
+  applyRawParam,
   PARAM_LABELS,
-  formatParamValue,
+  rawParamValue,
   type StrategyParams,
 } from "@/lib/strategy-schema";
 
@@ -63,8 +64,9 @@ export async function saveStrategy(input: unknown): Promise<Result> {
               botId,
               strategyId,
               parameter: PARAM_LABELS[k],
-              oldValue: formatParamValue(k, current[k]),
-              newValue: formatParamValue(k, next[k]),
+              paramKey: k,
+              oldValue: rawParamValue(k, current[k]),
+              newValue: rawParamValue(k, next[k]),
               source: "USER",
               status: "APPLIED",
             },
@@ -77,19 +79,37 @@ export async function saveStrategy(input: unknown): Promise<Result> {
   return { ok: true };
 }
 
-/** Approve a pending bot suggestion (status -> APPLIED). The engine applies the value. */
+/**
+ * Approve a pending bot suggestion: atomically write the proposed value into
+ * Strategy.params (re-validated against the bounds, so an out-of-range proposal
+ * is rejected), bump the strategy version, and mark the row APPLIED. The change
+ * takes effect immediately rather than waiting on the engine to interpret it.
+ */
 export async function approveSuggestion(adjustmentId: string): Promise<Result> {
   const { userId: clerkId } = await auth();
   if (!clerkId) return { ok: false, error: "You are not signed in." };
-  const { botId } = await resolveStrategy(clerkId);
-  if (!botId) return { ok: false, error: "No bot found." };
+  const { botId, strategyId } = await resolveStrategy(clerkId);
+  if (!botId || !strategyId) return { ok: false, error: "No bot found." };
 
   const adj = await prisma.botAdjustment.findFirst({
     where: { id: adjustmentId, botId, status: "PENDING" },
   });
   if (!adj) return { ok: false, error: "Suggestion not found." };
 
-  await prisma.botAdjustment.update({ where: { id: adj.id }, data: { status: "APPLIED" } });
+  const strategy = await prisma.strategy.findUnique({ where: { id: strategyId } });
+  if (!strategy) return { ok: false, error: "Strategy not found." };
+
+  const current = coerceStrategyParams(strategy.params);
+  const applied = applyRawParam(current, adj.paramKey, adj.newValue);
+  if (!applied.ok) return { ok: false, error: applied.error };
+
+  await prisma.$transaction([
+    prisma.strategy.update({
+      where: { id: strategyId },
+      data: { params: applied.params as object, version: { increment: 1 } },
+    }),
+    prisma.botAdjustment.update({ where: { id: adj.id }, data: { status: "APPLIED" } }),
+  ]);
   revalidatePath("/dashboard/strategy");
   return { ok: true };
 }

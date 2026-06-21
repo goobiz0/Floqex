@@ -1,13 +1,20 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, X } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PARAM_BOUNDS, PARAM_LABELS, type Bound, type StrategyParams } from "@/lib/strategy-schema";
+import {
+  PARAM_BOUNDS,
+  PARAM_LABELS,
+  formatParamValue,
+  displayParamValue,
+  type Bound,
+  type StrategyParams,
+} from "@/lib/strategy-schema";
 import type { AdjustmentRow } from "@/lib/queries";
 import {
   saveStrategy,
@@ -33,8 +40,8 @@ type LogEntry = {
 const toLogEntry = (a: AdjustmentRow): LogEntry => ({
   id: a.id,
   param: a.parameter,
-  old: a.oldValue,
-  next: a.newValue,
+  old: displayParamValue(a.paramKey, a.oldValue),
+  next: displayParamValue(a.paramKey, a.newValue),
   source: a.source,
   reason: a.reasoning,
   time: fmtDate(a.createdAt),
@@ -84,8 +91,8 @@ export function StrategyLab({
         .map((k) => ({
           id: `local-${k}-${now}`,
           param: PARAM_LABELS[k],
-          old: String(prev[k]),
-          next: String(snapshot[k]),
+          old: formatParamValue(k, prev[k]),
+          next: formatParamValue(k, snapshot[k]),
           source: "USER" as const,
           time: fmtDate(now),
         }));
@@ -198,9 +205,14 @@ export function StrategyLab({
                 >
                   <p className="text-sm font-medium text-fg">Pending suggestion</p>
                   <p className="mt-1 font-mono text-xs">
-                    {s.parameter} <span className="text-negative line-through">{s.oldValue}</span>
+                    {s.parameter}{" "}
+                    <span className="text-negative line-through">
+                      {displayParamValue(s.paramKey, s.oldValue)}
+                    </span>
                     <span className="text-fg-subtle"> → </span>
-                    <span className="text-positive">{s.newValue}</span>
+                    <span className="text-positive">
+                      {displayParamValue(s.paramKey, s.newValue)}
+                    </span>
                   </p>
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                     {[
@@ -324,11 +336,15 @@ function NumberField({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const id = useId();
   return (
     <div>
-      <label className="text-sm font-medium text-fg">{bound.label}</label>
+      <label htmlFor={id} className="text-sm font-medium text-fg">
+        {bound.label}
+      </label>
       <div className="mt-1.5 flex items-center gap-2">
         <input
+          id={id}
           type="number"
           value={value}
           min={bound.min}

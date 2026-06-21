@@ -182,3 +182,49 @@ export function formatParamValue(key: keyof StrategyParams, value: number | bool
   const suffix = key in PARAM_BOUNDS ? (PARAM_BOUNDS[key as NumericParam].suffix ?? "") : "";
   return `${value}${suffix}`;
 }
+
+const BOOLEAN_KEYS = new Set<keyof StrategyParams>(["trendFilter", "reEntry"]);
+
+/** Serialize a param value to a raw, round-trippable string for storage. */
+export function rawParamValue(key: keyof StrategyParams, value: number | boolean): string {
+  return typeof value === "boolean" ? (value ? "true" : "false") : String(value);
+}
+
+/** Parse a stored raw param value back into its typed form. */
+export function parseRawParamValue(key: keyof StrategyParams, raw: string): number | boolean {
+  return BOOLEAN_KEYS.has(key) ? raw === "true" : Number(raw);
+}
+
+/**
+ * Apply a single raw parameter change onto a params object, validating the
+ * result against the full schema (bounds enforced). Returns the clean params or
+ * an error — used when approving a bot suggestion so the value actually takes
+ * effect, within the same safety envelope as a manual save.
+ */
+export function applyRawParam(
+  current: StrategyParams,
+  key: string | null,
+  raw: string,
+): { ok: true; params: StrategyParams } | { ok: false; error: string } {
+  if (!key || !(key in PARAM_LABELS)) {
+    return { ok: false, error: "This suggestion can't be applied automatically." };
+  }
+  const k = key as keyof StrategyParams;
+  return parseStrategyParams({ ...current, [k]: parseRawParamValue(k, raw) });
+}
+
+/**
+ * Format a raw stored value for display. Tolerant of legacy rows that may have
+ * stored a pre-formatted string or an unknown key (returns the raw text as-is).
+ */
+export function displayParamValue(key: string | null, raw: string): string {
+  if (!key || !(key in PARAM_LABELS)) return raw;
+  const k = key as keyof StrategyParams;
+  if (BOOLEAN_KEYS.has(k)) {
+    if (raw === "true") return "On";
+    if (raw === "false") return "Off";
+    return raw;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? formatParamValue(k, n) : raw;
+}

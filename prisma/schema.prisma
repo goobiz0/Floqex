@@ -14,6 +14,12 @@ datasource db {
 
 // ─────────────────────────── Identity ───────────────────────────
 
+enum Plan {
+  FREE
+  TRADER
+  PRO
+}
+
 model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
@@ -21,6 +27,15 @@ model User {
   firstName String?
   lastName  String?
   imageUrl  String?
+
+  // Billing (Stripe). `plan` is the entitlement the app gates on; the rest
+  // mirror the Stripe subscription and are kept in sync by the webhook.
+  plan                   Plan      @default(FREE)
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?
+  stripeSubStatus        String?
+  stripeCurrentPeriodEnd DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -195,7 +210,11 @@ model BotAdjustment {
   id           String           @id @default(cuid())
   botId        String
   strategyId   String
+  // Human-readable parameter label (for display) and the canonical schema key
+  // (for application). paramKey lets approveSuggestion apply the change to
+  // Strategy.params; oldValue/newValue store the raw values, formatted at render.
   parameter    String
+  paramKey     String?
   oldValue     String
   newValue     String
   source       AdjustmentSource @default(BOT)
