@@ -12,6 +12,7 @@ import {
   PARAM_LABELS,
   formatParamValue,
   displayParamValue,
+  parseRawParamValue,
   type Bound,
   type StrategyParams,
 } from "@/lib/strategy-schema";
@@ -104,11 +105,20 @@ export function StrategyLab({
 
   function decide(id: string, approve: boolean) {
     setError(null);
+    const suggestion = suggestions.find((s) => s.id === id);
     startTransition(async () => {
       const res = approve ? await approveSuggestion(id) : await rejectSuggestion(id);
       if (!res.ok) {
         setError(res.error ?? "Could not update the suggestion.");
         return;
+      }
+      // An approved suggestion is now part of the saved params server-side. Mirror
+      // it into local state so a later save doesn't overwrite it with a stale value.
+      if (approve && suggestion?.paramKey && suggestion.paramKey in PARAM_LABELS) {
+        const k = suggestion.paramKey as keyof StrategyParams;
+        const v = parseRawParamValue(k, suggestion.newValue);
+        setParams((p) => ({ ...p, [k]: v }) as StrategyParams);
+        setSaved((p) => ({ ...p, [k]: v }) as StrategyParams);
       }
       setSuggestions((s) => s.filter((x) => x.id !== id));
     });

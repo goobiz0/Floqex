@@ -21,11 +21,15 @@ export function BillingPlans({
   function go(action: () => Promise<{ ok: boolean; url?: string; error?: string }>) {
     setError(null);
     startTransition(async () => {
-      const res = await action();
-      if (res.ok && res.url) {
-        window.location.assign(res.url);
-      } else {
-        setError(res.error ?? "Something went wrong. Please try again.");
+      try {
+        const res = await action();
+        if (res.ok && res.url) {
+          window.location.assign(res.url);
+        } else {
+          setError(res.error ?? "Something went wrong. Please try again.");
+        }
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
     });
   }

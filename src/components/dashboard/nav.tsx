@@ -141,7 +141,10 @@ function UserProfileBlock() {
 /** Mobile bottom nav, below lg */
 export function BottomNav() {
   const isActive = useIsActive();
-  const items = [...MAIN, SETTINGS[1]];
+  // Pick the mobile settings entry by route, not array index, so reordering
+  // SETTINGS (e.g. adding Billing) can't silently swap which item appears.
+  const settingsItem = SETTINGS.find((i) => i.href === "/dashboard/settings");
+  const items = settingsItem ? [...MAIN, settingsItem] : MAIN;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-line bg-elevated/95 backdrop-blur lg:hidden">
       {items.map((item) => {

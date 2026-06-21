@@ -14,6 +14,7 @@ export default async function BillingPage() {
   const activeStatus = data.status === "active" || data.status === "trialing";
   const renews = data.currentPeriodEnd
     ? new Date(data.currentPeriodEnd).toLocaleDateString("en-US", {
+        timeZone: "UTC",
         month: "short",
         day: "numeric",
         year: "numeric",

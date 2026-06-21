@@ -8,7 +8,11 @@ export const runtime = "nodejs";
 
 /** Mirror the Stripe subscription state onto the matching user row. */
 async function syncSubscription(customerId: string, sub: Stripe.Subscription) {
-  const priceId = sub.items.data[0]?.price?.id;
+  // A subscription can hold multiple items (e.g. add-ons); pick the one whose
+  // price maps to a known paid tier rather than assuming it is the first item.
+  const priceId =
+    sub.items.data.map((i) => i.price?.id).find((id) => id && planFromPriceId(id) !== "FREE") ??
+    sub.items.data[0]?.price?.id;
   const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
   const plan: Plan = active ? planFromPriceId(priceId) : "FREE";
 
