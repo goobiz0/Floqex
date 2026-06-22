@@ -26,19 +26,28 @@ function hostRole(host: string): "auth" | "product" | "" {
   return "";
 }
 
+function getRootDomain(host: string): string {
+  const envRoot = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
+  if (envRoot) return envRoot;
+  const h = host.split(":")[0].toLowerCase();
+  if (h === "localhost" || h === "127.0.0.1") return "";
+  const parts = h.split(".");
+  if (parts.length >= 2) return parts.slice(-2).join(".");
+  return "";
+}
+
 // Trusted origins for Clerk's authorized-parties (azp) check. Hardens against
-// CSRF / cookie-leak from a compromised sibling subdomain. Only set in prod
-// where the root domain is known; pair with "Allowed Subdomains" in Clerk.
-const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
-const authorizedParties = root
-  ? [
-      `https://${root}`,
-      `https://www.${root}`,
-      `https://users.${root}`,
-      `https://accounts.${root}`,
-      `https://dashboard.${root}`,
-    ]
-  : undefined;
+// CSRF / cookie-leak from a compromised sibling subdomain.
+function getAuthorizedParties(root: string) {
+  if (!root) return undefined;
+  return [
+    `https://${root}`,
+    `https://www.${root}`,
+    `https://users.${root}`,
+    `https://accounts.${root}`,
+    `https://dashboard.${root}`,
+  ];
+}
 
 export default clerkMiddleware(
   async (auth, req) => {
@@ -110,12 +119,13 @@ export default clerkMiddleware(
   (req) => {
     const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
     const role = hostRole(host);
-    const useSubdomains = root && host.endsWith(root);
+    const root = getRootDomain(host);
+    const useSubdomains = root.length > 0 && host.endsWith(root) && host !== root && !host.startsWith("www.");
 
     return {
       signInUrl: root ? `https://users.${root}/sign-in` : "/sign-in",
       signUpUrl: root ? `https://users.${root}/sign-up` : "/sign-up",
-      authorizedParties: authorizedParties ? authorizedParties : undefined,
+      authorizedParties: getAuthorizedParties(root),
       isSatellite: !!useSubdomains && role !== "auth",
       domain: useSubdomains ? root : undefined,
     };

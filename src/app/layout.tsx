@@ -50,8 +50,12 @@ export default async function RootLayout({
 }>) {
   const reqHeaders = await headers();
   const host = (reqHeaders.get("host") ?? "").split(":")[0].toLowerCase();
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
-  const useSubdomains = root && host.endsWith(root);
+  let root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || "";
+  if (!root && host !== "localhost" && host !== "127.0.0.1") {
+    const parts = host.split(".");
+    if (parts.length >= 2) root = parts.slice(-2).join(".");
+  }
+  const useSubdomains = root.length > 0 && host.endsWith(root) && host !== root && !host.startsWith("www.");
   const isAuth = host.startsWith("users.");
   const isSatellite = !!useSubdomains && !isAuth;
 

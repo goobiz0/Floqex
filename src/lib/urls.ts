@@ -13,24 +13,36 @@
  *   dashboardUrl("/journal") -> /dashboard/journal
  */
 
-const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || "";
-const useSubdomains = ROOT.length > 0;
+function getRoot(): string {
+  if (process.env.NEXT_PUBLIC_ROOT_DOMAIN) return process.env.NEXT_PUBLIC_ROOT_DOMAIN.trim();
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    if (h === "localhost" || h === "127.0.0.1") return "";
+    const parts = h.split(".");
+    if (parts.length >= 2) return parts.slice(-2).join(".");
+  }
+  return "";
+}
+
+function useSubdomains(root: string): boolean {
+  return root.length > 0;
+}
 
 function withLeadingSlash(path: string): string {
   if (!path) return "/";
   return path.startsWith("/") ? path : `/${path}`;
 }
 
-/** Marketing site (apex): floqex.com */
 export function marketingUrl(path = "/"): string {
   const p = withLeadingSlash(path);
-  return useSubdomains ? `https://${ROOT}${p === "/" ? "/" : p}` : p;
+  const r = getRoot();
+  return useSubdomains(r) ? `https://${r}${p === "/" ? "/" : p}` : p;
 }
 
-/** Auth surface: users.floqex.com */
 export function authUrl(path = "/sign-in"): string {
   const p = withLeadingSlash(path);
-  return useSubdomains ? `https://users.${ROOT}${p}` : p;
+  const r = getRoot();
+  return useSubdomains(r) ? `https://users.${r}${p}` : p;
 }
 
 /**
@@ -40,14 +52,15 @@ export function authUrl(path = "/sign-in"): string {
  */
 export function dashboardUrl(path = "/"): string {
   const p = withLeadingSlash(path);
-  if (useSubdomains) {
-    return `https://accounts.${ROOT}${p === "/" ? "/" : p}`;
+  const r = getRoot();
+  if (useSubdomains(r)) {
+    return `https://accounts.${r}${p === "/" ? "/" : p}`;
   }
   if (p === "/") return "/dashboard";
   return p.startsWith("/dashboard") ? p : `/dashboard${p}`;
 }
 
-/** First-run onboarding (lives at /onboarding, served on the product host). */
 export function onboardingUrl(): string {
-  return useSubdomains ? `https://accounts.${ROOT}/onboarding` : "/onboarding";
+  const r = getRoot();
+  return useSubdomains(r) ? `https://accounts.${r}/onboarding` : "/onboarding";
 }
