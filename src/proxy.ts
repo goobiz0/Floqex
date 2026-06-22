@@ -46,79 +46,6 @@ export default clerkMiddleware(
     const url = req.nextUrl;
     const { pathname } = url;
 
-    // Proxy Clerk's frontend API (FAPI) requests natively to avoid 404s and CORS issues.
-    if (pathname.startsWith("/v1/client") || pathname.startsWith("/npm")) {
-      const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
-      let fapiUrl = "";
-      if (pk.startsWith("pk_test_")) {
-        const decoded = atob(pk.split("_")[2]);
-        const fapiDomain = decoded.slice(0, -1); // remove trailing $
-        fapiUrl = `https://${fapiDomain}${pathname}${url.search}`;
-      } else if (pk.startsWith("pk_live_") && root) {
-        fapiUrl = `https://clerk.${root}${pathname}${url.search}`;
-      }
-
-      if (fapiUrl) {
-        const origin = req.headers.get("origin") || "*";
-        
-        // Handle CORS preflight explicitly
-        if (req.method === "OPTIONS") {
-          return new NextResponse(null, {
-            status: 204,
-            headers: {
-              "Access-Control-Allow-Origin": origin,
-              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, Authorization, x-clerk-cljs-version, x-clerk-js-version",
-              "Access-Control-Allow-Credentials": "true",
-            },
-          });
-        }
-
-        try {
-          // Clone headers to pass upstream, but remove host
-          const headers = new Headers(req.headers);
-          headers.delete("host");
-          
-          const requestInit: RequestInit & { duplex?: string } = {
-            method: req.method,
-            headers,
-            redirect: "follow", // Follow redirects under the hood
-          };
-          
-          if (req.method !== "GET" && req.method !== "HEAD") {
-            // Only pass body if present, to avoid fetch throwing errors
-            if (req.body) {
-              requestInit.body = req.body as any;
-              requestInit.duplex = "half";
-            }
-          }
-          
-          const res = await fetch(fapiUrl, requestInit);
-          
-          // Clean up headers before returning to prevent stream corruption
-          const responseHeaders = new Headers(res.headers);
-          responseHeaders.delete("content-encoding");
-          responseHeaders.delete("content-length");
-          
-          // Create response from upstream
-          const proxiedRes = new NextResponse(res.body, {
-            status: res.status,
-            statusText: res.statusText,
-            headers: responseHeaders,
-          });
-          
-          // Force CORS headers on the proxy response
-          proxiedRes.headers.set("Access-Control-Allow-Origin", origin);
-          proxiedRes.headers.set("Access-Control-Allow-Credentials", "true");
-          
-          return proxiedRes;
-        } catch (error) {
-          // Fallback to Next.js rewrite if fetch fails
-          return NextResponse.rewrite(fapiUrl);
-        }
-      }
-    }
-
     const role = hostRole(host);
 
     // ── accounts.floqex.com (and dashboard.* alias) — the product, protected ──
@@ -185,7 +112,6 @@ export default clerkMiddleware(
   },
   {
     authorizedParties: authorizedParties ? authorizedParties : undefined,
-    proxyUrl: root ? `https://www.${root}` : undefined,
   }
 );
 
