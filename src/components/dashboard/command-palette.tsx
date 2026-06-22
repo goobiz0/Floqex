@@ -105,7 +105,7 @@ export function CommandPalette() {
         type="button"
         onClick={openPalette}
         aria-label="Search and navigate"
-        className="inline-flex h-8 items-center gap-2 rounded-[var(--radius-pill)] border border-line bg-surface pl-2.5 pr-2 text-fg-subtle transition-colors hover:border-line-strong hover:text-fg sm:w-48 sm:justify-start"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-pill)] border border-line bg-surface text-fg-subtle transition-colors hover:border-line-strong hover:text-fg sm:w-full sm:max-w-md sm:min-w-[18rem] sm:justify-start sm:gap-2 sm:pl-3 sm:pr-2"
       >
         <MagnifyingGlass size={15} />
         <span className="hidden flex-1 text-left text-xs sm:inline">Search</span>

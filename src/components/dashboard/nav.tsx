@@ -70,14 +70,9 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
         <Icon size={18} weight={active ? "fill" : "regular"} />
       </span>
       <span className="flex-1 truncate">{item.label}</span>
-      <CaretRight
-        size={13}
-        weight="bold"
-        className={cn(
-          "shrink-0 transition-colors",
-          active ? "text-fg-subtle" : "text-fg-faint group-hover:text-fg-subtle",
-        )}
-      />
+      {active ? (
+        <CaretRight size={13} weight="bold" className="shrink-0 text-fg-subtle" />
+      ) : null}
     </Link>
   );
 }
