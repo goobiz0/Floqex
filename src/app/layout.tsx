@@ -67,7 +67,7 @@ export default async function RootLayout({
       <body className="min-h-[100dvh] bg-base text-fg">
         <ClerkProvider
           isSatellite={isSatellite}
-          domain={useSubdomains ? root : undefined}
+          domain={useSubdomains ? `https://users.${root}` : undefined}
           signInUrl={root ? `https://users.${root}/sign-in` : "/sign-in"}
           signUpUrl={root ? `https://users.${root}/sign-up` : "/sign-up"}
         >
