@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { marketingUrl, dashboardUrl } from "@/lib/urls";
+import { AnimatedOrbs } from "@/components/auth/animated-orbs";
 
 const points = [
   { icon: ShieldCheck, text: "Hard risk limits the bot can never widen" },
@@ -19,7 +20,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
 
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative">
-      <div className="vibrant-mesh-blue absolute inset-0 opacity-10" />
+      <AnimatedOrbs />
       
       {/* Brand panel */}
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-line/50 bg-white/40 backdrop-blur-3xl p-10 lg:flex">
@@ -28,9 +29,18 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
           className="grid-faint pointer-events-none absolute inset-0 opacity-20 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
         />
 
-        <a href={marketingUrl()} className="relative w-fit">
-          <Wordmark />
-        </a>
+        <div className="flex flex-col gap-8 relative z-10">
+          <a
+            href={marketingUrl()}
+            className="flex w-fit items-center gap-1.5 text-sm font-medium text-fg-subtle transition-colors hover:text-fg"
+          >
+            <ArrowLeft size={16} />
+            Back to site
+          </a>
+          <a href={marketingUrl()} className="relative w-fit">
+            <Wordmark />
+          </a>
+        </div>
 
         <div className="relative max-w-sm">
           <h2 className="text-balance text-4xl font-semibold leading-tight tracking-tight text-fg">
@@ -55,19 +65,19 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
 
       {/* Form panel */}
       <main className="relative flex flex-col bg-white/10 backdrop-blur-sm">
-        <div className="flex items-center justify-between p-5 lg:hidden">
+        <div className="flex items-center justify-between p-5 lg:hidden relative z-10">
           <a href={marketingUrl()}>
             <Wordmark />
           </a>
+          <a
+            href={marketingUrl()}
+            className="flex items-center gap-1.5 text-sm font-medium text-fg-subtle transition-colors hover:text-fg"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </a>
         </div>
-        <a
-          href={marketingUrl()}
-          className="absolute right-5 top-5 hidden items-center gap-1.5 text-sm font-medium text-fg-subtle transition-colors hover:text-fg lg:inline-flex"
-        >
-          <ArrowLeft size={16} />
-          Back to site
-        </a>
-        <div className="flex flex-1 items-center justify-center px-4 pb-12 pt-2 sm:px-8">
+        <div className="flex flex-1 items-center justify-center px-4 pb-12 pt-2 sm:px-8 relative z-10">
           {children}
         </div>
       </main>

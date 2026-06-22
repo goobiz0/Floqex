@@ -46,9 +46,9 @@ export default clerkMiddleware(
     const url = req.nextUrl;
     const { pathname } = url;
 
-    // Proxy Clerk's frontend API (FAPI) requests natively to avoid 404s.
-    // clerkMiddleware relies on Next.js to do the actual rewrite.
-    if (pathname.startsWith("/v1/client")) {
+    // Proxy Clerk's frontend API (FAPI) requests natively to avoid 404s and CORS issues.
+    // clerkMiddleware relies on Next.js to do the actual rewrite for both /v1/client and /npm.
+    if (pathname.startsWith("/v1/client") || pathname.startsWith("/npm")) {
       const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
       if (pk.startsWith("pk_test_")) {
         const decoded = atob(pk.split("_")[2]);
