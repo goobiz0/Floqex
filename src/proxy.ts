@@ -50,12 +50,21 @@ export default clerkMiddleware(
     // clerkMiddleware relies on Next.js to do the actual rewrite for both /v1/client and /npm.
     if (pathname.startsWith("/v1/client") || pathname.startsWith("/npm")) {
       const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+      let fapiUrl = "";
       if (pk.startsWith("pk_test_")) {
         const decoded = atob(pk.split("_")[2]);
         const fapiDomain = decoded.slice(0, -1); // remove trailing $
-        return NextResponse.rewrite(`https://${fapiDomain}${pathname}${url.search}`);
+        fapiUrl = `https://${fapiDomain}${pathname}${url.search}`;
       } else if (pk.startsWith("pk_live_") && root) {
-        return NextResponse.rewrite(`https://clerk.${root}${pathname}${url.search}`);
+        fapiUrl = `https://clerk.${root}${pathname}${url.search}`;
+      }
+
+      if (fapiUrl) {
+        const res = NextResponse.rewrite(fapiUrl);
+        res.headers.set("Access-Control-Allow-Origin", "*");
+        res.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        return res;
       }
     }
 

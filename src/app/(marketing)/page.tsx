@@ -7,6 +7,8 @@ import { getDemoPreview } from "@/lib/queries";
 import { LandingClientVisuals } from "./landing-client-visuals";
 import { HeroInteractiveBackground } from "@/components/marketing/hero-interactive-background";
 import { BentoCard } from "@/components/marketing/bento-card";
+import { HowItWorks } from "@/components/marketing/how-it-works";
+import { PricingTable } from "@/components/marketing/pricing-table";
 
 export const revalidate = 300;
 
@@ -54,6 +56,8 @@ export default async function LandingPage() {
       </section>
 
       <LogoWall />
+
+      <HowItWorks />
 
       {/* Bento Grid Features */}
       <section className="py-24 bg-surface/30">
@@ -139,6 +143,8 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+
+      <PricingTable />
 
       {/* CTA */}
       <section className="py-32 relative overflow-hidden">
