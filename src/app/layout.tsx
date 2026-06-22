@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { dark } from "@clerk/ui/themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -34,31 +33,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
-  colorScheme: "dark",
+  themeColor: "#f4f5f7",
+  colorScheme: "light",
 };
 
-/**
- * Auth UI is custom-built with Clerk headless hooks (see src/components/auth).
- * This appearance only themes Clerk-managed surfaces we still render, e.g.
- * <UserButton/>, to the Floqex dark palette (emerald accent, 8px controls).
- */
-const clerkAppearance = {
-  theme: dark,
-  variables: {
-    colorPrimary: "#10b981",
-    colorBackground: "#18181b",
-    colorInputBackground: "#27272a",
-    colorText: "#fafafa",
-    colorTextSecondary: "#a1a1aa",
-    colorInputText: "#fafafa",
-    colorDanger: "#ef4444",
-    colorSuccess: "#10b981",
-    borderRadius: "8px",
-    fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
-  },
-} as const;
-
+// Auth UI is entirely custom-built on Clerk's headless hooks (see
+// src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
+// needs no widget appearance. The product is dark-locked at the app level.
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -70,7 +51,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-[100dvh] bg-base text-fg">
-        <ClerkProvider appearance={clerkAppearance}>{children}</ClerkProvider>
+        <ClerkProvider>{children}</ClerkProvider>
       </body>
     </html>
   );

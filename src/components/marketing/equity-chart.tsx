@@ -1,48 +1,51 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { useId } from "react";
+import { useId, useMemo } from "react";
 
 /**
- * Hero equity curve. A real (illustrative) area chart drawn as SVG, with the
- * line tracing itself on mount. No hard numbers, so it reads as a value-prop
- * visual rather than a fabricated performance claim.
+ * Hero equity curve. Draws the real demo equity series when provided, otherwise
+ * a representative illustrative path. The line traces itself on mount.
  */
 
-// An upward equity path with one realistic drawdown, in a 0..600 x 0..300 box.
-const POINTS = [
-  [0, 250],
-  [48, 238],
-  [96, 244],
-  [150, 212],
-  [205, 222],
-  [255, 188],
-  [300, 196],
-  [350, 150],
-  [405, 168],
-  [455, 120],
-  [505, 96],
-  [552, 70],
-  [600, 44],
-] as const;
+// Fallback illustrative path (one realistic drawdown), in a 0..600 x 0..300 box.
+const FALLBACK: ReadonlyArray<readonly [number, number]> = [
+  [0, 250], [48, 238], [96, 244], [150, 212], [205, 222], [255, 188], [300, 196],
+  [350, 150], [405, 168], [455, 120], [505, 96], [552, 70], [600, 44],
+];
 
-const linePath = POINTS.map(
-  ([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`,
-).join(" ");
-const areaPath = `${linePath} L600,300 L0,300 Z`;
+const W = 600;
+const H = 300;
 
-export function EquityChart() {
+function toPoints(values: number[]): ReadonlyArray<readonly [number, number]> {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  return values.map((v, i) => {
+    const x = (i / (values.length - 1)) * W;
+    const y = H - 12 - ((v - min) / span) * (H - 44);
+    return [x, y] as const;
+  });
+}
+
+export function EquityChart({ values }: { values?: number[] }) {
   const reduce = useReducedMotion();
   const gradId = useId();
   const lineGradId = useId();
 
+  const { linePath, areaPath, last } = useMemo(() => {
+    const pts = values && values.length >= 2 ? toPoints(values) : FALLBACK;
+    const line = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
+    return { linePath: line, areaPath: `${line} L${W},${H} L0,${H} Z`, last: pts[pts.length - 1] };
+  }, [values]);
+
   return (
     <div className="relative w-full">
       <svg
-        viewBox="0 0 600 300"
+        viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         role="img"
-        aria-label="Illustrative account equity curve trending upward"
+        aria-label="Account equity curve trending upward"
         preserveAspectRatio="none"
       >
         <defs>
@@ -56,20 +59,10 @@ export function EquityChart() {
           </linearGradient>
         </defs>
 
-        {/* baseline gridlines */}
         {[75, 150, 225].map((y) => (
-          <line
-            key={y}
-            x1="0"
-            y1={y}
-            x2="600"
-            y2={y}
-            stroke="var(--color-line)"
-            strokeWidth="1"
-          />
+          <line key={y} x1="0" y1={y} x2={W} y2={y} stroke="var(--color-line)" strokeWidth="1" />
         ))}
 
-        {/* filled area */}
         <motion.path
           d={areaPath}
           fill={`url(#${gradId})`}
@@ -78,8 +71,6 @@ export function EquityChart() {
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.5 }}
         />
-
-        {/* drawn line */}
         <motion.path
           d={linePath}
           fill="none"
@@ -92,11 +83,9 @@ export function EquityChart() {
           viewport={{ once: true }}
           transition={{ duration: 1.4, ease: [0.23, 1, 0.32, 1] }}
         />
-
-        {/* leading marker */}
         <motion.circle
-          cx={600}
-          cy={44}
+          cx={last[0]}
+          cy={last[1]}
           r="4.5"
           fill="var(--color-profit)"
           initial={reduce ? false : { opacity: 0, scale: 0.5 }}

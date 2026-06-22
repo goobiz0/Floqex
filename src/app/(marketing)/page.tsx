@@ -19,6 +19,7 @@ import { EquityChart } from "@/components/marketing/equity-chart";
 import { LogoWall } from "@/components/marketing/logo-wall";
 import { getDemoPreview, type DemoPreview } from "@/lib/queries";
 import { formatUSD } from "@/lib/utils";
+import { authUrl } from "@/lib/urls";
 
 // Demo preview is real data from the seeded demo account; refresh it on a short
 // ISR window so the marketing page stays static-fast but never stale for long.
@@ -51,7 +52,7 @@ export default async function LandingPage() {
               narrating every decision in plain English.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button href="/sign-up" size="lg">
+              <Button href={authUrl("/sign-up")} size="lg">
                 Get started
                 <ArrowRight size={18} weight="bold" />
               </Button>
@@ -74,7 +75,7 @@ export default async function LandingPage() {
                 </span>
               </div>
               <div className="mt-4">
-                <EquityChart />
+                <EquityChart values={demo?.spark} />
               </div>
               <p className="mt-3 text-xs text-fg-faint">
                 {demo
@@ -290,7 +291,7 @@ export default async function LandingPage() {
                   </ul>
                   <div className="mt-8 pt-2">
                     <Button
-                      href="/sign-up"
+                      href={authUrl("/sign-up")}
                       variant={tier.featured ? "primary" : "secondary"}
                       className="w-full"
                     >
@@ -315,7 +316,7 @@ export default async function LandingPage() {
               Spin up a paper account in minutes and watch the bot work.
             </p>
             <div className="mt-8 flex justify-center">
-              <Button href="/sign-up" size="lg">
+              <Button href={authUrl("/sign-up")} size="lg">
                 Get started
                 <ArrowRight size={18} weight="bold" />
               </Button>

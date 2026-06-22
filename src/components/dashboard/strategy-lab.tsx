@@ -6,7 +6,9 @@ import { Check, X } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   PARAM_BOUNDS,
   PARAM_LABELS,
@@ -348,27 +350,23 @@ function NumberField({
 }) {
   const id = useId();
   return (
-    <div>
-      <label htmlFor={id} className="text-sm font-medium text-fg">
-        {bound.label}
-      </label>
-      <div className="mt-1.5 flex items-center gap-2">
-        <input
-          id={id}
-          type="number"
-          value={value}
-          min={bound.min}
-          max={bound.max}
-          step={bound.step}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            onChange(Math.min(bound.max, Math.max(bound.min, Number.isNaN(v) ? bound.min : v)));
-          }}
-          className="tnum w-28 rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm text-fg focus-visible:border-accent focus-visible:outline-none"
-        />
-        {bound.suffix && <span className="text-sm text-fg-subtle">{bound.suffix}</span>}
-      </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-fg-subtle">{bound.help}</p>
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{bound.label}</Label>
+      <Input
+        id={id}
+        type="number"
+        value={value}
+        min={bound.min}
+        max={bound.max}
+        step={bound.step}
+        trailing={bound.suffix || undefined}
+        className="tnum w-32"
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          onChange(Math.min(bound.max, Math.max(bound.min, Number.isNaN(v) ? bound.min : v)));
+        }}
+      />
+      <p className="text-xs leading-relaxed text-fg-subtle">{bound.help}</p>
     </div>
   );
 }
@@ -390,24 +388,9 @@ function ToggleField({
         <p className="text-sm font-medium text-fg">{label}</p>
         {help && <p className="mt-1 text-xs leading-relaxed text-fg-subtle">{help}</p>}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        aria-label={label}
-        onClick={() => onChange(!value)}
-        className={cn(
-          "relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)]",
-          value ? "bg-accent" : "bg-surface",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
-            value ? "left-0.5 translate-x-4" : "left-0.5 translate-x-0",
-          )}
-        />
-      </button>
+      <span className="mt-0.5">
+        <Switch checked={value} onChange={onChange} label={label} />
+      </span>
     </div>
   );
 }

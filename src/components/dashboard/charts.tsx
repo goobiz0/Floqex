@@ -21,7 +21,7 @@ export function HBars({
               <div
                 className={cn(
                   "absolute inset-y-0 rounded-[4px]",
-                  pos ? "left-0 bg-positive/80" : "left-0 bg-negative/80",
+                  pos ? "left-0 bg-profit/80" : "left-0 bg-negative/80",
                 )}
                 style={{ width: `${pct}%` }}
               />
@@ -29,7 +29,7 @@ export function HBars({
             <span
               className={cn(
                 "tnum w-20 shrink-0 text-right text-xs font-medium",
-                pos ? "text-positive" : "text-negative",
+                pos ? "text-profit" : "text-negative",
               )}
             >
               {format(d.value)}
@@ -61,7 +61,7 @@ export function VBars({
               <div
                 className={cn(
                   "w-full rounded-t-[4px]",
-                  pos ? "bg-positive/80" : "bg-negative/80",
+                  pos ? "bg-profit/80" : "bg-negative/80",
                 )}
                 style={{ height: `${Math.max(4, pct)}%` }}
               />
@@ -70,7 +70,7 @@ export function VBars({
             <span
               className={cn(
                 "tnum text-[0.7rem] font-medium",
-                pos ? "text-positive" : "text-negative",
+                pos ? "text-profit" : "text-negative",
               )}
             >
               {format(d.value)}

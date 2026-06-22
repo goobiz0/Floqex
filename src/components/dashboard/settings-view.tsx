@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
 import { updateCircuitBreaker } from "@/app/dashboard/accounts/actions";
+import {
+  resetPaperAccount,
+  deleteUserAccount,
+  updateNotificationPreferences,
+} from "@/app/dashboard/settings/actions";
+import { marketingUrl } from "@/lib/urls";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
 function csvCell(value: unknown): string {
@@ -62,27 +69,69 @@ type SettingsAccount = {
   maxDailyDrawdown: number | null;
 };
 
+type NotificationSettings = {
+  discordWebhookUrl: string;
+  notifyDiscord: boolean;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+  notifyEveryTrade: boolean;
+  dailyLossAlertPct: number;
+  drawdownAlertPct: number;
+};
+
 export function SettingsView({
   trades,
   accounts = [],
+  settings,
 }: {
   trades: TradeRow[];
   accounts?: SettingsAccount[];
+  settings: NotificationSettings;
 }) {
-  const [discord, setDiscord] = useState(true);
-  const [email, setEmail] = useState(true);
-  const [push, setPush] = useState(false);
-  const [perTrade, setPerTrade] = useState(false);
+  const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
+  const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
+  const [notifyPush, setNotifyPush] = useState(settings.notifyPush);
+  const [notifyEveryTrade, setNotifyEveryTrade] = useState(settings.notifyEveryTrade);
+  const [webhookUrl, setWebhookUrl] = useState(settings.discordWebhookUrl);
+  const [dailyLoss, setDailyLoss] = useState(String(settings.dailyLossAlertPct));
+  const [drawdown, setDrawdown] = useState(String(settings.drawdownAlertPct));
+  const [saving, startSaving] = useTransition();
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const router = useRouter();
+  const { signOut } = useClerk();
+
+  function savePrefs() {
+    setSaved(false);
+    setSaveError(null);
+    startSaving(async () => {
+      const res = await updateNotificationPreferences({
+        discordWebhookUrl: webhookUrl,
+        notifyDiscord,
+        notifyEmail,
+        notifyPush,
+        notifyEveryTrade,
+        dailyLossAlertPct: Number(dailyLoss),
+        drawdownAlertPct: Number(drawdown),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setSaveError(res.error ?? "Could not save preferences.");
+      }
+    });
+  }
 
   return (
     <div className="max-w-2xl space-y-4">
       <ProfileSettings />
 
       <Card className="p-5">
-        <CardTitle>Notification channels</CardTitle>
+        <CardTitle>Notifications</CardTitle>
         <div className="mt-4 divide-y divide-line">
-          <Channel label="Discord" desc="Decision feed and milestone alerts" checked={discord} onChange={setDiscord} />
-          {discord && (
+          <Channel label="Discord" desc="Decision feed and milestone alerts" checked={notifyDiscord} onChange={setNotifyDiscord} />
+          {notifyDiscord && (
             <div className="space-y-1.5 py-3">
               <Label htmlFor="discord-webhook">Webhook URL</Label>
               <Input
@@ -90,11 +139,33 @@ export function SettingsView({
                 type="url"
                 icon={<DiscordLogo weight="fill" />}
                 placeholder="https://discord.com/api/webhooks/..."
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
               />
             </div>
           )}
-          <Channel label="Email" desc="Daily summary and important alerts" checked={email} onChange={setEmail} />
-          <Channel label="Push" desc="Browser push notifications" checked={push} onChange={setPush} />
+          <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
+          <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
+        </div>
+
+        <div className="mt-5 space-y-5 border-t border-line pt-5">
+          <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" value={dailyLoss} onChange={setDailyLoss} />
+          <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" value={drawdown} onChange={setDrawdown} />
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-fg">Notify on every trade</p>
+              <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
+            </div>
+            <Switch checked={notifyEveryTrade} onChange={setNotifyEveryTrade} label="Notify on every trade" />
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
+          {saved ? <span className="text-xs font-medium text-profit">Saved</span> : null}
+          {saveError ? <span className="text-xs text-negative">{saveError}</span> : null}
+          <Button size="sm" onClick={savePrefs} disabled={saving}>
+            {saving ? "Saving…" : "Save preferences"}
+          </Button>
         </div>
       </Card>
 
@@ -108,26 +179,11 @@ export function SettingsView({
             <p className="text-sm text-fg-muted">No accounts connected yet.</p>
           ) : (
             <div className="divide-y divide-line border-t border-line">
-              {accounts.map(acc => (
+              {accounts.map((acc) => (
                 <CircuitBreakerRow key={acc.id} account={acc} />
               ))}
             </div>
           )}
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <CardTitle>Alert thresholds</CardTitle>
-        <div className="mt-4 space-y-5">
-          <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" defaultValue={2.5} />
-          <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" defaultValue={8} />
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-fg">Notify on every trade</p>
-              <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
-            </div>
-            <Switch checked={perTrade} onChange={setPerTrade} label="Notify on every trade" />
-          </div>
         </div>
       </Card>
 
@@ -153,15 +209,19 @@ export function SettingsView({
       <Card className="border-negative/40 p-5">
         <CardTitle>Danger zone</CardTitle>
         <div className="mt-4 space-y-3">
-          <DangerRow
+          <DangerAction
             title="Reset paper account"
             desc="Clear all paper trades and reset the balance to $10,000."
-            action="Reset"
+            label="Reset"
+            run={resetPaperAccount}
+            onSuccess={() => router.refresh()}
           />
-          <DangerRow
+          <DangerAction
             title="Delete account"
             desc="Permanently remove your account and all data."
-            action="Delete"
+            label="Delete"
+            run={deleteUserAccount}
+            onSuccess={() => signOut({ redirectUrl: marketingUrl() })}
           />
         </div>
       </Card>
@@ -288,13 +348,15 @@ function Threshold({
   label,
   help,
   suffix,
-  defaultValue,
+  value,
+  onChange,
 }: {
   id: string;
   label: string;
   help: string;
   suffix: string;
-  defaultValue: number;
+  value: string;
+  onChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -302,7 +364,8 @@ function Threshold({
       <Input
         id={id}
         type="number"
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         step={0.5}
         trailing={suffix}
         className="tnum w-32"
@@ -312,19 +375,61 @@ function Threshold({
   );
 }
 
-function DangerRow({ title, desc, action }: { title: string; desc: string; action: string }) {
+function DangerAction({
+  title,
+  desc,
+  label,
+  run,
+  onSuccess,
+}: {
+  title: string;
+  desc: string;
+  label: string;
+  run: () => Promise<{ ok: boolean; error?: string }>;
+  onSuccess?: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleClick() {
+    setError(null);
+    if (!armed) {
+      setArmed(true);
+      timer.current = setTimeout(() => setArmed(false), 4000);
+      return;
+    }
+    if (timer.current) clearTimeout(timer.current);
+    setArmed(false);
+    startTransition(async () => {
+      const res = await run();
+      if (!res.ok) setError(res.error ?? "Something went wrong.");
+      else onSuccess?.();
+    });
+  }
+
   return (
-    <div className="flex items-center justify-between rounded-[var(--radius-control)] border border-line bg-base/40 px-4 py-3">
-      <div>
-        <p className="text-sm font-medium text-fg">{title}</p>
-        <p className="text-xs text-fg-subtle">{desc}</p>
+    <div className="rounded-[var(--radius-control)] border border-line bg-base/40 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-fg">{title}</p>
+          <p className="text-xs text-fg-subtle">{desc}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={pending}
+          className="shrink-0 rounded-[var(--radius-control)] border border-negative/50 px-3 py-1.5 text-sm font-medium text-negative transition-colors hover:bg-negative-soft active:scale-[0.97] disabled:opacity-50"
+        >
+          {pending ? "Working…" : armed ? "Click to confirm" : label}
+        </button>
       </div>
-      <button
-        type="button"
-        className="rounded-[var(--radius-control)] border border-negative/50 px-3 py-1.5 text-sm font-medium text-negative transition-colors hover:bg-negative-soft active:scale-[0.97]"
-      >
-        {action}
-      </button>
+      {error ? (
+        <p className="mt-2 text-xs text-negative" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { EquityCurve } from "@/components/dashboard/equity-curve";
 import { LivePosition } from "@/components/dashboard/live-position";
 import { AgentFeed } from "@/components/dashboard/agent-feed";
+import { Greeting } from "@/components/dashboard/greeting";
 import { getOverviewData } from "@/lib/queries";
 import { summaryMetrics, equitySeries, maxDrawdown } from "@/lib/metrics";
 import { cn, formatUSD } from "@/lib/utils";
@@ -101,38 +102,36 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-fg">Overview</h1>
-          <p className="text-sm text-fg-subtle">
-            {data.account.nickname} · {data.account.mode === "PAPER" ? "Paper" : "Live"}
-          </p>
-        </div>
-      </div>
+      <Greeting
+        subtitle={`${data.account.nickname} · ${data.account.mode === "PAPER" ? "Paper" : "Live"}`}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Equity hero */}
-        <Card className="p-6 lg:col-span-8">
-          <p className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">
-            Account equity
-          </p>
-          <div className="mt-2 flex flex-wrap items-baseline gap-3">
-            <span className="tnum text-4xl font-semibold tracking-tight text-fg">
-              {formatUSD(data.account.balance)}
-            </span>
-            {today ? (
-              <Badge tone={today.netPnl >= 0 ? "positive" : "negative"} mono>
-                {formatUSD(today.netPnl, { sign: true })}
-                {today.startBalance
-                  ? ` · ${today.netPnl >= 0 ? "+" : ""}${((today.netPnl / today.startBalance) * 100).toFixed(2)}%`
-                  : ""}
-              </Badge>
-            ) : null}
+        <Card className="relative overflow-hidden p-6 lg:col-span-8">
+          <div aria-hidden className="glow-accent pointer-events-none absolute inset-0" />
+          <div className="relative">
+            <p className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">
+              Account equity
+            </p>
+            <div className="mt-2 flex flex-wrap items-baseline gap-3">
+              <span className="tnum text-4xl font-semibold tracking-tight text-fg">
+                {formatUSD(data.account.balance)}
+              </span>
+              {today ? (
+                <Badge tone={today.netPnl >= 0 ? "positive" : "negative"} mono>
+                  {formatUSD(today.netPnl, { sign: true })}
+                  {today.startBalance
+                    ? ` · ${today.netPnl >= 0 ? "+" : ""}${((today.netPnl / today.startBalance) * 100).toFixed(2)}%`
+                    : ""}
+                </Badge>
+              ) : null}
+            </div>
+            <p className="mt-2 text-sm text-fg-subtle">
+              {today ? "Since yesterday’s close" : "No trading activity yet"} · started at{" "}
+              {formatUSD(start)}
+            </p>
           </div>
-          <p className="mt-2 text-sm text-fg-subtle">
-            {today ? "Since yesterday’s close" : "No trading activity yet"} · started at{" "}
-            {formatUSD(start)}
-          </p>
         </Card>
 
         {/* Bot status */}
@@ -214,32 +213,35 @@ export default async function DashboardPage() {
             </Link>
           </CardHeader>
           {recent.length ? (
-            <ul className="mt-3 divide-y divide-line">
+            <ul className="mt-3 space-y-0.5">
               {recent.map((t) => {
                 const long = t.direction === "LONG";
                 const win = (t.netPnl ?? 0) >= 0;
                 return (
-                  <li key={t.id} className="flex items-center gap-3 py-2.5">
+                  <li
+                    key={t.id}
+                    className="flex items-center gap-3 rounded-[var(--radius-control)] py-2 pl-1.5 pr-2 transition-colors hover:bg-surface/50"
+                  >
                     <span
                       className={cn(
-                        "flex h-6 w-6 items-center justify-center rounded-[6px]",
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]",
                         long ? "bg-accent-soft text-accent" : "bg-negative-soft text-negative",
                       )}
                     >
                       {long ? (
-                        <ArrowUp size={13} weight="bold" />
+                        <ArrowUp size={15} weight="bold" />
                       ) : (
-                        <ArrowDown size={13} weight="bold" />
+                        <ArrowDown size={15} weight="bold" />
                       )}
                     </span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-fg">{t.instrument}</p>
                       <p className="text-xs text-fg-subtle">{fmtWhen(t.closedAt ?? t.openedAt)}</p>
                     </div>
                     <span
                       className={cn(
-                        "tnum ml-auto text-sm font-medium",
-                        win ? "text-positive" : "text-negative",
+                        "tnum shrink-0 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-medium",
+                        win ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative",
                       )}
                     >
                       {formatUSD(t.netPnl ?? 0, { sign: true })}

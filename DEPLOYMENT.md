@@ -1,18 +1,19 @@
 # Floqex Deployment
 
-One Next.js 16 app serves all three domains. Routing is path-based locally and on
-preview deploys; on production the `dashboard.` and `accounts.` subdomains are mapped
-to their sections by `src/proxy.ts`.
+One Next.js 16 app serves every domain. Routing is path-based locally and on
+preview deploys; on production the `users.`, `accounts.`, and `dashboard.`
+subdomains are mapped to their sections by `src/proxy.ts`.
 
 ## Domains
 
 | Domain | Serves | How |
 | --- | --- | --- |
 | `floqex.com` | Marketing landing | Default app routes (`/`) |
-| `accounts.floqex.com` | Auth | Root rewrites to `/sign-in`; `/sign-up` works directly |
-| `dashboard.floqex.com` | Product | Root rewrites to `/dashboard`; protected by Clerk |
+| `users.floqex.com` | Auth | Root rewrites to `/sign-in`; `/sign-up` works directly |
+| `accounts.floqex.com` | Product (the account dashboard) | Root rewrites to `/dashboard`; protected by Clerk |
+| `dashboard.floqex.com` | Product (alias of `accounts.`) | Same as above; kept for backward compatibility |
 
-On Vercel, add all three domains to the same project (apex + two subdomains, all
+On Vercel, add all four domains to the same project (apex + three subdomains, all
 pointing at this deployment). No separate projects are needed.
 
 ## Environment variables
@@ -31,12 +32,12 @@ project settings for production. See `.env.example` for the full list:
 
 1. Create a Clerk application.
 2. Set the **session cookie domain** to `.floqex.com` so the session is shared across
-   `floqex.com`, `accounts.floqex.com`, and `dashboard.floqex.com`.
-3. Set the sign-in/up URLs to `https://accounts.floqex.com/sign-in` and `/sign-up`, and
-   the after-auth URLs to `https://dashboard.floqex.com` (sign-in) and
-   `https://dashboard.floqex.com/onboarding` (sign-up). For path-based dev these are the
+   `floqex.com`, `users.floqex.com`, and `accounts.floqex.com`.
+3. Set the sign-in/up URLs to `https://users.floqex.com/sign-in` and `/sign-up`, and
+   the after-auth URLs to `https://accounts.floqex.com` (sign-in) and
+   `https://accounts.floqex.com/onboarding` (sign-up). For path-based dev these are the
    `NEXT_PUBLIC_CLERK_*` values in `.env`.
-4. Add a webhook to `https://dashboard.floqex.com/api/webhooks/clerk` for the
+4. Add a webhook to `https://accounts.floqex.com/api/webhooks/clerk` for the
    `user.created`, `user.updated`, and `user.deleted` events, and put its signing secret
    in `CLERK_WEBHOOK_SIGNING_SECRET`. This keeps the `users` table in sync.
 

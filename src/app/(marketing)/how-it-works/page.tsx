@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/marketing/reveal";
+import { authUrl } from "@/lib/urls";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -178,7 +179,7 @@ export default function HowItWorksPage() {
               Spin up a simulated account and see every decision narrated in real time.
             </p>
             <div className="mt-8 flex justify-center">
-              <Button href="/sign-up" size="lg">
+              <Button href={authUrl("/sign-up")} size="lg">
                 Get started
                 <ArrowRight size={18} weight="bold" />
               </Button>

@@ -7,8 +7,8 @@ Floqex is a SaaS platform for **automated, transparent algorithmic trading**. A 
 | Domain | Role |
 | --- | --- |
 | `floqex.com` | Marketing / landing (public) |
-| `accounts.floqex.com` | Authentication — custom pages powered by Clerk (not Clerk-hosted UI) |
-| `dashboard.floqex.com` | The product — overview, bots, journal, strategy lab, analytics, accounts, billing, settings |
+| `users.floqex.com` | Authentication — custom pages powered by Clerk (not Clerk-hosted UI) |
+| `accounts.floqex.com` | The product (account dashboard) — overview, bots, journal, strategy lab, analytics, accounts, billing, settings (`dashboard.floqex.com` kept as a working alias) |
 
 **Why this plan exists.** The vision + a strong design system already live in Notion, and the codebase has the bones (Next.js 16.2.9, React 19, Clerk 7, Prisma 6 + Supabase Postgres, a Python engine, Tailwind v4 OKLCH tokens). Three things are wrong today and this plan fixes them:
 
