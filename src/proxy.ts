@@ -46,12 +46,9 @@ export default clerkMiddleware(
     const url = req.nextUrl;
     const { pathname } = url;
 
-    // If the client initiates a handshake from the www domain (since we don't force
-    // a global redirect), proxy it to the apex domain so Clerk's session cookie
-    // can be read and the handshake succeeds.
-    if (root && host === `www.${root}` && pathname.startsWith("/v1/client")) {
-      return NextResponse.redirect(`https://${root}${pathname}${url.search}`);
-    }
+    // Let the hosting provider handle www vs apex canonicalization.
+    // Explicit redirects here can cause infinite loops if the host is configured
+    // to prefer www over apex.
 
     const role = hostRole(host);
 
@@ -117,7 +114,10 @@ export default clerkMiddleware(
     }
     return NextResponse.next();
   },
-  authorizedParties ? { authorizedParties } : undefined,
+  {
+    authorizedParties: authorizedParties ? authorizedParties : undefined,
+    proxyUrl: root ? `https://www.${root}` : undefined,
+  }
 );
 
 export const config = {
