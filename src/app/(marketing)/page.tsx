@@ -75,7 +75,7 @@ export default async function LandingPage() {
                 </span>
               </div>
               <div className="mt-4">
-                <EquityChart />
+                <EquityChart values={demo?.spark} />
               </div>
               <p className="mt-3 text-xs text-fg-faint">
                 {demo
