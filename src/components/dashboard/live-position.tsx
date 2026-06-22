@@ -34,7 +34,7 @@ export function LivePosition({ position }: { position: OpenPosition | null }) {
   const Icon = long ? ArrowUp : ArrowDown;
 
   return (
-    <div className="relative h-full overflow-hidden rounded-[var(--radius-card)] border border-white/10 bg-elevated/70 p-5 backdrop-blur-xl [box-shadow:inset_0_1px_0_oklch(1_0_0/0.06)]">
+    <div className="relative h-full overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated p-5 shadow-[var(--shadow-md)]">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">
           Live position

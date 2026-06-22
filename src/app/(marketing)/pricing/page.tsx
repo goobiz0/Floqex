@@ -37,7 +37,7 @@ export default function PricingPage() {
               )}
             >
               {plan.popular && (
-                <span className="absolute -top-3 left-6 rounded-[var(--radius-pill)] bg-accent px-2.5 py-0.5 text-xs font-medium text-base">
+                <span className="absolute -top-3 left-6 rounded-[var(--radius-pill)] bg-accent px-2.5 py-0.5 text-xs font-medium text-[var(--color-on-accent)]">
                   Most popular
                 </span>
               )}

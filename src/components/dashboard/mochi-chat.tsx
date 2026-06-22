@@ -52,7 +52,7 @@ export function MochiChat() {
             exit={reduce ? undefined : { scale: 0.9, opacity: 0 }}
             transition={spring}
             onClick={() => setIsOpen(true)}
-            className="group fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-base shadow-[0_10px_30px_-8px_var(--color-accent-ring)] transition-transform hover:scale-[1.04] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="group fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-[var(--color-on-accent)] shadow-[0_10px_30px_-8px_var(--color-accent-ring)] transition-transform hover:scale-[1.04] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <ChatCircle size={26} weight="fill" />
           </motion.button>
@@ -73,7 +73,7 @@ export function MochiChat() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-accent text-base">
+                <div className="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-accent text-[var(--color-on-accent)]">
                   <Robot size={20} weight="fill" />
                   <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-elevated bg-profit" />
                 </div>
@@ -136,7 +136,7 @@ export function MochiChat() {
                         className={cn(
                           "max-w-[82%] rounded-[18px] px-3.5 py-2.5 text-[13px] leading-relaxed",
                           isUser
-                            ? "rounded-br-[6px] bg-accent text-base"
+                            ? "rounded-br-[6px] bg-accent text-[var(--color-on-accent)]"
                             : "rounded-bl-[6px] border border-line bg-surface text-fg",
                         )}
                       >
@@ -212,7 +212,7 @@ export function MochiChat() {
                 type="submit"
                 disabled={isLoading || !input.trim()}
                 aria-label="Send"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-base transition-transform hover:enabled:scale-[1.03] active:enabled:scale-95 disabled:opacity-40"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-[var(--color-on-accent)] transition-transform hover:enabled:scale-[1.03] active:enabled:scale-95 disabled:opacity-40"
               >
                 <PaperPlaneRight size={18} weight="fill" />
               </button>

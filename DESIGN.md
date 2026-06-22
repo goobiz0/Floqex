@@ -1,11 +1,11 @@
-# Floqex Design System — "Soft Instrument, Dark"
+# Floqex Design System — "Soft Instrument, Light"
 
 The single source of truth for how Floqex looks and feels. Read this before
 building or changing any UI, and keep every surface consistent with it. It adapts
 the soft, rounded, grouped fintech-dashboard references (pill tabs, grouped
 sidebar with chevrons, icon-prefixed floating panels, transaction rows, an
 account top bar with search / notifications / settings / upgrade / avatar) into a
-**dark, single-accent** product.
+**light, single-accent** product.
 
 ## Workflow — do this every time you touch UI
 
@@ -14,12 +14,12 @@ account top bar with search / notifications / settings / upgrade / avatar) into 
    any design work. No exceptions. It is the anti-slop discipline this product is
    held to.
 2. State the one-line design read and set the dials (below) for the surface.
-3. Build to the patterns in this document; keep it dark and on the single accent.
+3. Build to the patterns in this document; keep it light and on the single accent.
 4. Run the taste **Pre-Flight Check** and the checklist at the bottom of this file.
    If a box can't be ticked honestly, it is not done.
 
 The goal bar: it must not look like AI slop, and it must feel good — match the
-reference style exactly, in dark.
+reference style exactly, in light.
 
 ## Taste dials (per the taste skill)
 
@@ -37,10 +37,12 @@ Marketing pages (`(marketing)/*`) may run hotter (VARIANCE 6-7, MOTION 5-6).
 
 ## Non-negotiable rules
 
-1. **Dark-locked.** One theme. Never invert a section to light. `color-scheme: dark`.
-2. **One accent: emerald** `--color-accent` (≈ #10B981). Profit-green
-   `--color-profit` (≈ #34D399) is a *separate* token. Brand accent is for
-   interactive/brand emphasis; profit/loss P&L uses `--color-profit` /
+1. **Light-locked.** One theme: light-gray page, white cards, dark text.
+   `color-scheme: light`. Never invert a section to dark.
+2. **One accent: emerald** `--color-accent` (deep emerald, legible on white).
+   Text on the accent uses `--color-on-accent` (white). Profit-green
+   `--color-profit` is a *separate* token from the brand accent. Brand accent is
+   for interactive/brand emphasis; profit/loss P&L uses `--color-profit` /
    `--color-negative`. Never color P&L with the brand accent.
 3. **One radius system** (see below). No raw Tailwind `rounded-xl`/`rounded-md`
    or `shadow-sm`; always the tokens.
@@ -60,7 +62,7 @@ Marketing pages (`(marketing)/*`) may run hotter (VARIANCE 6-7, MOTION 5-6).
 Use the CSS variables / Tailwind tokens; never hardcode `oklch(...)` in components
 (including SVG charts — use `var(--color-profit)` etc.).
 
-**Surfaces (dark, zinc-tinted):** `base` (page) → `elevated` (cards/rails) →
+**Surfaces (light, cool-gray):** `base` (page) → `elevated` (cards/rails) →
 `surface` (insets/controls) → `overlay` (popovers). Depth comes from elevation,
 not shadow spam.
 
@@ -91,7 +93,7 @@ durations: control 100-160ms, popover/menu 125-200ms, dialog 180-260ms.
 auth/shell backdrops; `grid-faint` dotted graph-paper behind data; `film-grain`
 once at the shell. All honor `prefers-reduced-transparency`.
 
-## Component patterns (the reference look, in dark)
+## Component patterns (the reference look, in light)
 
 - **App shell.** Fixed 240px sidebar (`bg-elevated`, `border-line`) at lg+, icon
   rail/bottom-nav below. Sticky topbar `h-14`, `bg-base/80 backdrop-blur`.
@@ -109,7 +111,7 @@ once at the shell. All honor `prefers-reduced-transparency`.
 - **Cards** (`ui/card`): `rounded-[var(--radius-card)] border border-line
   bg-elevated`. Hero/equity card may add a `glow-accent` backdrop layer.
 - **Buttons** (`ui/button`): `rounded-[var(--radius-control)]`,
-  `active:scale-[0.97]`. primary=`bg-accent text-base`; secondary=`bg-surface
+  `active:scale-[0.97]`. primary=`bg-accent text-[var(--color-on-accent)]`; secondary=`bg-surface
   border`; ghost; outline. Pills (Upgrade, account) use `--radius-pill`.
 - **Segmented tabs** (`ui/segmented`): pill track `rounded-pill border bg-elevated
   p-1`; active option `bg-surface text-fg shadow-[var(--shadow-sm)]`. This is the
@@ -140,7 +142,7 @@ once at the shell. All honor `prefers-reduced-transparency`.
 
 ## Pre-ship checklist
 
-- [ ] Dark only; one emerald accent; P&L uses profit/negative, not the accent.
+- [ ] Light only; one emerald accent; P&L uses profit/negative, not the accent.
 - [ ] One radius system via tokens; no raw `rounded-*`/`shadow-*`.
 - [ ] Zero em-dashes anywhere visible.
 - [ ] Real data; empty/loading/error states present.

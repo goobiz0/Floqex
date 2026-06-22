@@ -317,7 +317,7 @@ function SelectGrid({
             <span
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                selected ? "border-accent bg-accent text-base" : "border-line",
+                selected ? "border-accent bg-accent text-[var(--color-on-accent)]" : "border-line",
               )}
             >
               {selected && <Check size={12} weight="bold" />}

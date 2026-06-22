@@ -33,8 +33,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
-  colorScheme: "dark",
+  themeColor: "#f4f5f7",
+  colorScheme: "light",
 };
 
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
