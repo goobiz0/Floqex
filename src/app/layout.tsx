@@ -53,11 +53,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-[100dvh] bg-base text-fg">
-        <ClerkProvider
-          signInUrl="https://users.floqex.com/sign-in"
-          domain="floqex.com"
-          isSatellite={true}
-        >
+        <ClerkProvider>
           {children}
         </ClerkProvider>
         <Toaster position="bottom-right" theme="dark" />

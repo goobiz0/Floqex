@@ -12,6 +12,7 @@ const cspHeader = `
     frame-ancestors 'none';
     frame-src https://challenges.cloudflare.com https://js.stripe.com;
     connect-src 'self' https://clerk.floqex.com https://floqex.com https://users.floqex.com wss://ws.pusherapp.com https://api.stripe.com https://cloudflareinsights.com;
+    worker-src 'self' blob:;
     upgrade-insecure-requests;
 `;
 
