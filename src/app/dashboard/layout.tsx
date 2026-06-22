@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { getNavAccounts } from "@/lib/queries";
 import { Sidebar, BottomNav } from "@/components/dashboard/nav";
 import { Topbar } from "@/components/dashboard/topbar";
 import { MochiChat } from "@/components/dashboard/mochi-chat";
@@ -27,9 +28,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
   if (needsOnboarding) redirect("/onboarding");
 
+  const navAccounts = await getNavAccounts();
+
   return (
     <div className="min-h-[100dvh] bg-base">
-      <Sidebar />
+      <Sidebar accounts={navAccounts} />
       <div className="lg:pl-60">
         <Topbar />
         <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-6 lg:px-6 lg:pb-10">

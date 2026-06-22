@@ -465,6 +465,33 @@ export async function getBotsData(): Promise<BotsData> {
   }
 }
 
+export type NavAccount = { id: string; nickname: string; balance: number; mode: string };
+
+/** Minimal account list for the sidebar accounts section (real balances). */
+export async function getNavAccounts(): Promise<NavAccount[]> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return [];
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: {
+        accounts: {
+          orderBy: { createdAt: "asc" },
+          select: { id: true, nickname: true, balance: true, mode: true },
+        },
+      },
+    });
+    return (user?.accounts ?? []).map((a) => ({
+      id: a.id,
+      nickname: a.nickname,
+      balance: num(a.balance),
+      mode: a.mode,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export type DemoPreview = {
   balance: number;
   changePct: number | null;
