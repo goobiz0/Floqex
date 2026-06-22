@@ -51,7 +51,8 @@ export function SignInForm() {
         return;
       }
       
-      setError("Additional verification is required.");
+      console.warn("Unhandled Clerk signIn status:", signIn.status, signIn);
+      setError(`Additional verification is required. (Status: ${signIn.status})`);
       setSubmitting(false);
     } catch (err) {
       setError(clerkErrorMessage(err));
