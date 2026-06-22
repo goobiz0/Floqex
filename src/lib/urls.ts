@@ -4,8 +4,8 @@
  * In production (NEXT_PUBLIC_ROOT_DOMAIN set, e.g. "floqex.com") these return
  * absolute URLs to the right subdomain so links never resolve to the wrong host:
  *   marketingUrl()      -> https://floqex.com/
- *   authUrl("/sign-up") -> https://accounts.floqex.com/sign-up
- *   dashboardUrl("/journal") -> https://dashboard.floqex.com/journal
+ *   authUrl("/sign-up") -> https://users.floqex.com/sign-up
+ *   dashboardUrl("/journal") -> https://accounts.floqex.com/journal
  *
  * In local dev / preview (no root domain) they fall back to path-based routing
  * so a single host serves everything:
@@ -27,27 +27,27 @@ export function marketingUrl(path = "/"): string {
   return useSubdomains ? `https://${ROOT}${p === "/" ? "/" : p}` : p;
 }
 
-/** Auth surface: accounts.floqex.com */
+/** Auth surface: users.floqex.com */
 export function authUrl(path = "/sign-in"): string {
   const p = withLeadingSlash(path);
-  return useSubdomains ? `https://accounts.${ROOT}${p}` : p;
+  return useSubdomains ? `https://users.${ROOT}${p}` : p;
 }
 
 /**
- * Product surface: dashboard.floqex.com
+ * Product surface (the account dashboard): accounts.floqex.com
  * Pass clean product paths ("/", "/journal"). In dev these are namespaced under
  * /dashboard to match the internal route tree.
  */
 export function dashboardUrl(path = "/"): string {
   const p = withLeadingSlash(path);
   if (useSubdomains) {
-    return `https://dashboard.${ROOT}${p === "/" ? "/" : p}`;
+    return `https://accounts.${ROOT}${p === "/" ? "/" : p}`;
   }
   if (p === "/") return "/dashboard";
   return p.startsWith("/dashboard") ? p : `/dashboard${p}`;
 }
 
-/** First-run onboarding (lives at /onboarding, served on the dashboard host). */
+/** First-run onboarding (lives at /onboarding, served on the product host). */
 export function onboardingUrl(): string {
-  return useSubdomains ? `https://dashboard.${ROOT}/onboarding` : "/onboarding";
+  return useSubdomains ? `https://accounts.${ROOT}/onboarding` : "/onboarding";
 }
