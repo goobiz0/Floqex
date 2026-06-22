@@ -127,7 +127,7 @@ export default clerkMiddleware(
       signUpUrl: root ? `https://users.${root}/sign-up` : "/sign-up",
       authorizedParties: getAuthorizedParties(root),
       isSatellite: !!useSubdomains && role !== "auth",
-      domain: useSubdomains ? `https://users.${root}` : undefined,
+      domain: useSubdomains ? root : undefined,
     };
   }
 );
