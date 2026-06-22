@@ -1,18 +1,31 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Plus, ArrowLeft, ArrowRight, Check, Wallet, Info } from "@phosphor-icons/react";
+import {
+  Plus,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Wallet,
+  Info,
+  Copy,
+  Key,
+  Lock,
+  TextAa,
+} from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn, formatUSD } from "@/lib/utils";
 import { connectAccount, toggleBotStatus } from "@/app/dashboard/accounts/actions";
 import { PLANS, type Plan, type PlanConfig } from "@/lib/plans";
 import type { Broker } from "@prisma/client";
 import Link from "next/link";
 import { dashboardUrl } from "@/lib/urls";
-import { Copy } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 
 type Acct = {
   id: string;
@@ -146,7 +159,7 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                       <div className="mt-4 border-t border-line pt-4">
                         <p className="text-xs font-medium text-fg-subtle mb-1">TradingView Webhook URL</p>
                         <div className="flex items-center gap-2">
-                          <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded bg-surface px-2 py-1.5 text-[11px] text-fg-muted border border-line">
+                          <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-[8px] bg-surface px-2 py-1.5 text-[11px] text-fg-muted border border-line">
                             {typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/tradingview/{a.id}
                           </code>
                           <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => handleCopy(`${window.location.origin}/api/webhooks/tradingview/${a.id}`)}>
@@ -235,7 +248,7 @@ function ConnectFlow({
             <motion.div key="s0" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <h2 className="text-lg font-semibold text-fg">Choose a broker</h2>
               <p className="mt-1 text-sm text-fg-muted">Start on paper if you want to try the bot first.</p>
-              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded">{error}</p>}
+              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded-[var(--radius-control)]">{error}</p>}
               <div className="mt-4 grid gap-2">
                 {BROKERS.map((b) => (
                   <button
@@ -263,13 +276,13 @@ function ConnectFlow({
               <h2 className="text-lg font-semibold text-fg">
                 {isPaper ? "Name your paper account" : `Connect ${brokerMeta?.name}`}
               </h2>
-              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded">{error}</p>}
+              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded-[var(--radius-control)]">{error}</p>}
               <div className="mt-4 space-y-4">
-                <Field label="Account nickname" value={nickname} onChange={setNickname} placeholder="Main account" />
+                <Field label="Account nickname" value={nickname} onChange={setNickname} placeholder="Main account" icon={<TextAa />} />
                 {!isPaper && (
                   <>
-                    <Field label="API key" value={apiKey} onChange={setApiKey} placeholder="Your broker API key" />
-                    <Field label="API secret" value={apiSecret} onChange={setApiSecret} placeholder="Your broker API secret" type="password" />
+                    <Field label="API key" value={apiKey} onChange={setApiKey} placeholder="Your broker API key" icon={<Key />} />
+                    <Field label="API secret" value={apiSecret} onChange={setApiSecret} placeholder="Your broker API secret" type="password" icon={<Lock />} />
                   </>
                 )}
                 {!isPaper && (
@@ -284,7 +297,7 @@ function ConnectFlow({
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <h2 className="text-lg font-semibold text-fg">Review</h2>
-              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded mb-2">{error}</p>}
+              {error && <p className="mt-3 text-sm text-negative bg-negative-soft p-2 rounded-[var(--radius-control)] mb-2">{error}</p>}
               <dl className="mt-4 space-y-2 text-sm">
                 <Row k="Broker" v={brokerMeta?.name ?? ""} />
                 <Row k="Nickname" v={nickname || "Main account"} />
@@ -331,22 +344,26 @@ function Field({
   onChange,
   placeholder,
   type = "text",
+  icon,
 }: {
   label: string;
   value?: string;
   onChange?: (v: string) => void;
   placeholder?: string;
   type?: string;
+  icon?: ReactNode;
 }) {
+  const id = useId();
   return (
-    <div>
-      <label className="text-sm font-medium text-fg">{label}</label>
-      <input
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus-visible:border-accent focus-visible:outline-none"
+        icon={icon}
       />
     </div>
   );
