@@ -7,7 +7,7 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2024-04-10", // use whatever recent version
+  apiVersion: "2026-05-27.dahlia", // use whatever recent version
 });
 
 async function main() {
