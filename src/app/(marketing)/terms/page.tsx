@@ -10,62 +10,107 @@ export default function TermsPage() {
   return (
     <LegalShell
       title="Terms of Service"
-      updated="June 21, 2026"
-      intro="These terms govern your access to and use of Floqex. By creating an account you agree to them. Please read the risk disclosure as well, since trading carries real risk of loss."
+      updated="June 22, 2026"
+      intro="These Terms of Service ('Terms') govern your access to and use of Floqex. By registering an account or using our services, you agree to be bound by these Terms. If you do not agree to these Terms, do not use the Services. Trading carries significant risk of loss; please review our Risk Disclosures carefully."
     >
-      <LegalSection heading="What Floqex is">
+      <LegalSection heading="1. Acceptance and Eligibility">
         <p>
-          Floqex is software that automates a trading strategy on accounts you connect. It is a
-          tool, not a broker, a fund, or a financial adviser. We do not hold your money, take
-          custody of your assets, or guarantee any outcome. Paper accounts use real market data
-          with simulated execution; live accounts route orders through the broker you connect.
+          By using Floqex, you represent that you are at least 18 years of age and possess the legal authority to enter into these Terms. You may not use the Services if you are a resident of a jurisdiction where the use of automated trading software is prohibited by law, or if you are subject to applicable economic sanctions.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Your account">
+      <LegalSection heading="2. Description of Services">
         <p>
-          You are responsible for keeping your credentials secure and for all activity under your
-          account. You must be old enough to enter a contract in your jurisdiction, and you may not
-          use Floqex where doing so would break the law or your broker&apos;s terms.
+          Floqex is a technology provider offering software that allows users to automate trading strategies on their connected third-party brokerage accounts. <strong>Floqex is not a broker-dealer, investment adviser, or fiduciary.</strong> We do not execute trades directly, hold custody of your assets, or provide personalized financial or investment advice.
+        </p>
+        <p className="mt-2">
+          Your use of the Services is at your own risk. The platform provides tools to transmit your strategy logic to your broker; you are solely responsible for configuring, testing, and monitoring your automated bots.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Acceptable use">
+      <LegalSection heading="3. Third-Party Broker Integrations">
         <p>
-          Do not attempt to break, overload, or reverse engineer the platform, interfere with other
-          users, or use Floqex to manipulate markets. We may suspend accounts that put the service
-          or other users at risk.
+          To use live trading features, you must connect a supported third-party brokerage account via API keys. Floqex is not responsible for the performance, reliability, or execution quality of your connected broker. We disclaim all liability for:
+        </p>
+        <ul className="list-disc pl-6 space-y-2 mt-2">
+          <li>Broker API downtime, rate limits, or connection failures.</li>
+          <li>Slippage, partial fills, or rejected orders.</li>
+          <li>Latency between Floqex sending a signal and the broker executing the trade.</li>
+        </ul>
+        <p className="mt-2">
+          Your relationship with your broker is governed by their separate Terms of Service. Floqex is not a party to that agreement.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Trading risk">
+      <LegalSection heading="4. Subscriptions and Billing">
         <p>
-          Automated strategies can and do lose money. Risk controls reduce exposure but cannot
-          eliminate loss, and past performance never guarantees future results. You decide whether
-          to trade live and with how much. You accept full responsibility for those decisions.
+          Floqex is offered on a subscription basis. By selecting a paid plan, you agree to pay the fees specified at checkout.
+        </p>
+        <ul className="list-disc pl-6 space-y-2 mt-2">
+          <li><strong>Auto-Renewal:</strong> Subscriptions automatically renew at the end of each billing cycle unless you cancel beforehand via your account settings.</li>
+          <li><strong>Refunds:</strong> All payments are non-refundable, except where required by applicable law. If you cancel mid-cycle, you will retain access to the paid features until the cycle ends.</li>
+          <li><strong>Changes to Fees:</strong> We reserve the right to change our pricing with 30 days' advance notice. Continued use of the Services after the price change constitutes your agreement to pay the modified amount.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection heading="5. Prohibited Conduct">
+        <p>You agree not to engage in any of the following prohibited activities:</p>
+        <ul className="list-disc pl-6 space-y-2 mt-2">
+          <li>Reverse engineering, decompiling, or attempting to discover the source code of Floqex.</li>
+          <li>Using the platform to engage in market manipulation, spoofing, wash trading, or any illegal financial activity.</li>
+          <li>Sharing, selling, or leasing your Floqex account credentials or API keys.</li>
+          <li>Overloading our infrastructure or bypassing rate limits through automated scraping or malicious payloads.</li>
+        </ul>
+        <p className="mt-2">
+          We reserve the right to suspend or terminate your account immediately, without notice or refund, if we determine you have violated these terms.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Subscriptions and billing">
+      <LegalSection heading="6. Intellectual Property">
         <p>
-          Paid plans are billed in advance through Stripe and renew until you cancel. You can manage
-          or cancel a subscription at any time from the billing page; access continues until the end
-          of the paid period. Fees already incurred are non-refundable except where required by law.
+          Floqex retains all right, title, and interest in and to the Services, including all software, design, text, graphics, and trade secrets. We grant you a limited, non-exclusive, non-transferable, and revocable license to access and use the platform for its intended purposes. You retain ownership of the specific trading strategies and parameters you create within your account.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Disclaimers and liability">
+      <LegalSection heading="7. Disclaimers of Warranties">
         <p>
-          Floqex is provided on an as-is basis without warranties of any kind. To the extent the law
-          allows, we are not liable for trading losses or for indirect or consequential damages, and
-          our total liability is limited to the fees you paid in the prior three months.
+          THE SERVICES ARE PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS. FLOQEX EXPRESSLY DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICES WILL BE UNINTERRUPTED, ERROR-FREE, OR COMPLETELY SECURE, NOR DO WE GUARANTEE ANY SPECIFIC TRADING RESULTS OR PROFITABILITY.
         </p>
       </LegalSection>
 
-      <LegalSection heading="Changes and contact">
+      <LegalSection heading="8. Limitation of Liability">
         <p>
-          We may update these terms as the product evolves and will revise the date above when we do.
-          Questions can go to <a href="mailto:hello@floqex.com">hello@floqex.com</a>.
+          TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL FLOQEX, ITS DIRECTORS, EMPLOYEES, OR AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO TRADING LOSSES, LOST PROFITS, OR LOSS OF DATA, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICES.
+        </p>
+        <p className="mt-2">
+          IN NO EVENT SHALL FLOQEX'S TOTAL LIABILITY TO YOU FOR ALL CLAIMS EXCEED THE GREATER OF ONE HUNDRED U.S. DOLLARS ($100.00) OR THE AMOUNT YOU PAID TO FLOQEX IN THE THREE (3) MONTHS PRECEDING THE CLAIM.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="9. Indemnification">
+        <p>
+          You agree to indemnify, defend, and hold harmless Floqex from and against any and all claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of your use of the Services, your violation of these Terms, or your violation of any laws or rights of a third party.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="10. Dispute Resolution and Arbitration">
+        <p>
+          <strong>Please read this section carefully as it affects your legal rights.</strong> Any dispute arising out of or relating to these Terms or the Services shall be resolved through binding arbitration administered by the American Arbitration Association (AAA) in accordance with its Commercial Arbitration Rules. The arbitration shall take place in Delaware, USA.
+        </p>
+        <p className="mt-2">
+          <strong>Class Action Waiver:</strong> You and Floqex agree that any dispute resolution proceedings will be conducted only on an individual basis and not in a class, consolidated, or representative action.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="11. Governing Law">
+        <p>
+          These Terms and any dispute related to them shall be governed by and construed in accordance with the laws of the State of Delaware, without regard to its conflict of law principles.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="12. Changes to Terms">
+        <p>
+          We may modify these Terms at any time. If we make material changes, we will provide notice through the platform or via email. Your continued use of the Services after the effective date of the revised Terms constitutes your acceptance of the changes. If you have questions, please contact <a href="mailto:hello@floqex.com" className="text-accent hover:underline">hello@floqex.com</a>.
         </p>
       </LegalSection>
     </LegalShell>

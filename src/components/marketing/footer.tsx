@@ -26,7 +26,7 @@ const columns = [
     links: [
       { href: "/terms", label: "Terms" },
       { href: "/privacy", label: "Privacy" },
-      { href: "/risk-disclosure", label: "Risk disclosure" },
+      { href: "/risk", label: "Risk disclosure" },
     ],
   },
 ];

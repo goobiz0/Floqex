@@ -47,7 +47,6 @@ export default clerkMiddleware(
     const { pathname } = url;
 
     // Proxy Clerk's frontend API (FAPI) requests natively to avoid 404s and CORS issues.
-    // clerkMiddleware relies on Next.js to do the actual rewrite for both /v1/client and /npm.
     if (pathname.startsWith("/v1/client") || pathname.startsWith("/npm")) {
       const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
       let fapiUrl = "";
@@ -60,11 +59,55 @@ export default clerkMiddleware(
       }
 
       if (fapiUrl) {
-        const res = NextResponse.rewrite(fapiUrl);
-        res.headers.set("Access-Control-Allow-Origin", "*");
-        res.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        return res;
+        const origin = req.headers.get("origin") || "*";
+        
+        // Handle CORS preflight explicitly
+        if (req.method === "OPTIONS") {
+          return new NextResponse(null, {
+            status: 204,
+            headers: {
+              "Access-Control-Allow-Origin": origin,
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization, x-clerk-cljs-version, x-clerk-js-version",
+              "Access-Control-Allow-Credentials": "true",
+            },
+          });
+        }
+
+        try {
+          // Clone headers to pass upstream, but remove host
+          const headers = new Headers(req.headers);
+          headers.delete("host");
+          
+          const requestInit: RequestInit & { duplex?: string } = {
+            method: req.method,
+            headers,
+            redirect: "manual",
+          };
+          
+          if (req.method !== "GET" && req.method !== "HEAD") {
+            requestInit.body = req.body as any;
+            requestInit.duplex = "half";
+          }
+          
+          const res = await fetch(fapiUrl, requestInit);
+          
+          // Create response from upstream
+          const proxiedRes = new NextResponse(res.body, {
+            status: res.status,
+            statusText: res.statusText,
+            headers: res.headers,
+          });
+          
+          // Force CORS headers on the proxy response
+          proxiedRes.headers.set("Access-Control-Allow-Origin", origin);
+          proxiedRes.headers.set("Access-Control-Allow-Credentials", "true");
+          
+          return proxiedRes;
+        } catch (error) {
+          // Fallback to Next.js rewrite if fetch fails
+          return NextResponse.rewrite(fapiUrl);
+        }
       }
     }
 

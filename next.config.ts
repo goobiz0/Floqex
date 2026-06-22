@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.floqex.com https://floqex.com https://users.floqex.com https://challenges.cloudflare.com https://js.stripe.com;
+    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.floqex.com https://floqex.com https://users.floqex.com https://challenges.cloudflare.com https://js.stripe.com https://static.cloudflareinsights.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://img.clerk.com https://github.com https://avatars.githubusercontent.com;
     font-src 'self';
@@ -11,7 +11,7 @@ const cspHeader = `
     form-action 'self';
     frame-ancestors 'none';
     frame-src https://challenges.cloudflare.com https://js.stripe.com;
-    connect-src 'self' https://clerk.floqex.com https://floqex.com https://users.floqex.com wss://ws.pusherapp.com https://api.stripe.com;
+    connect-src 'self' https://clerk.floqex.com https://floqex.com https://users.floqex.com wss://ws.pusherapp.com https://api.stripe.com https://cloudflareinsights.com;
     upgrade-insecure-requests;
 `;
 
