@@ -46,12 +46,9 @@ export default clerkMiddleware(
     const url = req.nextUrl;
     const { pathname } = url;
 
-    // Canonicalize www -> apex BEFORE any Clerk session work. The session cookie
-    // is scoped to the apex (.floqex.com), so a visit to www.floqex.com has no
-    // session token and Clerk would otherwise loop on its handshake endpoint.
-    if (root && host === `www.${root}`) {
-      return NextResponse.redirect(`https://${root}${pathname}${url.search}`);
-    }
+    // Let the hosting provider handle www vs apex canonicalization.
+    // Explicit redirects here can cause infinite loops if the host is configured
+    // to prefer www over apex.
 
     const role = hostRole(host);
 
