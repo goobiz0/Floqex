@@ -72,13 +72,10 @@ export default clerkMiddleware(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       );
 
-      // Signed-in users on auth pages → redirect to the product (accounts) host.
-      if (pathname === "/" || isAuthPath) {
-        const { userId } = await auth();
-        if (userId) {
-          return NextResponse.redirect(`https://accounts.${root}/`);
-        }
-      }
+      // Signed-in users on auth pages should be redirected to the product host securely
+      // with a __clerk_ticket. We let the client-side SignInForm handle this via
+      // clerk.buildUrlWithAuth(), because a server-side NextResponse.redirect() 
+      // will strip the JWT payload and cause an infinite loop.
 
       if (pathname === "/") {
         const rewritten = url.clone();
@@ -111,6 +108,8 @@ export default clerkMiddleware(
     return NextResponse.next();
   },
   {
+    signInUrl: root ? `https://users.${root}/sign-in` : "/sign-in",
+    signUpUrl: root ? `https://users.${root}/sign-up` : "/sign-up",
     authorizedParties: authorizedParties ? authorizedParties : undefined,
   }
 );

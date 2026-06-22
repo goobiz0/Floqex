@@ -1,16 +1,24 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { authUrl, dashboardUrl } from "@/lib/urls";
 import Link from "next/link";
 
 export function AuthButtons() {
   const { isSignedIn } = useAuth();
+  const clerk = useClerk();
   
   if (isSignedIn) {
     return (
-      <Button href={dashboardUrl("/")} size="sm" className="rounded-full">
+      <Button 
+        onClick={(e) => {
+          e.preventDefault();
+          window.location.assign(clerk.buildUrlWithAuth(dashboardUrl("/")));
+        }} 
+        size="sm" 
+        className="rounded-full cursor-pointer"
+      >
         Dashboard
       </Button>
     );

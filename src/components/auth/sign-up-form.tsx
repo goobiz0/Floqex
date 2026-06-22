@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent, useEffect } from "react";
 import { Envelope, Lock, User } from "@phosphor-icons/react";
-import { useSignUp, useAuth } from "@clerk/nextjs";
+import { useSignUp, useAuth, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -14,12 +14,13 @@ import { dashboardUrl, onboardingUrl } from "@/lib/urls";
 export function SignUpForm() {
   const { signUp } = useSignUp();
   const { isLoaded, isSignedIn } = useAuth();
+  const clerk = useClerk();
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      window.location.assign(dashboardUrl());
+      window.location.assign(clerk.buildUrlWithAuth(dashboardUrl("/")));
     }
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, clerk]);
 
   const [step, setStep] = useState<"form" | "verify">("form");
   const [firstName, setFirstName] = useState("");

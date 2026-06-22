@@ -6,13 +6,14 @@ import { List, X } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { authUrl, dashboardUrl } from "@/lib/urls";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useClerk } from "@clerk/nextjs";
 
 /** Mobile nav sheet for the marketing header (hidden at md+). */
 export function MarketingMobileMenu({ links }: { links: { href: string; label: string }[] }) {
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
   const { isSignedIn } = useAuth();
+  const clerk = useClerk();
 
   return (
     <div className="md:hidden">
@@ -57,7 +58,13 @@ export function MarketingMobileMenu({ links }: { links: { href: string; label: s
                 ))}
                 <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
                   {isSignedIn ? (
-                    <Button href={dashboardUrl("/")} className="w-full">
+                    <Button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.location.assign(clerk.buildUrlWithAuth(dashboardUrl("/")));
+                      }} 
+                      className="w-full cursor-pointer"
+                    >
                       Dashboard
                     </Button>
                   ) : (
