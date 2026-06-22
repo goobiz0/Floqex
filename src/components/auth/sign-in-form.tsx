@@ -13,7 +13,7 @@ import { SocialButtons, type OAuthStrategy } from "./social-buttons";
 import { OtpInput } from "./otp-input";
 import { authUrl, dashboardUrl } from "@/lib/urls";
 
-type Step = "form" | "mfa" | "mfa-backup";
+type Step = "form" | "mfa" | "mfa-backup" | "client-trust";
 
 export function SignInForm() {
   const { signIn } = useSignIn();
@@ -41,6 +41,18 @@ export function SignInForm() {
       
       if (signIn.status === "needs_second_factor") {
         setStep("mfa");
+        setSubmitting(false);
+        return;
+      }
+
+      if (signIn.status === "needs_client_trust") {
+        const { error: sendError } = await signIn.mfa.sendEmailCode();
+        if (sendError) {
+          setError(clerkErrorMessage(sendError));
+          setSubmitting(false);
+          return;
+        }
+        setStep("client-trust");
         setSubmitting(false);
         return;
       }
@@ -107,6 +119,33 @@ export function SignInForm() {
       }
       
       setError("Additional verification is required.");
+      setSubmitting(false);
+    } catch (err) {
+      setError(clerkErrorMessage(err));
+      setSubmitting(false);
+    }
+  }
+
+  async function onVerifyClientTrust(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!signIn) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { error: verifyError } = await signIn.mfa.verifyEmailCode({ code });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
+        return;
+      }
+
+      if (signIn.status === "complete") {
+        await signIn.finalize();
+        window.location.assign(dashboardUrl());
+        return;
+      }
+      
+      setError(`Additional verification is required. (Status: ${signIn.status})`);
       setSubmitting(false);
     } catch (err) {
       setError(clerkErrorMessage(err));
@@ -210,6 +249,33 @@ export function SignInForm() {
         >
           Use authenticator app
         </button>
+      </form>
+    );
+  }
+
+  if (step === "client-trust") {
+    return (
+      <form onSubmit={onVerifyClientTrust} className="space-y-5" noValidate>
+        <p className="text-sm text-fg-muted">
+          We noticed you're signing in from a new device. Please enter the verification code sent to your email.
+        </p>
+        <div className="space-y-1.5">
+          <Label htmlFor="device-code">Verification code</Label>
+          <OtpInput id="device-code" value={code} onChange={setCode} disabled={submitting} />
+        </div>
+        {error ? (
+          <p className="text-sm text-negative" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={!ready || submitting || code.length < 6}
+        >
+          {submitting ? "Verifying…" : "Verify device"}
+        </Button>
       </form>
     );
   }
