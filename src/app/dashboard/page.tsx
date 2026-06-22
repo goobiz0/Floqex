@@ -8,6 +8,7 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { EquityCurve } from "@/components/dashboard/equity-curve";
 import { LivePosition } from "@/components/dashboard/live-position";
 import { AgentFeed } from "@/components/dashboard/agent-feed";
+import { Greeting } from "@/components/dashboard/greeting";
 import { getOverviewData } from "@/lib/queries";
 import { summaryMetrics, equitySeries, maxDrawdown } from "@/lib/metrics";
 import { cn, formatUSD } from "@/lib/utils";
@@ -101,14 +102,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-fg">Overview</h1>
-          <p className="text-sm text-fg-subtle">
-            {data.account.nickname} · {data.account.mode === "PAPER" ? "Paper" : "Live"}
-          </p>
-        </div>
-      </div>
+      <Greeting
+        subtitle={`${data.account.nickname} · ${data.account.mode === "PAPER" ? "Paper" : "Live"}`}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Equity hero */}
