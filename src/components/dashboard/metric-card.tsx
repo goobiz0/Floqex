@@ -16,7 +16,7 @@ export function MetricCard({
       <p
         className={cn(
           "tnum mt-2 text-xl font-semibold tracking-tight",
-          tone === "positive" && "text-positive",
+          tone === "positive" && "text-profit",
           tone === "negative" && "text-negative",
           tone === "neutral" && "text-fg",
         )}

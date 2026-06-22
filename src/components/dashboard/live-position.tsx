@@ -69,7 +69,7 @@ export function LivePosition({ position }: { position: OpenPosition | null }) {
           <dd className="tnum text-sm text-fg">{position.entry.toFixed(2)}</dd>
         </div>
         <div>
-          <dt className="text-[0.7rem] text-positive">Target</dt>
+          <dt className="text-[0.7rem] text-profit">Target</dt>
           <dd className="tnum text-sm text-fg">{position.target.toFixed(2)}</dd>
         </div>
       </dl>

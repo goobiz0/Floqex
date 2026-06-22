@@ -112,7 +112,7 @@ export function JournalView({
                   <span
                     className={cn(
                       "tnum mt-auto text-[0.7rem] font-medium",
-                      entry.pnl >= 0 ? "text-positive" : "text-negative",
+                      entry.pnl >= 0 ? "text-profit" : "text-negative",
                     )}
                   >
                     {entry.pnl >= 0 ? "+" : ""}
@@ -163,7 +163,7 @@ export function JournalView({
                   <span
                     className={cn(
                       "tnum text-sm font-medium",
-                      win ? "text-positive" : "text-negative",
+                      win ? "text-profit" : "text-negative",
                     )}
                   >
                     {formatUSD(t.netPnl ?? 0, { sign: true })}

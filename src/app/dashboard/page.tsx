@@ -239,7 +239,7 @@ export default async function DashboardPage() {
                     <span
                       className={cn(
                         "tnum ml-auto text-sm font-medium",
-                        win ? "text-positive" : "text-negative",
+                        win ? "text-profit" : "text-negative",
                       )}
                     >
                       {formatUSD(t.netPnl ?? 0, { sign: true })}
