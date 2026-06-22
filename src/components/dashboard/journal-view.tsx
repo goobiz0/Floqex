@@ -148,11 +148,11 @@ export function JournalView({
                 >
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px]",
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]",
                       long ? "bg-accent-soft text-accent" : "bg-negative-soft text-negative",
                     )}
                   >
-                    {long ? <ArrowUp size={13} weight="bold" /> : <ArrowDown size={13} weight="bold" />}
+                    {long ? <ArrowUp size={15} weight="bold" /> : <ArrowDown size={15} weight="bold" />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-fg">{t.instrument}</p>
@@ -162,8 +162,8 @@ export function JournalView({
                   </div>
                   <span
                     className={cn(
-                      "tnum text-sm font-medium",
-                      win ? "text-profit" : "text-negative",
+                      "tnum shrink-0 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-medium",
+                      win ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative",
                     )}
                   >
                     {formatUSD(t.netPnl ?? 0, { sign: true })}
