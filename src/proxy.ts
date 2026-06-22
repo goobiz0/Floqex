@@ -140,6 +140,9 @@ export default clerkMiddleware(
 
 export const config = {
   matcher: [
+    // Ensure the Clerk proxy paths are ALWAYS processed by middleware, even if they end in .js
+    "/v1/client/(.*)",
+    "/npm/(.*)",
     // Skip Next internals and static files, run on everything else
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",

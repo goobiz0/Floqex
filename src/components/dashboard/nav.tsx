@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -228,8 +229,7 @@ function UserProfileBlock() {
     <div className="rounded-[var(--radius-card)] bg-surface p-3">
       <div className="flex items-center gap-3">
         {user.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.imageUrl} alt={name} className="h-10 w-10 rounded-full object-cover shadow-sm" />
+          <Image src={user.imageUrl} alt={name} width={40} height={40} className="rounded-full object-cover shadow-sm" />
         ) : (
           <div className="h-10 w-10 rounded-full bg-accent-soft flex items-center justify-center text-accent font-medium text-sm">
             {name.charAt(0).toUpperCase()}

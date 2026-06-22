@@ -37,6 +37,8 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
+import { Toaster } from "sonner";
+
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
 // src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
 // needs no widget appearance. The product is dark-locked at the app level.
@@ -52,6 +54,7 @@ export default function RootLayout({
     >
       <body className="min-h-[100dvh] bg-base text-fg">
         <ClerkProvider>{children}</ClerkProvider>
+        <Toaster position="bottom-right" theme="dark" />
       </body>
     </html>
   );

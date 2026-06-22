@@ -6,6 +6,7 @@ import { Plus, MagnifyingGlass, DotsThree, CaretDown, TrendUp, TrendDown } from 
 import { formatUSD } from "@/lib/utils";
 import { motion } from "motion/react";
 import { type TradeRow } from "@/lib/queries";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function HeroCard1({ balance }: { balance: number }) {
   return (
@@ -145,10 +146,12 @@ export function DashboardPageClient({
       {/* Header Row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <img
+          <Image
             src={avatarUrl}
             alt={nickname}
-            className="h-10 w-10 rounded-full border border-line object-cover"
+            width={40}
+            height={40}
+            className="rounded-full border border-line object-cover"
           />
           <h1 className="text-lg font-medium tracking-tight text-fg">
             Hi, {nickname}
@@ -232,7 +235,13 @@ export function DashboardPageClient({
               );
             })}
             {recent.length === 0 && (
-              <li className="py-8 text-center text-sm text-fg-subtle">No recent trades.</li>
+              <div className="pt-6 pb-2">
+                <EmptyState 
+                  title="No recent operations" 
+                  description="When your bots execute trades, they will appear here in real-time."
+                  icon={<TrendUp size={32} weight="duotone" />}
+                />
+              </div>
             )}
           </ul>
         </div>
