@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Surface card. Border XOR shadow, never both (design-system rule).
- * Default uses a 1px border on an elevated surface.
+ * Surface card: white on the light-gray page, hairline border + a soft tinted
+ * shadow so it reads as gently elevated (the reference's floating-card look).
  */
 export function Card({
   children,
@@ -17,7 +17,7 @@ export function Card({
   return (
     <Tag
       className={cn(
-        "rounded-[var(--radius-card)] border border-line bg-elevated",
+        "rounded-[var(--radius-card)] border border-line bg-elevated shadow-[var(--shadow-sm)]",
         className,
       )}
     >
