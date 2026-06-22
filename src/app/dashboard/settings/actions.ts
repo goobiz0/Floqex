@@ -110,3 +110,70 @@ export async function deleteUserAccount(): Promise<Result> {
     return { ok: false, error: "Could not delete the account. Please contact support." };
   }
 }
+
+import { parseStrategyParams, PARAM_LABELS, rawParamValue, formatParamValue, type StrategyParams } from "@/lib/strategy-schema";
+
+/**
+ * Apply strategy changes confirmed by the user via Mochi Chat.
+ */
+export async function applyStrategyChanges(changes: any): Promise<{ ok: boolean; updated?: any[]; message?: string; note?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, message: "Unauthorized." };
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    include: { strategies: { orderBy: { createdAt: "asc" } }, accounts: { include: { bot: true } } },
+  });
+  if (!user) return { ok: false, message: "User not found." };
+
+  const strategy = user.strategies[0] ?? null;
+  if (!strategy) return { ok: false, message: "No strategy configured yet." };
+
+  const params = strategy.params as Record<string, any>;
+  const requested = Object.fromEntries(
+    Object.entries(changes).filter(([, v]) => v !== undefined),
+  );
+  
+  const parsed = parseStrategyParams({ ...params, ...requested });
+  if (!parsed.ok) return { ok: false, message: parsed.error };
+
+  const bots = user.accounts
+    .map((a) => a.bot)
+    .filter((b): b is NonNullable<typeof b> => b != null);
+  const changedKeys = (Object.keys(PARAM_LABELS) as (keyof StrategyParams)[]).filter(
+    (k) => params[k] !== parsed.params[k],
+  );
+  if (changedKeys.length === 0) return { ok: true, updated: [], note: "No changes; values already set." };
+
+  await prisma.$transaction([
+    prisma.strategy.update({
+      where: { id: strategy.id },
+      data: { params: parsed.params as object, version: { increment: 1 } },
+    }),
+    ...bots.flatMap((bot) =>
+      changedKeys.map((k) =>
+        prisma.botAdjustment.create({
+          data: {
+            botId: bot.id,
+            strategyId: strategy.id,
+            parameter: PARAM_LABELS[k],
+            paramKey: k,
+            oldValue: rawParamValue(k, params[k]),
+            newValue: rawParamValue(k, parsed.params[k]),
+            source: "USER",
+            status: "APPLIED",
+          },
+        }),
+      ),
+    ),
+  ]);
+
+  revalidatePath("/dashboard");
+  return {
+    ok: true,
+    updated: changedKeys.map((k) => ({
+      param: PARAM_LABELS[k],
+      value: formatParamValue(k, parsed.params[k]),
+    })),
+  };
+}

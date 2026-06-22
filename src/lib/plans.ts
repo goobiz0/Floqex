@@ -8,8 +8,8 @@
 export type Plan = "FREE" | "TRADER" | "PRO";
 
 export const PRICE_IDS = {
-  TRADER: process.env.NEXT_PUBLIC_STRIPE_PRICE_TRADER ?? "price_1TkeghDfBPHnomO3YsRzXVo7",
-  PRO: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? "price_1TkegrDfBPHnomO3qsVfTw0i",
+  TRADER: process.env.NEXT_PUBLIC_STRIPE_PRICE_TRADER ?? "price_1Tl6eJDfBPHnomO37xRo5dKY",
+  PRO: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? "price_1Tl6eSDfBPHnomO3uM9K9M2j",
 } as const;
 
 export type PlanConfig = {
@@ -45,7 +45,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
   TRADER: {
     id: "TRADER",
     name: "Trader",
-    price: 29,
+    price: 19,
     priceId: PRICE_IDS.TRADER,
     accountLimit: 3,
     liveTrading: true,
@@ -55,7 +55,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     features: [
       "Everything in Free",
       "Live trading",
-      "3 accounts / bots",
+      "Max 3 accounts / bots",
       "Discord alerts",
       "Priority support",
     ],
@@ -63,15 +63,15 @@ export const PLANS: Record<Plan, PlanConfig> = {
   PRO: {
     id: "PRO",
     name: "Pro",
-    price: 79,
+    price: 49,
     priceId: PRICE_IDS.PRO,
-    accountLimit: Number.POSITIVE_INFINITY,
+    accountLimit: 10,
     liveTrading: true,
     copyTrading: true,
-    tagline: "Scale with unlimited bots and tooling.",
+    tagline: "Scale with advanced bots and tooling.",
     features: [
       "Everything in Trader",
-      "Unlimited accounts / bots",
+      "Max 10 accounts / bots",
       "Copy trading",
       "Strategy marketplace",
       "Backtesting & API access",

@@ -110,7 +110,7 @@ ${context}`,
       }),
       updateStrategyParams: tool({
         description:
-          "Change the user's ORB strategy parameters. Pass only the fields to change. Values are validated against safe bounds; out-of-range requests are rejected.",
+          "Propose changes to the user's ORB strategy parameters. Pass only the fields to change. Values are validated against safe bounds; out-of-range requests are rejected. The user must manually accept this proposal in the UI.",
         parameters: z.object({
           riskPct: z.number().optional(),
           dailyLoss: z.number().optional(),
@@ -122,53 +122,6 @@ ${context}`,
           trendFilter: z.boolean().optional(),
           reEntry: z.boolean().optional(),
         }),
-        execute: async (changes) => {
-          if (!strategy || !params) return { ok: false, message: "No strategy to update yet." };
-          const requested = Object.fromEntries(
-            Object.entries(changes).filter(([, v]) => v !== undefined),
-          );
-          const parsed = parseStrategyParams({ ...params, ...requested });
-          if (!parsed.ok) return { ok: false, message: parsed.error };
-
-          // All of the user's bots share this strategy, so log the change for each.
-          const bots = user.accounts
-            .map((a) => a.bot)
-            .filter((b): b is NonNullable<typeof b> => b != null);
-          const changedKeys = (Object.keys(PARAM_LABELS) as (keyof StrategyParams)[]).filter(
-            (k) => params[k] !== parsed.params[k],
-          );
-          if (changedKeys.length === 0) return { ok: true, updated: [], note: "No changes; values already set." };
-
-          await prisma.$transaction([
-            prisma.strategy.update({
-              where: { id: strategy.id },
-              data: { params: parsed.params as object, version: { increment: 1 } },
-            }),
-            ...bots.flatMap((bot) =>
-              changedKeys.map((k) =>
-                prisma.botAdjustment.create({
-                  data: {
-                    botId: bot.id,
-                    strategyId: strategy.id,
-                    parameter: PARAM_LABELS[k],
-                    paramKey: k,
-                    oldValue: rawParamValue(k, params[k]),
-                    newValue: rawParamValue(k, parsed.params[k]),
-                    source: "USER",
-                    status: "APPLIED",
-                  },
-                }),
-              ),
-            ),
-          ]);
-          return {
-            ok: true,
-            updated: changedKeys.map((k) => ({
-              param: PARAM_LABELS[k],
-              value: formatParamValue(k, parsed.params[k]),
-            })),
-          };
-        },
       }),
     },
   });

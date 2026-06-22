@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db";
 import { getNavAccounts } from "@/lib/queries";
 import { Sidebar, BottomNav } from "@/components/dashboard/nav";
 import { Topbar } from "@/components/dashboard/topbar";
-import { DashboardFooter } from "@/components/dashboard/dashboard-footer";
 import { MochiChat } from "@/components/dashboard/mochi-chat";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -35,11 +34,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <div className="min-h-[100dvh] bg-base">
       <Topbar />
       <Sidebar accounts={navAccounts} />
-      <div className="pt-14 lg:pl-60">
-        <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-6 lg:px-6 lg:pb-10">
-          <div className="mx-auto max-w-6xl">{children}</div>
+      <div className="pt-16 lg:pl-64">
+        <main className="mx-auto max-w-[1400px] px-4 pb-32 pt-6 lg:px-8 lg:pb-32">
+          <div className="mx-auto max-w-[1100px]">{children}</div>
         </main>
-        <DashboardFooter />
         <BottomNav />
         <MochiChat />
       </div>

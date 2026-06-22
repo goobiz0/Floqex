@@ -4,6 +4,8 @@ import { summaryMetrics, equitySeries, maxDrawdown, type TradeRow, type DailyRow
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
 
+export type { TradeRow };
+
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.
  * Prisma Decimal/Date values are serialized to plain numbers/ISO strings at this

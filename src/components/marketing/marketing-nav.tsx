@@ -13,32 +13,37 @@ const links = [
 
 export function MarketingNav() {
   return (
-    <header className="sticky top-0 z-50 border-b border-line/70 bg-base/80 backdrop-blur-md">
-      <nav className="mx-auto grid h-16 max-w-[1200px] grid-cols-[1fr_auto] items-center gap-4 px-4 md:grid-cols-[1fr_auto_1fr] md:px-6 lg:px-8">
-        <Link href="/" aria-label="Floqex home" className="justify-self-start">
+    <header className="fixed left-1/2 top-6 z-50 w-[90%] max-w-4xl -translate-x-1/2">
+      <nav className="flex h-14 items-center justify-between gap-4 rounded-[var(--radius-pill)] border border-line/50 bg-white/60 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:px-6">
+        <Link href="/" aria-label="Floqex home" className="flex shrink-0 items-center">
           <Wordmark />
         </Link>
 
-        <div className="hidden items-center gap-1 md:flex md:justify-self-center">
+        <div className="hidden items-center gap-1 md:flex">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="rounded-[var(--radius-control)] px-3 py-2 text-sm text-fg-muted transition-colors hover:text-fg"
+              className="rounded-full px-4 py-1.5 text-sm font-medium text-fg-subtle transition-colors hover:bg-black/5 hover:text-fg"
             >
               {l.label}
             </Link>
           ))}
         </div>
 
-        <div className="flex items-center gap-2 justify-self-end">
-          <Button href={authUrl("/sign-in")} variant="ghost" size="sm" className="hidden sm:inline-flex">
+        <div className="flex items-center gap-3">
+          <Link 
+            href={authUrl("/sign-in")} 
+            className="hidden text-sm font-medium text-fg-subtle transition-colors hover:text-fg sm:block"
+          >
             Sign in
-          </Button>
-          <Button href={authUrl("/sign-up")} size="sm">
+          </Link>
+          <Button href={authUrl("/sign-up")} size="sm" className="rounded-full">
             Get started
           </Button>
-          <MarketingMobileMenu links={links} />
+          <div className="md:hidden">
+            <MarketingMobileMenu links={links} />
+          </div>
         </div>
       </nav>
     </header>

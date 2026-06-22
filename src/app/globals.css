@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Floqex Design System — light, cool-gray + single Emerald accent.
-   Tokens mirror DESIGN.md.
+   Floqex Design System — Bright Light Theme, highly rounded,
+   vibrant colorful gradients.
    ============================================================ */
 
 @theme {
@@ -10,51 +10,50 @@
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), "SF Mono", "Fira Code", monospace;
 
-  /* Background scale (light, cool-gray tinted): light-gray page, white cards. */
-  --color-base: oklch(0.975 0.003 264);
-  --color-elevated: oklch(1 0 0);
-  --color-surface: oklch(0.96 0.004 264);
-  --color-overlay: oklch(1 0 0);
+  /* Background scale: ultra-light page, pure white cards. */
+  --color-base: #f7f9fa;
+  --color-surface: #ffffff;
+  --color-elevated: #ffffff;
+  --color-overlay: rgba(255, 255, 255, 0.8);
 
   /* Text scale (dark on light) */
-  --color-fg: oklch(0.22 0.008 264);
-  --color-fg-muted: oklch(0.44 0.01 264);
-  --color-fg-subtle: oklch(0.55 0.008 264);
-  --color-fg-faint: oklch(0.66 0.006 264);
+  --color-fg: #111827;
+  --color-fg-muted: #4b5563;
+  --color-fg-subtle: #6b7280;
+  --color-fg-faint: #9ca3af;
 
-  /* Accent: Emerald (deep enough to read as text and carry white button text). */
-  --color-accent: oklch(0.52 0.14 162);
-  --color-accent-hover: oklch(0.46 0.14 162);
-  --color-accent-soft: oklch(0.52 0.14 162 / 0.12);
-  --color-accent-ring: oklch(0.52 0.14 162 / 0.45);
-  --color-on-accent: oklch(0.99 0 0);
+  /* Brand Colors & Vibrant Accents */
+  --color-accent: #111827;
+  --color-accent-hover: #374151;
+  --color-accent-soft: rgba(17, 24, 39, 0.05);
+  --color-accent-ring: rgba(17, 24, 39, 0.2);
+  --color-on-accent: #ffffff;
 
-  /* Semantic — profit is a distinct green so P&L never collides with the brand
-     accent. All deep enough for legible coloured text/numbers on white. */
-  --color-positive: oklch(0.5 0.14 158);
-  --color-profit: oklch(0.5 0.14 158);
-  --color-negative: oklch(0.53 0.2 27);
-  --color-negative-soft: oklch(0.53 0.2 27 / 0.12);
-  --color-warning: oklch(0.58 0.13 70);
-  --color-info: oklch(0.52 0.16 250);
+  /* Semantic */
+  --color-positive: #10b981;
+  --color-profit: #10b981;
+  --color-negative: #ef4444;
+  --color-negative-soft: rgba(239, 68, 68, 0.1);
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
 
   /* Borders */
-  --color-line: oklch(0.91 0.004 264);
-  --color-line-strong: oklch(0.84 0.006 264);
+  --color-line: #e5e7eb;
+  --color-line-strong: #d1d5db;
 
-  /* Radius (soft, generous scale: controls 10, cards 18, large 26, pills full) */
-  --radius-control: 10px;
-  --radius-card: 18px;
-  --radius-lg: 26px;
+  /* Radius (Generous scale for the bubbly light look) */
+  --radius-control: 12px;
+  --radius-card: 24px;
+  --radius-lg: 32px;
   --radius-pill: 9999px;
 
-  /* Shadows: soft, cool-gray tinted for a light surface (never harsh black). */
-  --shadow-sm: 0 1px 2px oklch(0.2 0.03 264 / 0.06);
-  --shadow-md: 0 4px 12px oklch(0.2 0.03 264 / 0.08);
-  --shadow-lg: 0 10px 28px oklch(0.2 0.03 264 / 0.10);
-  --shadow-xl: 0 20px 50px oklch(0.2 0.03 264 / 0.12);
+  /* Shadows: airy, cool-gray tinted */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
 
-  /* Easing (Emil curves) */
+  /* Easing */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -86,17 +85,15 @@
   }
 
   ::selection {
-    background: color-mix(in oklch, var(--color-accent) 28%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
     color: var(--color-fg);
   }
 
-  /* Tabular numeric / data styling helper */
   .tnum {
     font-variant-numeric: tabular-nums;
     font-family: var(--font-mono);
   }
 
-  /* Accessible focus ring, accent-tinted */
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
@@ -104,13 +101,13 @@
   }
 
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-thumb {
     background: var(--color-line-strong);
     border-radius: 9999px;
-    border: 3px solid transparent;
+    border: 2px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -119,7 +116,6 @@
   }
 }
 
-/* Reduced motion: collapse all animation to near-instant */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -131,51 +127,32 @@
   }
 }
 
-/* Ambient emerald glow, used sparingly (auth brand panel, hero accents) */
-@utility glow-accent {
-  background-image: radial-gradient(
-    60% 60% at 15% 85%,
-    color-mix(in oklch, var(--color-accent) 14%, transparent),
-    transparent 70%
-  );
+/* Vibrant Mesh Gradients */
+@utility vibrant-mesh {
+  background-color: #8b5cf6;
+  background-image: 
+    radial-gradient(at 0% 0%, #a855f7 0px, transparent 50%),
+    radial-gradient(at 100% 0%, #ec4899 0px, transparent 50%),
+    radial-gradient(at 100% 100%, #ef4444 0px, transparent 50%),
+    radial-gradient(at 0% 100%, #f59e0b 0px, transparent 50%);
 }
 
-/* Subtle dotted grid backdrop for airy hero areas */
+@utility vibrant-mesh-blue {
+  background-color: #3b82f6;
+  background-image: 
+    radial-gradient(at 0% 0%, #60a5fa 0px, transparent 50%),
+    radial-gradient(at 100% 0%, #8b5cf6 0px, transparent 50%),
+    radial-gradient(at 100% 100%, #10b981 0px, transparent 50%),
+    radial-gradient(at 0% 100%, #3b82f6 0px, transparent 50%);
+}
+
+/* Subtle dotted grid backdrop */
 @utility grid-faint {
   background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
-/* Emerald aurora: layered low-opacity glows for hero / auth / shell backdrops.
-   Single accent only (no second hue), honours reduced transparency. */
-@utility aurora {
-  background-image:
-    radial-gradient(
-      42% 56% at 12% 8%,
-      color-mix(in oklch, var(--color-accent) 14%, transparent),
-      transparent 72%
-    ),
-    radial-gradient(
-      48% 48% at 88% 0%,
-      color-mix(in oklch, var(--color-accent) 9%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      60% 70% at 50% 112%,
-      color-mix(in oklch, var(--color-accent) 7%, transparent),
-      transparent 72%
-    );
-}
-
-/* Fixed, pointer-events-none film grain for depth. Apply once at the shell with
-   a low opacity (e.g. opacity-[0.025]); never on scrolling containers. */
 @utility film-grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 120px 120px;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .aurora {
-    background-image: none;
-  }
 }

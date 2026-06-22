@@ -13,13 +13,13 @@ export function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="w-full max-w-[25rem]">
-      <div className="mb-6">
-        <h1 className="text-balance text-2xl font-semibold tracking-tight text-fg">{title}</h1>
-        {subtitle ? <p className="mt-1.5 text-sm text-fg-muted">{subtitle}</p> : null}
+    <div className="w-full max-w-[28rem] rounded-[var(--radius-card)] bg-white/80 p-8 shadow-xl ring-1 ring-black/5 backdrop-blur-xl">
+      <div className="mb-8">
+        <h1 className="text-center text-3xl font-semibold tracking-tight text-fg">{title}</h1>
+        {subtitle ? <p className="mt-2 text-center text-sm text-fg-muted">{subtitle}</p> : null}
       </div>
       {children}
-      {footer ? <div className="mt-6 text-sm text-fg-subtle">{footer}</div> : null}
+      {footer ? <div className="mt-8 text-center text-sm text-fg-subtle">{footer}</div> : null}
     </div>
   );
 }
