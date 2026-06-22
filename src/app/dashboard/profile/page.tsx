@@ -43,9 +43,18 @@ export default async function ProfilePage() {
 
       <Card className="p-6">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-2xl font-semibold text-accent">
-            {initial}
-          </span>
+          {user?.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.imageUrl}
+              alt={name}
+              className="h-16 w-16 rounded-full object-cover ring-1 ring-line"
+            />
+          ) : (
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-2xl font-semibold text-accent">
+              {initial}
+            </span>
+          )}
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold text-fg">{name}</p>
             {email && <p className="truncate text-sm text-fg-subtle">{email}</p>}

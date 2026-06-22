@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
 import { updateCircuitBreaker } from "@/app/dashboard/accounts/actions";
+import { resetPaperAccount, deleteUserAccount } from "@/app/dashboard/settings/actions";
+import { marketingUrl } from "@/lib/urls";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
 function csvCell(value: unknown): string {
@@ -73,6 +76,8 @@ export function SettingsView({
   const [email, setEmail] = useState(true);
   const [push, setPush] = useState(false);
   const [perTrade, setPerTrade] = useState(false);
+  const router = useRouter();
+  const { signOut } = useClerk();
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -153,15 +158,19 @@ export function SettingsView({
       <Card className="border-negative/40 p-5">
         <CardTitle>Danger zone</CardTitle>
         <div className="mt-4 space-y-3">
-          <DangerRow
+          <DangerAction
             title="Reset paper account"
             desc="Clear all paper trades and reset the balance to $10,000."
-            action="Reset"
+            label="Reset"
+            run={resetPaperAccount}
+            onSuccess={() => router.refresh()}
           />
-          <DangerRow
+          <DangerAction
             title="Delete account"
             desc="Permanently remove your account and all data."
-            action="Delete"
+            label="Delete"
+            run={deleteUserAccount}
+            onSuccess={() => signOut({ redirectUrl: marketingUrl() })}
           />
         </div>
       </Card>
@@ -312,19 +321,61 @@ function Threshold({
   );
 }
 
-function DangerRow({ title, desc, action }: { title: string; desc: string; action: string }) {
+function DangerAction({
+  title,
+  desc,
+  label,
+  run,
+  onSuccess,
+}: {
+  title: string;
+  desc: string;
+  label: string;
+  run: () => Promise<{ ok: boolean; error?: string }>;
+  onSuccess?: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleClick() {
+    setError(null);
+    if (!armed) {
+      setArmed(true);
+      timer.current = setTimeout(() => setArmed(false), 4000);
+      return;
+    }
+    if (timer.current) clearTimeout(timer.current);
+    setArmed(false);
+    startTransition(async () => {
+      const res = await run();
+      if (!res.ok) setError(res.error ?? "Something went wrong.");
+      else onSuccess?.();
+    });
+  }
+
   return (
-    <div className="flex items-center justify-between rounded-[var(--radius-control)] border border-line bg-base/40 px-4 py-3">
-      <div>
-        <p className="text-sm font-medium text-fg">{title}</p>
-        <p className="text-xs text-fg-subtle">{desc}</p>
+    <div className="rounded-[var(--radius-control)] border border-line bg-base/40 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-fg">{title}</p>
+          <p className="text-xs text-fg-subtle">{desc}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={pending}
+          className="shrink-0 rounded-[var(--radius-control)] border border-negative/50 px-3 py-1.5 text-sm font-medium text-negative transition-colors hover:bg-negative-soft active:scale-[0.97] disabled:opacity-50"
+        >
+          {pending ? "Working…" : armed ? "Click to confirm" : label}
+        </button>
       </div>
-      <button
-        type="button"
-        className="rounded-[var(--radius-control)] border border-negative/50 px-3 py-1.5 text-sm font-medium text-negative transition-colors hover:bg-negative-soft active:scale-[0.97]"
-      >
-        {action}
-      </button>
+      {error ? (
+        <p className="mt-2 text-xs text-negative" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
