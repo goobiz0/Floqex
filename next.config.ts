@@ -16,6 +16,9 @@ const cspHeader = `
 `;
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_CLERK_PROXY_URL: "", // Force disable proxy to prevent Cloudflare blocks
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "img.clerk.com" },
