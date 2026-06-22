@@ -3,7 +3,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
 import { authUrl, dashboardUrl } from "@/lib/urls";
 import { MarketingMobileMenu } from "./marketing-mobile-menu";
-import { auth } from "@clerk/nextjs/server";
+import { AuthButtons } from "./auth-buttons";
 
 const links = [
   { href: "/#features", label: "Features" },
@@ -13,8 +13,6 @@ const links = [
 ];
 
 export async function MarketingNav() {
-  const { userId } = await auth();
-
   return (
     <header className="fixed left-1/2 top-6 z-50 w-[90%] max-w-4xl -translate-x-1/2">
       <nav className="flex h-14 items-center justify-between gap-4 rounded-[var(--radius-pill)] border border-line/50 bg-white/60 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:px-6">
@@ -35,23 +33,7 @@ export async function MarketingNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          {userId ? (
-            <Button href={dashboardUrl("/")} size="sm" className="rounded-full">
-              Dashboard
-            </Button>
-          ) : (
-            <>
-              <Link 
-                href={authUrl("/sign-in")} 
-                className="hidden text-sm font-medium text-fg-subtle transition-colors hover:text-fg sm:block"
-              >
-                Sign in
-              </Link>
-              <Button href={authUrl("/sign-up")} size="sm" className="rounded-full">
-                Get started
-              </Button>
-            </>
-          )}
+          <AuthButtons />
           <div className="md:hidden">
             <MarketingMobileMenu links={links} />
           </div>

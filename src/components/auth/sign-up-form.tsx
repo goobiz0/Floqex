@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useEffect } from "react";
 import { Envelope, Lock, User } from "@phosphor-icons/react";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -13,6 +13,14 @@ import { dashboardUrl, onboardingUrl } from "@/lib/urls";
 
 export function SignUpForm() {
   const { signUp } = useSignUp();
+  const { isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      window.location.assign(dashboardUrl());
+    }
+  }, [isLoaded, isSignedIn]);
+
   const [step, setStep] = useState<"form" | "verify">("form");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -67,8 +75,9 @@ export function SignUpForm() {
         return;
       }
       if (signUp.status === "complete") {
-        await signUp.finalize();
-        window.location.assign(onboardingUrl());
+        await signUp.finalize({
+          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(onboardingUrl()))
+        });
         return;
       }
       setError("Verification could not be completed. Please try again.");

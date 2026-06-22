@@ -5,12 +5,14 @@ import Link from "next/link";
 import { List, X } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { authUrl } from "@/lib/urls";
+import { authUrl, dashboardUrl } from "@/lib/urls";
+import { useAuth } from "@clerk/nextjs";
 
 /** Mobile nav sheet for the marketing header (hidden at md+). */
 export function MarketingMobileMenu({ links }: { links: { href: string; label: string }[] }) {
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
+  const { isSignedIn } = useAuth();
 
   return (
     <div className="md:hidden">
@@ -54,12 +56,20 @@ export function MarketingMobileMenu({ links }: { links: { href: string; label: s
                   </Link>
                 ))}
                 <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
-                  <Button href={authUrl("/sign-in")} variant="secondary" className="w-full">
-                    Sign in
-                  </Button>
-                  <Button href={authUrl("/sign-up")} className="w-full">
-                    Get started
-                  </Button>
+                  {isSignedIn ? (
+                    <Button href={dashboardUrl("/")} className="w-full">
+                      Dashboard
+                    </Button>
+                  ) : (
+                    <>
+                      <Button href={authUrl("/sign-in")} variant="secondary" className="w-full">
+                        Sign in
+                      </Button>
+                      <Button href={authUrl("/sign-up")} className="w-full">
+                        Get started
+                      </Button>
+                    </>
+                  )}
                 </div>
               </nav>
             </motion.div>

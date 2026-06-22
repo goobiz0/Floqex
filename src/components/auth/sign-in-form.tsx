@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useEffect } from "react";
 import Link from "next/link";
 import { Envelope, Lock } from "@phosphor-icons/react";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -17,6 +17,14 @@ type Step = "form" | "mfa" | "mfa-backup" | "client-trust";
 
 export function SignInForm() {
   const { signIn } = useSignIn();
+  const { isLoaded, isSignedIn } = useAuth();
+  
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      window.location.assign(dashboardUrl());
+    }
+  }, [isLoaded, isSignedIn]);
+
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
