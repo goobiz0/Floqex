@@ -159,6 +159,19 @@ export default async function LandingPage() {
           </Button>
         </div>
       </section>
+
+      {/* Regulatory Disclaimer */}
+      <section className="bg-base border-t border-line py-12">
+        <div className="mx-auto max-w-[1200px] px-6 text-center">
+          <p className="max-w-4xl mx-auto text-xs leading-relaxed text-fg-muted/80">
+            <strong className="font-semibold text-fg-subtle">Risk Warning:</strong> Trading involves a high level of risk and may not be suitable for all investors. 
+            The high degree of leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, 
+            level of experience, and risk appetite. Past performance is not indicative of future results. Any simulated or hypothetical performance results shown 
+            on this website are for illustrative purposes only and do not represent actual live trading. The results do not promise or guarantee any specific outcome 
+            or profit. You should be aware of all the risks associated with trading and seek advice from an independent financial advisor if you have any doubts.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

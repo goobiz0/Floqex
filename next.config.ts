@@ -24,9 +24,6 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ["@prisma/client"],
-  serverActions: {
-    allowedOrigins: ["floqex.com", "users.floqex.com", "localhost:3000"],
-  },
   async headers() {
     return [
       {

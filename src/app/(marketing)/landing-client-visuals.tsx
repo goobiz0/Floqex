@@ -1,9 +1,24 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useRef, useEffect } from "react";
+import { motion, useInView, useMotionValue, useTransform, animate } from "motion/react";
 import { Card } from "@/components/ui/card";
 
 export function LandingClientVisuals() {
+  const chartRef = useRef(null);
+  const isInView = useInView(chartRef, { once: true, margin: "-100px" });
+  
+  // Motion values for the counter and stroke
+  const count = useMotionValue(0);
+  const displayValue = useTransform(count, (v) => `${Math.round(v)}%`);
+  const strokeDashoffset = useTransform(count, (v) => 251.2 - (251.2 * (v / 100)));
+
+  useEffect(() => {
+    if (isInView) {
+      animate(count, 76, { duration: 2, ease: "easeOut" });
+    }
+  }, [isInView, count]);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {/* Bot Activity Card */}
@@ -57,12 +72,13 @@ export function LandingClientVisuals() {
 
       {/* Analytics Card */}
       <motion.div
+        ref={chartRef}
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ delay: 0.3 }}
       >
         <Card className="p-8 h-full min-h-[400px] flex flex-col justify-between overflow-hidden relative group rounded-[32px] border-line">
-          <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-emerald-500/10 blur-[60px] rounded-full mix-blend-screen transition-transform group-hover:scale-110" />
+          <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-emerald-500/10 blur-[60px] rounded-full mix-blend-screen transition-transform duration-1000 group-hover:scale-125" />
           
           <div className="relative z-10">
             <span className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">
@@ -78,13 +94,14 @@ export function LandingClientVisuals() {
                     stroke="var(--color-profit)" 
                     strokeWidth="12"
                     strokeDasharray="251.2"
-                    initial={{ strokeDashoffset: 251.2 }}
-                    animate={{ strokeDashoffset: 60 }}
-                    transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
+                    style={{ strokeDashoffset }}
+                    strokeLinecap="round"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-semibold tracking-tight">76%</span>
+                  <motion.span className="text-2xl font-semibold tracking-tight tabular-nums">
+                    {displayValue}
+                  </motion.span>
                   <span className="text-[10px] uppercase tracking-wider text-fg-subtle">Win Rate</span>
                 </div>
               </div>
