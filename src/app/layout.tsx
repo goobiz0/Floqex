@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -42,18 +43,30 @@ import { Toaster } from "sonner";
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
 // src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
 // needs no widget appearance. The product is dark-locked at the app level.
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const reqHeaders = await headers();
+  const host = (reqHeaders.get("host") ?? "").split(":")[0].toLowerCase();
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
+  const useSubdomains = root && host.endsWith(root);
+  const isAuth = host.startsWith("users.");
+  const isSatellite = !!useSubdomains && !isAuth;
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-[100dvh] bg-base text-fg">
-        <ClerkProvider>
+        <ClerkProvider
+          isSatellite={isSatellite}
+          domain={useSubdomains ? root : undefined}
+          signInUrl={root ? `https://users.${root}/sign-in` : "/sign-in"}
+          signUpUrl={root ? `https://users.${root}/sign-up` : "/sign-up"}
+        >
           {children}
         </ClerkProvider>
         <Toaster position="bottom-right" theme="dark" />

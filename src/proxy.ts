@@ -107,10 +107,18 @@ export default clerkMiddleware(
     }
     return NextResponse.next();
   },
-  {
-    signInUrl: root ? `https://users.${root}/sign-in` : "/sign-in",
-    signUpUrl: root ? `https://users.${root}/sign-up` : "/sign-up",
-    authorizedParties: authorizedParties ? authorizedParties : undefined,
+  (req) => {
+    const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
+    const role = hostRole(host);
+    const useSubdomains = root && host.endsWith(root);
+
+    return {
+      signInUrl: root ? `https://users.${root}/sign-in` : "/sign-in",
+      signUpUrl: root ? `https://users.${root}/sign-up` : "/sign-up",
+      authorizedParties: authorizedParties ? authorizedParties : undefined,
+      isSatellite: !!useSubdomains && role !== "auth",
+      domain: useSubdomains ? root : undefined,
+    };
   }
 );
 
