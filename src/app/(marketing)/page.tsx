@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { LogoWall } from "@/components/marketing/logo-wall";
 import { authUrl } from "@/lib/urls";
 import { getDemoPreview } from "@/lib/queries";
+import { LandingClientVisuals } from "./landing-client-visuals";
 import { HeroInteractiveBackground } from "@/components/marketing/hero-interactive-background";
 import { BentoCard } from "@/components/marketing/bento-card";
 
