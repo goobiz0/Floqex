@@ -116,7 +116,7 @@ import { parseStrategyParams, PARAM_LABELS, rawParamValue, formatParamValue, typ
 /**
  * Apply strategy changes confirmed by the user via Mochi Chat.
  */
-export async function applyStrategyChanges(changes: any): Promise<{ ok: boolean; updated?: any[]; message?: string; note?: string }> {
+export async function applyStrategyChanges(changes: Record<string, unknown>): Promise<{ ok: boolean; updated?: Record<string, unknown>[]; message?: string; note?: string }> {
   const { userId } = await auth();
   if (!userId) return { ok: false, message: "Unauthorized." };
 
@@ -129,7 +129,7 @@ export async function applyStrategyChanges(changes: any): Promise<{ ok: boolean;
   const strategy = user.strategies[0] ?? null;
   if (!strategy) return { ok: false, message: "No strategy configured yet." };
 
-  const params = strategy.params as Record<string, any>;
+  const params = strategy.params as Record<string, unknown>;
   const requested = Object.fromEntries(
     Object.entries(changes).filter(([, v]) => v !== undefined),
   );

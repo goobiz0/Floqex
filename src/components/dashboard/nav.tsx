@@ -14,12 +14,10 @@ import {
   CreditCard,
   Gear,
   UserCircle,
-  SignOut,
   CaretRight,
   CaretUp,
   Plus,
   Moon,
-  Globe,
   Question,
   BookOpen,
   Info,
@@ -27,7 +25,7 @@ import {
   Code,
   type Icon,
 } from "@phosphor-icons/react";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { cn, formatUSD } from "@/lib/utils";
 import type { NavAccount } from "@/lib/queries";
 
@@ -217,7 +215,6 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
 
 function UserProfileBlock() {
   const { user } = useUser();
-  const { signOut } = useClerk();
 
   if (!user) return null;
 

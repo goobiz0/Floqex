@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
-import { Plus, MagnifyingGlass, DotsThree, CaretDown, TrendUp, TrendDown } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, DotsThree, TrendUp } from "@phosphor-icons/react";
 import { formatUSD } from "@/lib/utils";
 import { motion } from "motion/react";
 import { type TradeRow } from "@/lib/queries";

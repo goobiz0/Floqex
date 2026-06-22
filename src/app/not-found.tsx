@@ -11,7 +11,7 @@ export default function NotFound() {
         Page not found
       </h1>
       <p className="mb-8 max-w-sm text-sm text-fg-muted">
-        The page you are looking for doesn't exist or has been moved.
+        The page you are looking for doesn&apos;t exist or has been moved.
       </p>
       <Button href="/" variant="primary">
         Return Home

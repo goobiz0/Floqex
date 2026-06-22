@@ -1,9 +1,8 @@
 import { ArrowRight, ChartLineUp, Flask, Notebook, ShieldCheck } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+
 import { LogoWall } from "@/components/marketing/logo-wall";
 import { authUrl } from "@/lib/urls";
-import { getDemoPreview } from "@/lib/queries";
 import { LandingClientVisuals } from "./landing-client-visuals";
 import { HeroInteractiveBackground } from "@/components/marketing/hero-interactive-background";
 import { BentoCard } from "@/components/marketing/bento-card";
@@ -13,8 +12,7 @@ import { PricingTable } from "@/components/marketing/pricing-table";
 export const revalidate = 300;
 
 export default async function LandingPage() {
-  const demo = await getDemoPreview();
-
+  
   return (
     <div className="bg-base overflow-hidden selection:bg-accent/20">
       

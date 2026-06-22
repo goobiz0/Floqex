@@ -15,7 +15,7 @@ export default function PrivacyPage() {
     >
       <LegalSection heading="1. Information We Collect">
         <p>
-          We collect information that identifies, relates to, describes, or could reasonably be linked, directly or indirectly, with a particular consumer or device ("Personal Information"). We collect this information directly from you, automatically through your use of our Services, and from third-party sources.
+          We collect information that identifies, relates to, describes, or could reasonably be linked, directly or indirectly, with a particular consumer or device (&quot;Personal Information&quot;). We collect this information directly from you, automatically through your use of our Services, and from third-party sources.
         </p>
         <p><strong>1.1 Information You Provide Directly:</strong></p>
         <ul className="list-disc pl-6 space-y-2 mt-2">
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-6 space-y-2 mt-2">
           <li><strong>Right to Access:</strong> You can request a copy of the Personal Information we hold about you.</li>
           <li><strong>Right to Correction:</strong> You can correct inaccurate or incomplete data in your account settings.</li>
-          <li><strong>Right to Deletion ("Right to be Forgotten"):</strong> You can delete your account and request the deletion of your data.</li>
+          <li><strong>Right to Deletion (&quot;Right to be Forgotten&quot;):</strong> You can delete your account and request the deletion of your data.</li>
           <li><strong>Right to Data Portability:</strong> You can export your trading history and strategy configurations as CSV files.</li>
           <li><strong>Right to Opt-Out:</strong> We do not sell your data. However, you can opt-out of promotional communications at any time.</li>
         </ul>

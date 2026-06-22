@@ -1,8 +1,5 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { Plus, MagnifyingGlass, DotsThree, CaretDown } from "@phosphor-icons/react/dist/ssr";
 import { getOverviewData } from "@/lib/queries";
-import { formatUSD } from "@/lib/utils";
 import { DashboardError } from "@/components/dashboard/states";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";

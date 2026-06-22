@@ -16,7 +16,7 @@ import { authUrl, dashboardUrl } from "@/lib/urls";
 type Step = "form" | "mfa" | "mfa-backup" | "client-trust";
 
 export function SignInForm() {
-  const { signIn } = useSignIn();
+  const { signIn, setActive } = useSignIn();
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +58,7 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await signIn.finalize();
+        await setActive({ session: signIn.createdSessionId });
         window.location.assign(dashboardUrl());
         return;
       }
@@ -86,7 +86,7 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await signIn.finalize();
+        await setActive({ session: signIn.createdSessionId });
         window.location.assign(dashboardUrl());
         return;
       }
@@ -113,7 +113,7 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await signIn.finalize();
+        await setActive({ session: signIn.createdSessionId });
         window.location.assign(dashboardUrl());
         return;
       }
@@ -140,7 +140,7 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await signIn.finalize();
+        await setActive({ session: signIn.createdSessionId });
         window.location.assign(dashboardUrl());
         return;
       }
@@ -257,7 +257,7 @@ export function SignInForm() {
     return (
       <form onSubmit={onVerifyClientTrust} className="space-y-5" noValidate>
         <p className="text-sm text-fg-muted">
-          We noticed you're signing in from a new device. Please enter the verification code sent to your email.
+          We noticed you&apos;re signing in from a new device. Please enter the verification code sent to your email.
         </p>
         <div className="space-y-1.5">
           <Label htmlFor="device-code">Verification code</Label>

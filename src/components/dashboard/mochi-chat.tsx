@@ -43,6 +43,7 @@ export function MochiChat() {
     api: "/api/chat",
   });
   const bottomRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,19 +54,18 @@ export function MochiChat() {
   // Web Speech API setup
   useEffect(() => {
     if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
-        let interimTranscript = "";
         let finalTranscript = "";
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
           }
         }
         
@@ -91,7 +91,6 @@ export function MochiChat() {
   // Listening Timer
   useEffect(() => {
     if (isListening) {
-      setListenTime(0);
       timerRef.current = setInterval(() => {
         setListenTime((t) => t + 1);
       }, 1000);
@@ -110,6 +109,7 @@ export function MochiChat() {
     } else {
       setInput("");
       recognitionRef.current?.start();
+      setListenTime(0);
       setIsListening(true);
       setIsOpen(true);
     }
@@ -127,11 +127,11 @@ export function MochiChat() {
     }
   };
 
-  const handleToolAccept = async (toolCallId: string, args: any) => {
+  const handleToolAccept = async (toolCallId: string, args: Record<string, unknown>) => {
     try {
       const res = await applyStrategyChanges(args);
       addToolResult({ toolCallId, result: res });
-    } catch (err) {
+    } catch {
       addToolResult({ toolCallId, result: { ok: false, message: "Server error" } });
     }
   };
@@ -254,6 +254,7 @@ export function MochiChat() {
                                 </div>
                               );
                             } else if (isResult) {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
                               const res = (inv as any).result;
                               const ok = res?.ok;
                               return (

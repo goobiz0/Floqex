@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { PLANS, type Plan } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -21,7 +20,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ account
       return new NextResponse("Account or Bot not found", { status: 404 });
     }
 
-    const planConfig = PLANS[account.user.plan as Plan] || PLANS.FREE;
 
     // TradingView webhooks are a Pro feature
     if (account.user.plan !== "PRO") {

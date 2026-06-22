@@ -49,7 +49,7 @@ export default function TermsPage() {
         <ul className="list-disc pl-6 space-y-2 mt-2">
           <li><strong>Auto-Renewal:</strong> Subscriptions automatically renew at the end of each billing cycle unless you cancel beforehand via your account settings.</li>
           <li><strong>Refunds:</strong> All payments are non-refundable, except where required by applicable law. If you cancel mid-cycle, you will retain access to the paid features until the cycle ends.</li>
-          <li><strong>Changes to Fees:</strong> We reserve the right to change our pricing with 30 days' advance notice. Continued use of the Services after the price change constitutes your agreement to pay the modified amount.</li>
+          <li><strong>Changes to Fees:</strong> We reserve the right to change our pricing with 30 days&apos; advance notice. Continued use of the Services after the price change constitutes your agreement to pay the modified amount.</li>
         </ul>
       </LegalSection>
 
@@ -74,7 +74,7 @@ export default function TermsPage() {
 
       <LegalSection heading="7. Disclaimers of Warranties">
         <p>
-          THE SERVICES ARE PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS. FLOQEX EXPRESSLY DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICES WILL BE UNINTERRUPTED, ERROR-FREE, OR COMPLETELY SECURE, NOR DO WE GUARANTEE ANY SPECIFIC TRADING RESULTS OR PROFITABILITY.
+          THE SERVICES ARE PROVIDED ON AN &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; BASIS. FLOQEX EXPRESSLY DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICES WILL BE UNINTERRUPTED, ERROR-FREE, OR COMPLETELY SECURE, NOR DO WE GUARANTEE ANY SPECIFIC TRADING RESULTS OR PROFITABILITY.
         </p>
       </LegalSection>
 
@@ -83,13 +83,13 @@ export default function TermsPage() {
           TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL FLOQEX, ITS DIRECTORS, EMPLOYEES, OR AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO TRADING LOSSES, LOST PROFITS, OR LOSS OF DATA, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICES.
         </p>
         <p className="mt-2">
-          IN NO EVENT SHALL FLOQEX'S TOTAL LIABILITY TO YOU FOR ALL CLAIMS EXCEED THE GREATER OF ONE HUNDRED U.S. DOLLARS ($100.00) OR THE AMOUNT YOU PAID TO FLOQEX IN THE THREE (3) MONTHS PRECEDING THE CLAIM.
+          IN NO EVENT SHALL FLOQEX&apos;S TOTAL LIABILITY TO YOU FOR ALL CLAIMS EXCEED THE GREATER OF ONE HUNDRED U.S. DOLLARS ($100.00) OR THE AMOUNT YOU PAID TO FLOQEX IN THE THREE (3) MONTHS PRECEDING THE CLAIM.
         </p>
       </LegalSection>
 
       <LegalSection heading="9. Indemnification">
         <p>
-          You agree to indemnify, defend, and hold harmless Floqex from and against any and all claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of your use of the Services, your violation of these Terms, or your violation of any laws or rights of a third party.
+          You agree to indemnify, defend, and hold harmless Floqex from and against any and all claims, liabilities, damages, losses, and expenses (including reasonable attorneys&apos; fees) arising out of your use of the Services, your violation of these Terms, or your violation of any laws or rights of a third party.
         </p>
       </LegalSection>
 
