@@ -20,7 +20,6 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { Wordmark } from "@/components/brand/wordmark";
 import { cn, formatUSD } from "@/lib/utils";
 import type { NavAccount } from "@/lib/queries";
 
@@ -134,17 +133,12 @@ function AccountRow({ account }: { account: NavAccount }) {
   );
 }
 
-/** Desktop sidebar, fixed 240px at lg+ */
+/** Desktop sidebar, fixed 240px at lg+, below the full-width top bar. */
 export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
   const isActive = useIsActive();
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-line bg-elevated lg:flex">
-      <div className="px-5 py-5">
-        <Link href="/dashboard">
-          <Wordmark />
-        </Link>
-      </div>
-      <nav className="flex-1 overflow-y-auto px-3">
+    <aside className="fixed bottom-0 left-0 top-14 hidden w-60 flex-col border-r border-line bg-elevated lg:flex">
+      <nav className="flex-1 overflow-y-auto px-3 pb-3 pt-1">
         <Section label="Navigate">
           {MAIN.map((item) => (
             <NavLink key={item.href} item={item} active={isActive(item.href)} />
