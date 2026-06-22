@@ -82,21 +82,29 @@ export default clerkMiddleware(
           const requestInit: RequestInit & { duplex?: string } = {
             method: req.method,
             headers,
-            redirect: "manual",
+            redirect: "follow", // Follow redirects under the hood
           };
           
           if (req.method !== "GET" && req.method !== "HEAD") {
-            requestInit.body = req.body as any;
-            requestInit.duplex = "half";
+            // Only pass body if present, to avoid fetch throwing errors
+            if (req.body) {
+              requestInit.body = req.body as any;
+              requestInit.duplex = "half";
+            }
           }
           
           const res = await fetch(fapiUrl, requestInit);
+          
+          // Clean up headers before returning to prevent stream corruption
+          const responseHeaders = new Headers(res.headers);
+          responseHeaders.delete("content-encoding");
+          responseHeaders.delete("content-length");
           
           // Create response from upstream
           const proxiedRes = new NextResponse(res.body, {
             status: res.status,
             statusText: res.statusText,
-            headers: res.headers,
+            headers: responseHeaders,
           });
           
           // Force CORS headers on the proxy response
