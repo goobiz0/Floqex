@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { XLogo, DiscordLogo, GithubLogo } from "@phosphor-icons/react/dist/ssr";
+import type { Icon } from "@phosphor-icons/react";
 import { Wordmark } from "@/components/brand/wordmark";
+import { authUrl } from "@/lib/urls";
 
 const columns = [
   {
@@ -14,8 +17,8 @@ const columns = [
   {
     title: "Account",
     links: [
-      { href: "/sign-in", label: "Sign in" },
-      { href: "/sign-up", label: "Get started" },
+      { href: authUrl("/sign-in"), label: "Sign in" },
+      { href: authUrl("/sign-up"), label: "Get started" },
     ],
   },
   {
@@ -26,6 +29,12 @@ const columns = [
       { href: "/risk-disclosure", label: "Risk disclosure" },
     ],
   },
+];
+
+const socials: { href: string; label: string; icon: Icon }[] = [
+  { href: "https://x.com/floqex", label: "Floqex on X", icon: XLogo },
+  { href: "https://discord.gg/floqex", label: "Floqex on Discord", icon: DiscordLogo },
+  { href: "https://github.com/floqex", label: "Floqex on GitHub", icon: GithubLogo },
 ];
 
 export function Footer() {
@@ -39,6 +48,23 @@ export function Footer() {
               Automated trading with hard risk limits and a decision log you can
               actually read.
             </p>
+            <div className="mt-5 flex items-center gap-2">
+              {socials.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <a
+                    key={s.href}
+                    href={s.href}
+                    aria-label={s.label}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] border border-line text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
+                  >
+                    <Icon size={17} />
+                  </a>
+                );
+              })}
+            </div>
           </div>
 
           {columns.map((col) => (

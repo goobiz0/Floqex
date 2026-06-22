@@ -5,8 +5,11 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, ArrowDown, X } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Segmented } from "@/components/ui/segmented";
 import { dailyPnl, type TradeRow, type DailyRow } from "@/lib/metrics";
 import { cn, formatUSD } from "@/lib/utils";
+
+type TradeFilter = "all" | "wins" | "losses";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -28,6 +31,7 @@ export function JournalView({
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [active, setActive] = useState<TradeRow | null>(null);
+  const [filter, setFilter] = useState<TradeFilter>("all");
   const pnlByDay = useMemo(() => dailyPnl(summaries), [summaries]);
 
   // Show the most recent month that has data (or the current month if empty).
@@ -64,9 +68,11 @@ export function JournalView({
   }, [anchor]);
 
   const rows = useMemo(() => {
-    const list = selectedDate ? trades.filter((t) => dateOf(t) === selectedDate) : trades;
+    let list = selectedDate ? trades.filter((t) => dateOf(t) === selectedDate) : trades;
+    if (filter === "wins") list = list.filter((t) => (t.netPnl ?? 0) >= 0);
+    else if (filter === "losses") list = list.filter((t) => (t.netPnl ?? 0) < 0);
     return [...list].sort((a, b) => b.openedAt.localeCompare(a.openedAt));
-  }, [selectedDate, trades]);
+  }, [selectedDate, trades, filter]);
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -127,13 +133,27 @@ export function JournalView({
 
       {/* Trade list */}
       <Card className="flex flex-col p-0">
-        <div className="flex items-center justify-between border-b border-line px-4 py-3">
-          <h2 className="text-sm font-medium text-fg">
-            {selectedDate ? `Trades on ${selectedDate}` : "All trades"}
-          </h2>
-          <Badge tone="neutral" mono>
-            {rows.length}
-          </Badge>
+        <div className="border-b border-line px-4 py-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-fg">
+              {selectedDate ? `Trades on ${selectedDate}` : "All trades"}
+            </h2>
+            <Badge tone="neutral" mono>
+              {rows.length}
+            </Badge>
+          </div>
+          <div className="mt-3">
+            <Segmented
+              size="sm"
+              options={[
+                { value: "all", label: "All" },
+                { value: "wins", label: "Wins" },
+                { value: "losses", label: "Losses" },
+              ]}
+              value={filter}
+              onChange={setFilter}
+            />
+          </div>
         </div>
         <ul className="max-h-[520px] divide-y divide-line overflow-y-auto">
           {rows.map((t) => {
