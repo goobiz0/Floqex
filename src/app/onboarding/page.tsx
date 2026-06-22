@@ -14,10 +14,13 @@ import {
   Megaphone,
   ChartLineUp,
   Target,
+  TextAa,
+  DiscordLogo,
   type Icon,
 } from "@phosphor-icons/react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { completeOnboarding } from "./actions";
 
@@ -160,12 +163,12 @@ export default function OnboardingPage() {
                 <Step icon={Wallet} title="Your paper account is ready" desc="A simulated account so you can watch the bot trade with real market data and zero risk.">
                   <div className="space-y-4">
                     <Field label="Account nickname" id="ob-nickname">
-                      <input
+                      <Input
                         id="ob-nickname"
                         value={nickname}
                         onChange={(e) => setNickname(e.target.value)}
                         maxLength={40}
-                        className="w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-sm text-fg focus-visible:border-accent focus-visible:outline-none"
+                        icon={<TextAa />}
                       />
                     </Field>
                     <Field label="Your timezone" id="ob-timezone" hint="Session times show in your local clock alongside the market's.">
@@ -195,13 +198,14 @@ export default function OnboardingPage() {
 
               {step === 4 && (
                 <Step icon={ChatCircleDots} title="Get the decision feed on Discord" desc="Optional. Paste a webhook to receive the bot's narration and milestone alerts.">
-                  <Field label="Discord webhook" id="ob-discord" hint="Server Settings → Integrations → Webhooks → Copy URL.">
-                    <input
+                  <Field label="Discord webhook" id="ob-discord" hint="Server Settings, then Integrations, then Webhooks, then Copy URL.">
+                    <Input
                       id="ob-discord"
+                      type="url"
                       value={discord}
                       onChange={(e) => setDiscord(e.target.value)}
                       placeholder="https://discord.com/api/webhooks/..."
-                      className="w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-sm text-fg placeholder:text-fg-faint focus-visible:border-accent focus-visible:outline-none"
+                      icon={<DiscordLogo weight="fill" />}
                     />
                   </Field>
                 </Step>

@@ -47,7 +47,9 @@ Marketing pages (`(marketing)/*`) may run hotter (VARIANCE 6-7, MOTION 5-6).
 4. **Real data only.** No mock arrays, no "Jane Doe", no fabricated numbers.
    Empty/loading/error states instead. Demo numbers come from the seeded demo
    account via a labelled public read.
-5. **Zero em-dashes** (`—`/`–`) anywhere visible. Use a period, comma, or hyphen.
+5. **Zero em-dashes** (`—`/`–`) in copy, headings, labels, and button text. Use a
+   period, comma, or hyphen. The sole exception is a standalone `—` used as an
+   empty-value placeholder in a metric/data cell (a standard dashboard convention).
 6. **Accessibility is a gate.** Label-above-input, `:focus-visible` rings,
    WCAG AA contrast, never color-alone for state (pair with a text label/icon),
    keyboard paths for menus/dialogs, `prefers-reduced-motion` honored.
