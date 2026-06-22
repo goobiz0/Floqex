@@ -46,9 +46,18 @@ export default clerkMiddleware(
     const url = req.nextUrl;
     const { pathname } = url;
 
-    // Let the hosting provider handle www vs apex canonicalization.
-    // Explicit redirects here can cause infinite loops if the host is configured
-    // to prefer www over apex.
+    // Proxy Clerk's frontend API (FAPI) requests natively to avoid 404s.
+    // clerkMiddleware relies on Next.js to do the actual rewrite.
+    if (pathname.startsWith("/v1/client")) {
+      const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+      if (pk.startsWith("pk_test_")) {
+        const decoded = atob(pk.split("_")[2]);
+        const fapiDomain = decoded.slice(0, -1); // remove trailing $
+        return NextResponse.rewrite(`https://${fapiDomain}${pathname}${url.search}`);
+      } else if (pk.startsWith("pk_live_") && root) {
+        return NextResponse.rewrite(`https://clerk.${root}${pathname}${url.search}`);
+      }
+    }
 
     const role = hostRole(host);
 
