@@ -16,7 +16,7 @@ import { authUrl, dashboardUrl } from "@/lib/urls";
 type Step = "form" | "mfa" | "mfa-backup" | "client-trust";
 
 export function SignInForm() {
-  const { signIn, setActive } = useSignIn();
+  const { signIn } = useSignIn();
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,8 +58,9 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await setActive({ session: signIn.createdSessionId });
-        window.location.assign(dashboardUrl());
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+        });
         return;
       }
       
@@ -86,8 +87,9 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await setActive({ session: signIn.createdSessionId });
-        window.location.assign(dashboardUrl());
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+        });
         return;
       }
       
@@ -113,8 +115,9 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await setActive({ session: signIn.createdSessionId });
-        window.location.assign(dashboardUrl());
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+        });
         return;
       }
       
@@ -140,8 +143,9 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
-        await setActive({ session: signIn.createdSessionId });
-        window.location.assign(dashboardUrl());
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+        });
         return;
       }
       
