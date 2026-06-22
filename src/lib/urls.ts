@@ -46,7 +46,7 @@ export function authUrl(path = "/sign-in"): string {
 }
 
 /**
- * Product surface (the account dashboard): accounts.floqex.com
+ * Product surface (the account dashboard): dashboard.floqex.com
  * Pass clean product paths ("/", "/journal"). In dev these are namespaced under
  * /dashboard to match the internal route tree.
  */
@@ -54,7 +54,7 @@ export function dashboardUrl(path = "/"): string {
   const p = withLeadingSlash(path);
   const r = getRoot();
   if (useSubdomains(r)) {
-    return `https://accounts.${r}${p === "/" ? "/" : p}`;
+    return `https://dashboard.${r}${p === "/" ? "/" : p}`;
   }
   if (p === "/") return "/dashboard";
   return p.startsWith("/dashboard") ? p : `/dashboard${p}`;
@@ -62,5 +62,5 @@ export function dashboardUrl(path = "/"): string {
 
 export function onboardingUrl(): string {
   const r = getRoot();
-  return useSubdomains(r) ? `https://accounts.${r}/onboarding` : "/onboarding";
+  return useSubdomains(r) ? `https://dashboard.${r}/onboarding` : "/onboarding";
 }
