@@ -129,7 +129,8 @@ export async function applyStrategyChanges(changes: Record<string, unknown>): Pr
   const strategy = user.strategies[0] ?? null;
   if (!strategy) return { ok: false, message: "No strategy configured yet." };
 
-  const params = strategy.params as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const params = strategy.params as Record<string, any>;
   const requested = Object.fromEntries(
     Object.entries(changes).filter(([, v]) => v !== undefined),
   );

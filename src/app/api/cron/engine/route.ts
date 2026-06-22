@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { PLANS, type Plan } from "@/lib/plans";
+import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 // Optionally ensure this is securely callable by Vercel only:
 // import { verifySignature } from '@upstash/qstash/nextjs'; // if using QStash
 // or check auth header from Vercel CRON_SECRET
 
-export async function GET() {
+export async function GET(req: Request) {
   // In production, verify the CRON_SECRET here to prevent unauthorized execution.
   // const authHeader = req.headers.get('authorization');
   // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) return new NextResponse('Unauthorized', { status: 401 });
@@ -33,6 +36,9 @@ export async function GET() {
         where: { id: bot.id },
         data: { lastHeartbeat: new Date() },
       });
+
+      const userPlan = PLANS[bot.account.user.plan as Plan] || PLANS.FREE;
+
       // 2. Enforce Circuit Breaker (Max Daily Loss)
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);

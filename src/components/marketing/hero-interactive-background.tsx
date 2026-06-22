@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
+import { motion } from "motion/react";
 
 export function HeroInteractiveBackground() {
   return (
