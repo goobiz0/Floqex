@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { SettingsView } from "@/components/dashboard/settings-view";
 import { getTradeData } from "@/lib/queries";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Settings" };
 
+const DEFAULT_SETTINGS = {
+  discordWebhookUrl: "",
+  notifyDiscord: true,
+  notifyEmail: true,
+  notifyPush: false,
+  notifyEveryTrade: false,
+  dailyLossAlertPct: 2.5,
+  drawdownAlertPct: 8,
+};
+
 export default async function SettingsPage() {
   const { trades } = await getTradeData();
   const { userId } = await auth();
+
   const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
   const accountRows = user
     ? await prisma.account.findMany({
@@ -24,6 +35,28 @@ export default async function SettingsPage() {
     maxDailyDrawdown: a.maxDailyDrawdown ? Number(a.maxDailyDrawdown) : null,
   }));
 
+  // Notification prefs live on the Clerk user's privateMetadata (same store as
+  // onboarding; read by the engine for Discord alerts).
+  let settings = DEFAULT_SETTINGS;
+  if (userId) {
+    try {
+      const client = await clerkClient();
+      const cu = await client.users.getUser(userId);
+      const m = (cu.privateMetadata ?? {}) as Record<string, unknown>;
+      settings = {
+        discordWebhookUrl: typeof m.discordWebhookUrl === "string" ? m.discordWebhookUrl : "",
+        notifyDiscord: m.notifyDiscord !== false,
+        notifyEmail: m.notifyEmail !== false,
+        notifyPush: m.notifyPush === true,
+        notifyEveryTrade: m.notifyEveryTrade === true,
+        dailyLossAlertPct: typeof m.dailyLossAlertPct === "number" ? m.dailyLossAlertPct : 2.5,
+        drawdownAlertPct: typeof m.drawdownAlertPct === "number" ? m.drawdownAlertPct : 8,
+      };
+    } catch {
+      settings = DEFAULT_SETTINGS;
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -32,7 +65,7 @@ export default async function SettingsPage() {
           Notifications, alert thresholds, and data export.
         </p>
       </div>
-      <SettingsView trades={trades} accounts={accounts} />
+      <SettingsView trades={trades} accounts={accounts} settings={settings} />
     </div>
   );
 }

@@ -6,6 +6,54 @@ import { prisma } from "@/lib/db";
 
 type Result = { ok: boolean; error?: string };
 
+export type NotificationPrefs = {
+  discordWebhookUrl: string;
+  notifyDiscord: boolean;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+  notifyEveryTrade: boolean;
+  dailyLossAlertPct: number;
+  drawdownAlertPct: number;
+};
+
+const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
+
+/**
+ * Persist notification preferences onto the Clerk user's privateMetadata — the
+ * same store onboarding writes to and the engine reads for Discord alerts.
+ */
+export async function updateNotificationPreferences(prefs: NotificationPrefs): Promise<Result> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "You are not signed in." };
+
+  const webhook = (prefs.discordWebhookUrl ?? "").trim();
+  if (webhook && !DISCORD_WEBHOOK.test(webhook)) {
+    return { ok: false, error: "That does not look like a Discord webhook URL." };
+  }
+  const clampPct = (n: number, lo: number, hi: number) =>
+    Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo;
+
+  try {
+    const client = await clerkClient();
+    const current = await client.users.getUser(userId);
+    await client.users.updateUserMetadata(userId, {
+      privateMetadata: {
+        ...current.privateMetadata,
+        discordWebhookUrl: webhook || null,
+        notifyDiscord: prefs.notifyDiscord,
+        notifyEmail: prefs.notifyEmail,
+        notifyPush: prefs.notifyPush,
+        notifyEveryTrade: prefs.notifyEveryTrade,
+        dailyLossAlertPct: clampPct(prefs.dailyLossAlertPct, 0, 100),
+        drawdownAlertPct: clampPct(prefs.drawdownAlertPct, 0, 100),
+      },
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not save preferences. Please try again." };
+  }
+}
+
 /**
  * Reset every paper account back to its starting state: clear trades, summaries
  * and agent events, restore the $10,000 balance, and stop the bot. Live accounts

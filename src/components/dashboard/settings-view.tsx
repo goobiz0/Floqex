@@ -11,7 +11,11 @@ import { Label } from "@/components/ui/label";
 import { useUser, useClerk } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
 import { updateCircuitBreaker } from "@/app/dashboard/accounts/actions";
-import { resetPaperAccount, deleteUserAccount } from "@/app/dashboard/settings/actions";
+import {
+  resetPaperAccount,
+  deleteUserAccount,
+  updateNotificationPreferences,
+} from "@/app/dashboard/settings/actions";
 import { marketingUrl } from "@/lib/urls";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
@@ -65,29 +69,69 @@ type SettingsAccount = {
   maxDailyDrawdown: number | null;
 };
 
+type NotificationSettings = {
+  discordWebhookUrl: string;
+  notifyDiscord: boolean;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+  notifyEveryTrade: boolean;
+  dailyLossAlertPct: number;
+  drawdownAlertPct: number;
+};
+
 export function SettingsView({
   trades,
   accounts = [],
+  settings,
 }: {
   trades: TradeRow[];
   accounts?: SettingsAccount[];
+  settings: NotificationSettings;
 }) {
-  const [discord, setDiscord] = useState(true);
-  const [email, setEmail] = useState(true);
-  const [push, setPush] = useState(false);
-  const [perTrade, setPerTrade] = useState(false);
+  const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
+  const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
+  const [notifyPush, setNotifyPush] = useState(settings.notifyPush);
+  const [notifyEveryTrade, setNotifyEveryTrade] = useState(settings.notifyEveryTrade);
+  const [webhookUrl, setWebhookUrl] = useState(settings.discordWebhookUrl);
+  const [dailyLoss, setDailyLoss] = useState(String(settings.dailyLossAlertPct));
+  const [drawdown, setDrawdown] = useState(String(settings.drawdownAlertPct));
+  const [saving, startSaving] = useTransition();
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
   const { signOut } = useClerk();
+
+  function savePrefs() {
+    setSaved(false);
+    setSaveError(null);
+    startSaving(async () => {
+      const res = await updateNotificationPreferences({
+        discordWebhookUrl: webhookUrl,
+        notifyDiscord,
+        notifyEmail,
+        notifyPush,
+        notifyEveryTrade,
+        dailyLossAlertPct: Number(dailyLoss),
+        drawdownAlertPct: Number(drawdown),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setSaveError(res.error ?? "Could not save preferences.");
+      }
+    });
+  }
 
   return (
     <div className="max-w-2xl space-y-4">
       <ProfileSettings />
 
       <Card className="p-5">
-        <CardTitle>Notification channels</CardTitle>
+        <CardTitle>Notifications</CardTitle>
         <div className="mt-4 divide-y divide-line">
-          <Channel label="Discord" desc="Decision feed and milestone alerts" checked={discord} onChange={setDiscord} />
-          {discord && (
+          <Channel label="Discord" desc="Decision feed and milestone alerts" checked={notifyDiscord} onChange={setNotifyDiscord} />
+          {notifyDiscord && (
             <div className="space-y-1.5 py-3">
               <Label htmlFor="discord-webhook">Webhook URL</Label>
               <Input
@@ -95,11 +139,33 @@ export function SettingsView({
                 type="url"
                 icon={<DiscordLogo weight="fill" />}
                 placeholder="https://discord.com/api/webhooks/..."
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
               />
             </div>
           )}
-          <Channel label="Email" desc="Daily summary and important alerts" checked={email} onChange={setEmail} />
-          <Channel label="Push" desc="Browser push notifications" checked={push} onChange={setPush} />
+          <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
+          <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
+        </div>
+
+        <div className="mt-5 space-y-5 border-t border-line pt-5">
+          <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" value={dailyLoss} onChange={setDailyLoss} />
+          <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" value={drawdown} onChange={setDrawdown} />
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-fg">Notify on every trade</p>
+              <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
+            </div>
+            <Switch checked={notifyEveryTrade} onChange={setNotifyEveryTrade} label="Notify on every trade" />
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
+          {saved ? <span className="text-xs font-medium text-profit">Saved</span> : null}
+          {saveError ? <span className="text-xs text-negative">{saveError}</span> : null}
+          <Button size="sm" onClick={savePrefs} disabled={saving}>
+            {saving ? "Saving…" : "Save preferences"}
+          </Button>
         </div>
       </Card>
 
@@ -113,26 +179,11 @@ export function SettingsView({
             <p className="text-sm text-fg-muted">No accounts connected yet.</p>
           ) : (
             <div className="divide-y divide-line border-t border-line">
-              {accounts.map(acc => (
+              {accounts.map((acc) => (
                 <CircuitBreakerRow key={acc.id} account={acc} />
               ))}
             </div>
           )}
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <CardTitle>Alert thresholds</CardTitle>
-        <div className="mt-4 space-y-5">
-          <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" defaultValue={2.5} />
-          <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" defaultValue={8} />
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-fg">Notify on every trade</p>
-              <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
-            </div>
-            <Switch checked={perTrade} onChange={setPerTrade} label="Notify on every trade" />
-          </div>
         </div>
       </Card>
 
@@ -297,13 +348,15 @@ function Threshold({
   label,
   help,
   suffix,
-  defaultValue,
+  value,
+  onChange,
 }: {
   id: string;
   label: string;
   help: string;
   suffix: string;
-  defaultValue: number;
+  value: string;
+  onChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -311,7 +364,8 @@ function Threshold({
       <Input
         id={id}
         type="number"
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         step={0.5}
         trailing={suffix}
         className="tnum w-32"

@@ -33,6 +33,7 @@ const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
 const authorizedParties = root
   ? [
       `https://${root}`,
+      `https://www.${root}`,
       `https://users.${root}`,
       `https://accounts.${root}`,
       `https://dashboard.${root}`,
@@ -41,9 +42,18 @@ const authorizedParties = root
 
 export default clerkMiddleware(
   async (auth, req) => {
-    const role = hostRole(req.headers.get("host") ?? "");
+    const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
     const url = req.nextUrl;
     const { pathname } = url;
+
+    // Canonicalize www -> apex BEFORE any Clerk session work. The session cookie
+    // is scoped to the apex (.floqex.com), so a visit to www.floqex.com has no
+    // session token and Clerk would otherwise loop on its handshake endpoint.
+    if (root && host === `www.${root}`) {
+      return NextResponse.redirect(`https://${root}${pathname}${url.search}`);
+    }
+
+    const role = hostRole(host);
 
     // ── accounts.floqex.com (and dashboard.* alias) — the product, protected ──
     if (role === "product") {
