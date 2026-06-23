@@ -157,8 +157,8 @@ export function StrategyLab({
               {activePaidFeatures.map(f => <li key={f}>{f}</li>)}
             </ul>
             <div className="mt-4 flex">
-              <Button asChild size="sm" variant="outline" className="border-accent text-accent hover:bg-accent/20 hover:text-accent">
-                <a href="/dashboard/billing">Upgrade to Live Trade</a>
+              <Button href="/dashboard/billing" size="sm" variant="outline" className="border-accent text-accent hover:bg-accent/20 hover:text-accent">
+                Upgrade to Live Trade
               </Button>
             </div>
           </div>

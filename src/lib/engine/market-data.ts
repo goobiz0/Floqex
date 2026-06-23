@@ -21,21 +21,22 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
   const symbol = symbolMap[instrument] || instrument;
   
   try {
-    const quote = await yahooFinance.quote(symbol);
+    const quote = (await yahooFinance.quote(symbol)) as any;
     if (!quote || !quote.regularMarketPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
       return null;
     }
     
     // Fetch historical data for SMA50
-    const period1 = new Date();
-    period1.setDate(period1.getDate() - 80); 
+    const today = new Date();
+    const eightyDaysAgo = new Date();
+    eightyDaysAgo.setDate(eightyDaysAgo.getDate() - 80); 
     
-    let sma50 = null;
+    let sma50: number | null = null;
     try {
-      const history = await yahooFinance.historical(symbol, {
-        period1: period1.toISOString().split('T')[0],
-        interval: "1d"
-      });
+      const history = (await yahooFinance.historical(symbol, {
+        period1: eightyDaysAgo.toISOString().split("T")[0],
+        period2: today.toISOString().split("T")[0],
+      })) as any[];
       
       if (history && history.length >= 50) {
         const last50 = history.slice(-50);

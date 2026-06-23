@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await streamText({
-      model: chatModel(),
+      model: chatModel() as any,
       system: `You are Mochi, the in-app assistant for Floqex, a platform where an automated bot trades an Opening Range Breakout (ORB) strategy on the user's behalf inside hard risk guardrails.
 
 How Floqex works, so you can answer accurately:
