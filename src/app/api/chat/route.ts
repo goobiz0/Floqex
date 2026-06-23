@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       : `No strategy configured yet.`,
   ].join("\n");
 
+  try {
     const result = await streamText({
       model: chatModel(),
       system: `You are Mochi, the in-app assistant for Floqex, a platform where an automated bot trades an Opening Range Breakout (ORB) strategy on the user's behalf inside hard risk guardrails.

@@ -38,7 +38,31 @@ export default function GlossaryPage() {
           Master the terminology used in algorithmic trading and the Floqex platform.
         </p>
       </header>
+      <section className="space-y-6 mt-8">
+        <div className="relative max-w-md">
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search terms..." 
+            className="w-full bg-surface border border-line rounded-lg pl-10 pr-4 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredTerms.map(item => (
+            <div key={item.term} className="bg-surface border border-line rounded-[var(--radius-card)] p-5 hover:border-accent/30 transition-colors group">
+              <h3 className="text-lg font-semibold text-fg group-hover:text-accent transition-colors">{item.term}</h3>
+              <p className="mt-2 text-sm text-fg-subtle leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+          {filteredTerms.length === 0 && (
+            <div className="col-span-full py-8 text-center text-fg-muted border border-dashed border-line rounded-xl">
+              No terminology found matching &quot;{search}&quot;.
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
