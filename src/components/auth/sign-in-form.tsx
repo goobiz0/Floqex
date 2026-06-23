@@ -110,7 +110,14 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl(dashboardUrl("/dashboard"));
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          }
         });
         return;
       }
@@ -139,7 +146,14 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl(dashboardUrl("/dashboard"));
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          }
         });
         return;
       }
@@ -167,7 +181,14 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl(dashboardUrl("/dashboard"));
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          }
         });
         return;
       }
@@ -195,7 +216,14 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl(dashboardUrl("/dashboard"));
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          }
         });
         return;
       }
