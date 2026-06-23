@@ -48,20 +48,24 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
           </a>
         </div>
 
-        <div className="relative max-w-sm z-10">
-          <h2 className="text-balance text-4xl font-semibold leading-tight tracking-tight text-fg">
-            Automated trading, radically clear.
+        <div className="relative max-w-[420px] z-10">
+          <h2 className="text-balance text-[2.5rem] font-semibold leading-[1.1] tracking-[-0.02em] text-fg">
+            Automated trading, <br/>
+            <span className="text-fg-muted">radically clear.</span>
           </h2>
-          <ul className="mt-8 space-y-4">
+          <div className="mt-12 flex flex-col gap-3">
             {points.map((point) => (
-              <li key={point.text} className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-white shadow-sm text-accent ring-1 ring-black/5">
-                  <point.icon size={20} />
-                </span>
-                <span className="text-sm font-medium text-fg-muted">{point.text}</span>
-              </li>
+              <div 
+                key={point.text} 
+                className="group relative flex items-center gap-4 rounded-2xl bg-white/40 p-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.04] backdrop-blur-md transition-all hover:bg-white/60 hover:shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-accent shadow-sm ring-1 ring-black/[0.06]">
+                  <point.icon size={20} weight="duotone" />
+                </div>
+                <span className="text-[15px] font-medium text-fg/90">{point.text}</span>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
         <p className="relative text-xs text-fg-subtle font-medium z-10">
