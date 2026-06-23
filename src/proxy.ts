@@ -20,9 +20,6 @@ function hostRole(host: string): "app" | "" {
   if (parts.length < 3) return ""; // apex like floqex.com
   const sub = parts[0];
   if (sub === "app") return "app";
-  return "";
-}
-
 function getRootDomain(host: string): string {
   const envRoot = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
   if (envRoot) return envRoot;
@@ -35,13 +32,17 @@ function getRootDomain(host: string): string {
 
 // Trusted origins for Clerk's authorized-parties (azp) check. Hardens against
 // CSRF / cookie-leak from a compromised sibling subdomain.
-function getAuthorizedParties(root: string) {
+function getAuthorizedParties(root: string, host?: string) {
   if (!root) return undefined;
-  return [
+  const parties = [
     `https://${root}`,
     `https://www.${root}`,
     `https://app.${root}`,
   ];
+  if (host && !parties.includes(`https://${host}`)) {
+    parties.push(`https://${host}`);
+  }
+  return parties;
 }
 
 export default clerkMiddleware(
@@ -117,7 +118,7 @@ export default clerkMiddleware(
     const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
     const root = getRootDomain(host);
     return {
-      authorizedParties: getAuthorizedParties(root),
+      authorizedParties: getAuthorizedParties(root, host),
     };
   }
 );
