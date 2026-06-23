@@ -101,12 +101,7 @@ export function SignUpForm() {
         setSubmitting(false);
         return;
       }
-      const { error: sendError } = await signUp.verifications.sendEmailCode();
-      if (sendError) {
-        setError(clerkErrorMessage(sendError));
-        setSubmitting(false);
-        return;
-      }
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify");
       setSubmitting(false);
     } catch (err) {
@@ -121,18 +116,14 @@ export function SignUpForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const { error: verifyError } = await signUp.verifications.verifyEmailCode({ code });
-      if (verifyError) {
-        setError(clerkErrorMessage(verifyError));
-        setSubmitting(false);
+      const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
+      
+      if (completeSignUp.status === "complete") {
+        await signUp.setActive({ session: completeSignUp.createdSessionId });
+        window.location.assign(onboardingUrl());
         return;
       }
-      if (signUp.status === "complete") {
-        await signUp.finalize({
-          navigate: () => window.location.assign(onboardingUrl())
-        });
-        return;
-      }
+      
       setError("Verification could not be completed. Please try again.");
       setSubmitting(false);
     } catch (err) {
