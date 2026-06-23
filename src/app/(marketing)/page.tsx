@@ -45,7 +45,7 @@ export default function LandingPage() {
                 <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Infrastructure</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 bg-clip-text text-transparent bg-gradient-to-br from-fg to-fg-muted">
                   Low-latency execution.
                 </h3>
                 <p className="text-fg-subtle text-[15px] leading-relaxed">
@@ -63,7 +63,7 @@ export default function LandingPage() {
                 <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Strategy Lab</span>
               </div>
               <div className="mt-auto relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 bg-clip-text text-transparent bg-gradient-to-br from-fg to-fg-muted">
                   Tune instantly.
                 </h3>
                 <p className="text-fg-subtle text-[15px] leading-relaxed">
@@ -81,7 +81,7 @@ export default function LandingPage() {
                 <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Journal</span>
               </div>
               <div className="mt-auto relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 bg-clip-text text-transparent bg-gradient-to-br from-fg to-fg-muted">
                   Automated records.
                 </h3>
                 <p className="text-fg-subtle text-[15px] leading-relaxed">
@@ -99,7 +99,7 @@ export default function LandingPage() {
                 <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Risk Control</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 bg-clip-text text-transparent bg-gradient-to-br from-fg to-fg-muted">
                   Hard limits that actually work.
                 </h3>
                 <p className="text-fg-subtle text-[15px] leading-relaxed">

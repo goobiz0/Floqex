@@ -146,7 +146,7 @@ export function MochiChat() {
   };
 
   const spring = { type: "spring" as const, damping: 26, stiffness: 280, mass: 0.6 };
-  const showDialog = isOpen || messages.length > 0;
+  const showDialog = isOpen;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">

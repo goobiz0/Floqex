@@ -5,7 +5,7 @@ import { Plus, MagnifyingGlass, DotsThree, CaretDown } from "@phosphor-icons/rea
 import { getOverviewData } from "@/lib/queries";
 import { formatUSD } from "@/lib/utils";
 import { DashboardError } from "@/components/dashboard/states";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { DashboardPageClient } from "./page-client";
 
@@ -15,19 +15,16 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
   const searchParams = await props.searchParams;
   const data = await getOverviewData(searchParams.account);
   const { userId } = await auth();
+  const client = await clerkClient();
 
   let userNickname = "User";
   let userAvatarUrl = "https://github.com/shadcn.png"; // Default
 
   if (userId) {
     try {
-      const user = await prisma.user.findUnique({
-        where: { clerkId: userId },
-      });
-      if (user) {
-        userNickname = user.email.split('@')[0];
-        if (user.imageUrl) userAvatarUrl = user.imageUrl;
-      }
+      const clerkUser = await client.users.getUser(userId);
+      userNickname = clerkUser.firstName || clerkUser.emailAddresses[0]?.emailAddress.split('@')[0] || "User";
+      userAvatarUrl = clerkUser.imageUrl || userAvatarUrl;
     } catch {}
   }
 

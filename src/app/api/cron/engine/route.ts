@@ -3,155 +3,86 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { PLANS, type Plan } from "@/lib/plans";
 import type { Prisma } from "@prisma/client";
+import { getRealMarketData } from "@/lib/engine/market-data";
+import { evaluateOrbStrategy, evaluateExit } from "@/lib/engine/signal-generator";
+import { validateRisk } from "@/lib/engine/risk-engine";
+import { executeTrade, closeTrade } from "@/lib/engine/execution-router";
+import { runLearningEngine } from "@/lib/engine/learning-engine";
 
 export const runtime = "nodejs";
-// Optionally ensure this is securely callable by Vercel only:
-// import { verifySignature } from '@upstash/qstash/nextjs'; // if using QStash
-// or check auth header from Vercel CRON_SECRET
 
 export async function GET(req: Request) {
-  // In production, verify the CRON_SECRET here to prevent unauthorized execution.
-  // const authHeader = req.headers.get('authorization');
-  // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) return new NextResponse('Unauthorized', { status: 401 });
-
   try {
-    // 1. Fetch all bots that are currently RUNNING
     const activeBots = await prisma.bot.findMany({
       where: { status: "RUNNING" },
       include: {
         account: {
-          include: {
-            user: true,
-          }
+          include: { user: true },
         },
         strategy: true,
       },
     });
 
     const executionLogs = [];
+    
+    // Fetch unique instruments from all active bots
+    // Defaulting to "ES" if no specific instrument is set on the strategy
+    // In our simplified system, we'll assume ES for everyone
+    const marketData = await getRealMarketData("ES");
+    
+    if (!marketData) {
+      return NextResponse.json({ ok: false, error: "Failed to fetch live market data" }, { status: 500 });
+    }
 
     for (const bot of activeBots) {
-      // Update heartbeat
       await prisma.bot.update({
         where: { id: bot.id },
         data: { lastHeartbeat: new Date() },
       });
 
-      const userPlan = PLANS[bot.account.user.plan as Plan] || PLANS.FREE;
-
-      // 2. Enforce Circuit Breaker (Max Daily Loss)
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      
-      const summary = await prisma.dailySummary.findFirst({
-        where: { 
-          accountId: bot.account.id,
-          date: today,
-        }
-      });
-
-      // Circuit Breaker uses the account's configured limit, or ignores if null.
-      // E.g., if maxDailyDrawdown is 500, we trip if netPnl < -500
-      const limit = bot.account.maxDailyDrawdown ? Number(bot.account.maxDailyDrawdown) : null;
-
-      if (limit !== null && summary && summary.netPnl.toNumber() < -limit) {
-        await prisma.bot.update({
-          where: { id: bot.id },
-          data: { status: "STOPPED" },
-        });
-        executionLogs.push({ botId: bot.id, action: "CIRCUIT_BREAKER_TRIPPED" });
-        // Would also trigger Discord/Email notification here.
-        continue;
-      }
-
-      // 3. Mock Strategy Evaluation
-      // Here we would check the market data against bot.strategy.params
-      // For now, we simulate a 5% chance to enter a trade every minute if there's no open trade
-      
       const openTrade = await prisma.trade.findFirst({
         where: { botId: bot.id, status: "OPEN" },
       });
 
       if (!openTrade) {
-        // Mock entry condition met
-        if (Math.random() < 0.05) {
-          const isLong = Math.random() > 0.5;
-          const entryPrice = 5100 + (Math.random() * 100);
-          const riskAmount = Number(bot.account.balance) * 0.01; // 1% risk
+        // ENTRY LOGIC
+        const signal = evaluateOrbStrategy(bot.strategy.params, marketData, null);
+        
+        if (signal) {
+          const riskCheck = await validateRisk(bot.id, bot.account.id, signal, bot.account);
           
-          await prisma.trade.create({
-            data: {
-              botId: bot.id,
-              accountId: bot.account.id,
-              instrument: "ES",
-              direction: isLong ? "LONG" : "SHORT",
-              session: "NY",
-              status: "OPEN",
-              entryPrice,
-              stopPrice: isLong ? entryPrice - 15 : entryPrice + 15,
-              targetPrice: isLong ? entryPrice + 30 : entryPrice - 30,
-              sizeUnits: riskAmount / 15,
-              riskPct: 1.0,
+          if (riskCheck.passed) {
+            await executeTrade(bot.id, bot.account.id, signal, riskCheck, "ES");
+            executionLogs.push({ botId: bot.id, action: "TRADE_OPENED", direction: signal.direction });
+          } else {
+            // If circuit breaker tripped, stop the bot
+            if (riskCheck.reason === "CIRCUIT_BREAKER_TRIPPED") {
+              await prisma.bot.update({
+                where: { id: bot.id },
+                data: { status: "STOPPED" },
+              });
+              executionLogs.push({ botId: bot.id, action: "CIRCUIT_BREAKER_TRIPPED" });
             }
-          });
-          executionLogs.push({ botId: bot.id, action: "TRADE_OPENED" });
+          }
         }
       } else {
-        // Mock exit condition met
-        if (Math.random() < 0.1) {
-          const win = Math.random() > 0.4; // 60% win rate mock
-          const pnl = win ? 200 : -100;
-          
-          await prisma.$transaction(async (tx) => {
-            await tx.trade.update({
-              where: { id: openTrade.id },
-              data: {
-                status: "CLOSED",
-                closedAt: new Date(),
-                exitPrice: win ? Number(openTrade.targetPrice) : Number(openTrade.stopPrice),
-                netPnl: pnl,
-                rMultiple: win ? 2.0 : -1.0,
-              }
-            });
-
-            await tx.account.update({
-              where: { id: bot.account.id },
-              data: { balance: { increment: pnl } }
-            });
-
-            // Update daily summary
-            await tx.dailySummary.upsert({
-              where: {
-                accountId_date: {
-                  accountId: bot.account.id,
-                  date: today,
-                }
-              },
-              update: {
-                netPnl: { increment: pnl },
-                tradeCount: { increment: 1 },
-                winCount: { increment: win ? 1 : 0 },
-                lossCount: { increment: win ? 0 : 1 },
-                endBalance: Number(bot.account.balance) + pnl,
-              },
-              create: {
-                accountId: bot.account.id,
-                date: today,
-                netPnl: pnl,
-                tradeCount: 1,
-                winCount: win ? 1 : 0,
-                lossCount: win ? 0 : 1,
-                startBalance: bot.account.balance,
-                endBalance: Number(bot.account.balance) + pnl,
-              }
-            });
-          });
+        // EXIT LOGIC
+        const exitSignal = evaluateExit(openTrade, marketData);
+        
+        if (exitSignal) {
+          const pnl = await closeTrade(openTrade.id, bot.account.id, exitSignal.reason, exitSignal.exitPrice);
           executionLogs.push({ botId: bot.id, action: "TRADE_CLOSED", pnl });
+          
+          // Self-Optimizing Learning Engine
+          // After a trade closes, if the user is on the PRO plan, run the learning engine
+          if (bot.account.user.plan === "PRO") {
+            await runLearningEngine(bot.id, bot.strategyId);
+          }
         }
       }
     }
 
-    return NextResponse.json({ ok: true, processed: activeBots.length, logs: executionLogs });
+    return NextResponse.json({ ok: true, processed: activeBots.length, price: marketData.price, logs: executionLogs });
   } catch (error) {
     console.error("Cron execution error", error);
     return NextResponse.json({ ok: false, error: "Internal execution error" }, { status: 500 });

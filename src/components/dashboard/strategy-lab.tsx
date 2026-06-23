@@ -55,11 +55,13 @@ export function StrategyLab({
   changeLog,
   pending,
   autoAdjustmentsUsed,
+  plan,
 }: {
   initialParams: StrategyParams;
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
   autoAdjustmentsUsed: number;
+  plan: string;
 }) {
   const [params, setParams] = useState<StrategyParams>(initialParams);
   const [saved, setSaved] = useState<StrategyParams>(initialParams);
@@ -73,6 +75,18 @@ export function StrategyLab({
     () => (Object.keys(params) as (keyof StrategyParams)[]).filter((k) => params[k] !== saved[k]),
     [params, saved],
   );
+
+  const activePaidFeatures = useMemo(() => {
+    const features = [];
+    if (params.trendFilter) features.push("Trend Filter (AI SMA)");
+    if (params.reEntry) features.push("Re-entry Strategy");
+    if (params.minRange !== 0.3) features.push("Min Range Volatility Limit"); // default is 0.3
+    if (params.maxRange !== 3) features.push("Max Range Volatility Limit"); // default is 3
+    if (params.maxTrades !== 8) features.push("Max Trades Override"); // default is 8
+    return features;
+  }, [params]);
+
+  const showPaidWarning = plan === "FREE" && activePaidFeatures.length > 0;
 
   function set<K extends keyof StrategyParams>(key: K, value: StrategyParams[K]) {
     setParams((p) => ({ ...p, [key]: value }));
@@ -130,6 +144,26 @@ export function StrategyLab({
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
       {/* Editor */}
       <div className="space-y-4">
+        {showPaidWarning && (
+          <div className="rounded-[var(--radius-card)] border border-accent/30 bg-accent/10 p-5">
+            <h3 className="text-sm font-semibold text-accent">
+              You are using {activePaidFeatures.length} premium feature{activePaidFeatures.length > 1 ? "s" : ""}
+            </h3>
+            <p className="mt-1.5 text-sm text-fg-subtle">
+              These advanced features are fully active on your Paper account so you can test their power. 
+              To use them on a Live broker account, you must upgrade.
+            </p>
+            <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-fg-muted">
+              {activePaidFeatures.map(f => <li key={f}>{f}</li>)}
+            </ul>
+            <div className="mt-4 flex">
+              <Button asChild size="sm" variant="outline" className="border-accent text-accent hover:bg-accent/20 hover:text-accent">
+                <a href="/dashboard/billing">Upgrade to Live Trade</a>
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Group title="Entry & exit">
           <NumberField bound={PARAM_BOUNDS.rangeMinutes} value={params.rangeMinutes} onChange={(v) => set("rangeMinutes", v)} />
           <NumberField bound={PARAM_BOUNDS.rrTarget} value={params.rrTarget} onChange={(v) => set("rrTarget", v)} />

@@ -30,6 +30,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
           changeLog={data.changeLog}
           pending={data.pending}
           autoAdjustmentsUsed={data.autoAdjustmentsUsed}
+          plan={data.plan}
         />
       ) : (
         <Card className="p-10 text-center">

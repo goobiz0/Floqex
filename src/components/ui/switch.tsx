@@ -19,13 +19,13 @@ export function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        checked ? "bg-accent" : "bg-surface",
+        "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 ease-in-out border border-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        checked ? "bg-accent" : "bg-line-strong",
       )}
     >
       <span
         className={cn(
-          "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
+          "absolute left-[2px] top-[2px] h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
           checked ? "translate-x-4" : "translate-x-0",
         )}
       />

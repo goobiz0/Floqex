@@ -295,6 +295,7 @@ export type StrategyData = {
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
   autoAdjustmentsUsed: number;
+  plan: Plan;
   error: boolean;
 };
 
@@ -305,6 +306,7 @@ const EMPTY_STRATEGY: StrategyData = {
   changeLog: [],
   pending: [],
   autoAdjustmentsUsed: 0,
+  plan: "FREE",
   error: false,
 };
 
@@ -381,6 +383,7 @@ export async function getStrategyData(accountId?: string): Promise<StrategyData>
       changeLog: adjustments.filter((a) => a.status !== "PENDING").map(serializeAdjustment),
       pending: adjustments.filter((a) => a.status === "PENDING").map(serializeAdjustment),
       autoAdjustmentsUsed: bot?.autoAdjustmentsUsed ?? 0,
+      plan: (user.plan as Plan) || "FREE",
       error: false,
     };
   } catch {

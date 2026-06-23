@@ -235,6 +235,7 @@ export function SettingsView({
             label="Reset"
             run={resetPaperAccount}
             onSuccess={() => router.refresh()}
+            verifyWord="RESET"
           />
           <DangerAction
             title="Delete account"
@@ -242,12 +243,16 @@ export function SettingsView({
             label="Delete"
             run={deleteUserAccount}
             onSuccess={() => signOut({ redirectUrl: marketingUrl() })}
+            verifyWord="DELETE"
           />
         </div>
       </Card>
     </div>
   );
 }
+
+// ... ProfileSettings and other components remain the same ...
+// Skipping to DangerAction:
 
 function ProfileSettings() {
   const { user, isLoaded } = useUser();
@@ -401,25 +406,29 @@ function DangerAction({
   label,
   run,
   onSuccess,
+  verifyWord,
 }: {
   title: string;
   desc: string;
   label: string;
   run: () => Promise<{ ok: boolean; error?: string }>;
   onSuccess?: () => void;
+  verifyWord?: string;
 }) {
   const [armed, setArmed] = useState(false);
+  const [verifyInput, setVerifyInput] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleClick() {
     setError(null);
-    if (!armed) {
+    if (!verifyWord && !armed) {
       setArmed(true);
       timer.current = setTimeout(() => setArmed(false), 4000);
       return;
     }
+    
     if (timer.current) clearTimeout(timer.current);
     setArmed(false);
     startTransition(async () => {
@@ -431,18 +440,28 @@ function DangerAction({
 
   return (
     <div className="rounded-[var(--radius-control)] border border-line bg-base/40 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-fg">{title}</p>
           <p className="text-xs text-fg-subtle">{desc}</p>
+          {verifyWord && (
+             <div className="mt-3">
+               <Input 
+                 placeholder={`Type ${verifyWord} to confirm`} 
+                 value={verifyInput} 
+                 onChange={e => setVerifyInput(e.target.value)} 
+                 className="h-8 text-xs max-w-[200px]"
+               />
+             </div>
+          )}
         </div>
         <button
           type="button"
           onClick={handleClick}
-          disabled={pending}
+          disabled={pending || (verifyWord ? verifyInput !== verifyWord : false)}
           className="shrink-0 rounded-[var(--radius-control)] border border-negative/50 px-3 py-1.5 text-sm font-medium text-negative transition-colors hover:bg-negative-soft active:scale-[0.97] disabled:opacity-50"
         >
-          {pending ? "Working…" : armed ? "Click to confirm" : label}
+          {pending ? "Working…" : (!verifyWord && armed) ? "Click to confirm" : label}
         </button>
       </div>
       {error ? (

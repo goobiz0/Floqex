@@ -33,7 +33,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   if (!icon && !trailing) return control;
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       {icon ? (
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted [&_svg]:h-[18px] [&_svg]:w-[18px]">
           {icon}

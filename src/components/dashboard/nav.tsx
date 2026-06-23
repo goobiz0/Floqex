@@ -185,18 +185,20 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
           })}
         </Section>
 
-        <Section label="Accounts and Cards">
+        <Section label="Accounts">
           {accounts.map((a) => (
             <AccountRow key={a.id} account={a} isActive={a.id === activeAccountId} />
           ))}
           <Link
             href="/dashboard/accounts"
-            className="group mt-1 flex items-center justify-center gap-2 rounded-[var(--radius-pill)] border border-line py-2 pl-3 pr-4 text-[13px] font-medium text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
+            className="group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:bg-surface/50 text-fg-subtle hover:text-fg mt-1"
           >
-            <span className="flex items-center justify-center rounded-full bg-surface p-1 text-fg-faint group-hover:text-fg-subtle">
-              <Plus size={12} weight="bold" />
+            <span className="flex items-center justify-center transition-colors text-fg-subtle group-hover:text-fg-muted">
+              <Plus size={18} weight="bold" />
             </span>
-            Add New Product
+            <span className="truncate text-[13px] font-medium">
+              Add New Account
+            </span>
           </Link>
         </Section>
 
@@ -205,16 +207,6 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
             const hrefWithContext = activeAccountId ? `${item.href}?account=${activeAccountId}` : item.href;
             return <NavLink key={item.href} item={{...item, href: hrefWithContext}} active={isActiveRoute(item.href)} />;
           })}
-          <button className="group flex w-full items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-[13px] font-medium text-fg-subtle transition-colors hover:bg-surface/50 hover:text-fg">
-            <span className="flex items-center justify-center text-fg-subtle group-hover:text-fg-muted">
-              <Moon size={18} />
-            </span>
-            <span className="flex-1 text-left truncate">Night Mode</span>
-            {/* Toggle switch visual */}
-            <div className="h-5 w-9 rounded-full bg-line relative flex items-center p-0.5">
-              <div className="h-4 w-4 rounded-full bg-white shadow-sm" />
-            </div>
-          </button>
         </Section>
         
         <Section label="Links">

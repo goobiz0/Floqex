@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gear, Star } from "@phosphor-icons/react/dist/ssr";
+import { Gear, Star, HandPalm } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getRecentNotifications } from "@/lib/queries";
@@ -8,6 +8,7 @@ import { TopbarUser } from "@/components/dashboard/topbar-user";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { EStopWidget } from "@/components/dashboard/e-stop-widget";
 import { dashboardUrl } from "@/lib/urls";
 import { PLAN_ORDER, type Plan } from "@/lib/plans";
 
@@ -97,7 +98,7 @@ export async function Topbar() {
             ) : (
               <>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-fg-muted"></span>
-                <span className="text-[10px] font-semibold text-fg-subtle tracking-widest uppercase">NYSE Closed</span>
+                <span className="text-[10px] font-semibold text-fg-subtle tracking-widest uppercase">MARKETS CLOSED</span>
               </>
             )}
           </div>
@@ -110,15 +111,7 @@ export async function Topbar() {
 
         {/* Right cluster */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <form action={async () => {
-            "use server";
-            const { emergencyStop } = await import("@/app/dashboard/accounts/actions");
-            await emergencyStop();
-          }}>
-            <button title="Emergency Stop" className="hidden sm:flex items-center justify-center h-8 w-8 text-negative bg-negative/5 hover:bg-negative/15 rounded-full transition-all group border border-negative/10 hover:border-negative/30">
-              <div className="h-2 w-2 rounded-sm bg-negative shadow-[0_0_8px_rgba(var(--color-negative),0.8)] group-active:scale-90 transition-transform" />
-            </button>
-          </form>
+          <EStopWidget />
 
           <NotificationsBell items={notifications} />
           

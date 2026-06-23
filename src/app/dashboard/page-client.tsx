@@ -16,50 +16,22 @@ function HeroCard1({ balance }: { balance: number }) {
       whileHover={{ y: -4 }}
       className="relative flex h-[220px] w-full flex-col justify-between overflow-hidden rounded-[32px] p-6 text-white shadow-sm"
       style={{
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", // Light emerald gradient
       }}
     >
-      {/* Animated gradient blobs */}
-      <motion.div
-        animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.3, 0.5, 0.3],
-          x: [0, 20, 0],
-          y: [0, -20, 0],
-        }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-500/40 blur-[50px]"
-      />
-      <motion.div
-        animate={{
-          scale: [1, 1.5, 1],
-          opacity: [0.2, 0.4, 0.2],
-          x: [0, -30, 0],
-          y: [0, 30, 0],
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-cyan-400/30 blur-[60px]"
-      />
-
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent opacity-60" />
       <div className="relative z-10 flex items-start justify-between">
         <span className="text-[28px] font-medium tracking-tight">
           {formatUSD(balance)}
         </span>
-        <span className="text-sm font-medium text-white/80">Floqex Live</span>
+        <span className="text-sm font-medium text-white/90">Active Capital</span>
       </div>
 
-      <div className="relative z-10 flex items-end justify-between">
-        <div>
-          <p className="text-lg font-medium tracking-widest text-white/90">
-            •••• •••• •••• 4456
-          </p>
-          <p className="mt-1 text-[13px] font-medium text-white/70">
-            Algorithmic Account
-          </p>
-        </div>
-        <div className="flex h-8 w-12 items-center justify-end gap-[-8px]">
-          <div className="h-6 w-6 rounded-full bg-red-500/80 mix-blend-screen" />
-          <div className="relative -ml-2 h-6 w-6 rounded-full bg-yellow-400/80 mix-blend-screen" />
+      <div className="relative z-10 mt-auto">
+        <p className="text-sm font-medium text-white/80 mb-1">24h PnL</p>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold text-white">+ $1,245.50</span>
+          <span className="text-[11px] font-semibold bg-white/20 px-2 py-0.5 rounded-full text-white">+2.4%</span>
         </div>
       </div>
     </motion.div>
@@ -70,18 +42,37 @@ function HeroCard2() {
   return (
     <motion.div
       whileHover={{ y: -4 }}
-      className="group relative flex h-[220px] w-full flex-col items-center justify-center overflow-hidden rounded-[32px] p-6 text-center shadow-sm"
-      style={{
-        background: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)",
-      }}
+      className="relative flex h-[220px] w-full flex-col overflow-hidden rounded-[32px] p-6 shadow-sm border border-line bg-base"
     >
-      {/* Interactive hover blob */}
-      <motion.div
-        className="absolute inset-0 bg-white/0 transition-colors duration-500 group-hover:bg-white/10"
-      />
-      <h3 className="relative z-10 max-w-[140px] text-[22px] font-semibold leading-[1.15] tracking-tight text-white">
-        What to see new in strategies?
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-medium text-fg">Live Execution Feed</h3>
+        <span className="flex h-2 w-2 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+        </span>
+      </div>
+      <div className="space-y-3 font-mono text-[11px] mt-1">
+        <div className="flex justify-between items-center text-fg">
+          <span className="text-profit">BUY</span>
+          <span>1.45 BTC</span>
+          <span className="text-fg-subtle">@ 64,230</span>
+        </div>
+        <div className="flex justify-between items-center text-fg">
+          <span className="text-negative">SELL</span>
+          <span>50.0 AAPL</span>
+          <span className="text-fg-subtle">@ 175.40</span>
+        </div>
+        <div className="flex justify-between items-center text-fg">
+          <span className="text-profit">BUY</span>
+          <span>100.0 MSFT</span>
+          <span className="text-fg-subtle">@ 420.69</span>
+        </div>
+        <div className="flex justify-between items-center text-fg opacity-50">
+          <span className="text-negative">SELL</span>
+          <span>10.0 TSLA</span>
+          <span className="text-fg-subtle">@ 180.20</span>
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -90,24 +81,32 @@ function HeroCard3() {
   return (
     <motion.div
       whileHover={{ y: -4 }}
-      className="group relative flex h-[220px] w-full flex-col items-center justify-end overflow-hidden rounded-[32px] p-6 text-center shadow-sm bg-white"
+      className="relative flex h-[220px] w-full flex-col justify-between overflow-hidden rounded-[32px] p-6 shadow-sm border border-line bg-base"
     >
-      <div className="absolute inset-0 bg-slate-50" />
-      {/* Animated soft gradient mesh */}
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute -top-[50%] left-[10%] h-[150%] w-[150%] origin-center rounded-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-teal-200/40 via-emerald-100/20 to-transparent blur-3xl"
-      />
-      <motion.div
-        animate={{ rotate: -360 }}
-        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        className="absolute -bottom-[50%] right-[10%] h-[150%] w-[150%] origin-center rounded-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-rose-200/40 via-orange-100/20 to-transparent blur-3xl"
-      />
-      <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] transition-all duration-500 group-hover:backdrop-blur-none" />
-      <h3 className="relative z-10 max-w-[140px] text-[15px] font-semibold leading-[1.3] text-slate-800">
-        How to protect your accounts?
-      </h3>
+      <div>
+        <h3 className="text-sm font-medium text-fg mb-1">Risk Heatmap</h3>
+        <p className="text-xs text-fg-subtle">Daily Drawdown Status</p>
+      </div>
+      
+      <div className="flex items-end gap-2 mt-auto h-24">
+        <div className="flex-1 bg-surface rounded-t-sm h-[30%] relative group transition-colors hover:bg-surface-hover">
+           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Mon</div>
+        </div>
+        <div className="flex-1 bg-surface rounded-t-sm h-[40%] relative group transition-colors hover:bg-surface-hover">
+           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Tue</div>
+        </div>
+        <div className="flex-1 bg-surface rounded-t-sm h-[15%] relative group transition-colors hover:bg-surface-hover">
+           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Wed</div>
+        </div>
+        <div className="flex-1 bg-negative/80 rounded-t-sm h-[85%] relative group transition-colors hover:bg-negative">
+           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-negative transition-opacity">Thu</div>
+        </div>
+        <div className="flex-1 bg-accent/80 rounded-t-sm h-[20%] relative group transition-colors hover:bg-accent">
+           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-accent transition-opacity">Fri</div>
+        </div>
+      </div>
+      <div className="absolute top-[60%] left-0 w-full border-t border-dashed border-negative/30"></div>
+      <span className="absolute top-[60%] -mt-4 right-4 text-[10px] text-negative font-mono bg-base px-1">LIMIT</span>
     </motion.div>
   );
 }
@@ -116,17 +115,26 @@ function HeroCard4() {
   return (
     <motion.div
       whileHover={{ y: -4 }}
-      className="relative flex h-[220px] w-full flex-col items-center justify-end overflow-hidden rounded-[32px] p-6 text-center shadow-sm"
-      style={{
-        background: "linear-gradient(to bottom right, #fb7185, #fdba74)",
-      }}
+      className="relative flex h-[220px] flex-col items-center justify-center rounded-[32px] border border-line bg-base p-6 text-center shadow-sm"
     >
-      {/* Dark overlay / vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-      
-      <h3 className="relative z-10 max-w-[160px] text-[15px] font-medium leading-[1.3] text-white/90">
-        Mobile terminals for any business
-      </h3>
+      <h3 className="text-sm font-medium text-fg absolute top-6 left-6">Strategy Win Rate</h3>
+      <div className="relative flex h-24 w-24 items-center justify-center mt-6">
+        <svg className="h-full w-full rotate-[-90deg]" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-surface)" strokeWidth="8" />
+          <motion.circle
+            cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-accent)" strokeWidth="8"
+            strokeDasharray="251.2"
+            initial={{ strokeDashoffset: 251.2 }}
+            animate={{ strokeDashoffset: 251.2 * 0.32 }} 
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-bold text-fg">68%</span>
+        </div>
+      </div>
+      <p className="mt-4 text-[11px] text-fg-subtle font-medium">Past 7 days across 45 trades</p>
     </motion.div>
   );
 }

@@ -1,5 +1,5 @@
 import { streamText, tool } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
@@ -14,7 +14,7 @@ export const maxDuration = 30;
 // Model is centralized so it can be swapped in one place. (Anthropic would need
 // the AI SDK core upgraded from v3 to a version whose provider matches.)
 function chatModel() {
-  return openai("gpt-4o");
+  return google("gemini-1.5-flash");
 }
 
 const boundsHelp = (Object.keys(PARAM_BOUNDS) as (keyof typeof PARAM_BOUNDS)[])
@@ -138,7 +138,7 @@ ${context}`,
     // Fallback response for unconfigured OpenAI or DB issues. 
     // We mock a stream response by returning a text stream so the useChat hook doesn't crash.
     const errorMessage = error?.message?.includes("API key") 
-      ? "My neural link to OpenAI is currently offline (Missing API Key)." 
+      ? "My neural link to Gemini is currently offline (Missing GOOGLE_GENERATIVE_AI_API_KEY)." 
       : "I encountered a system error processing your request. Please check my configuration.";
       
     const stream = new ReadableStream({

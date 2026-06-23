@@ -25,9 +25,15 @@ export function HeroClient() {
   return (
     <section className="relative pt-32 pb-32 md:pt-48 md:pb-40 overflow-hidden">
       {/* Grid Pattern with Edge Fade */}
-      <div className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-30" style={{ backgroundImage: 'radial-gradient(var(--color-line) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#FAFAFA_100%)] pointer-events-none z-0" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#FAFAFA] pointer-events-none z-0" />
+      <div 
+        className="absolute inset-0 pointer-events-none z-0" 
+        style={{ 
+          backgroundImage: 'linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px)', 
+          backgroundSize: '40px 40px',
+          maskImage: 'radial-gradient(ellipse at center, black 20%, transparent 70%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at center, black 20%, transparent 70%)'
+        }} 
+      />
 
       {/* Breathable Aurora Glows */}
       <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-emerald-400/20 aurora rounded-full mix-blend-multiply pointer-events-none -translate-y-1/4 translate-x-1/4 z-0" />
