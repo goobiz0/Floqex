@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -62,13 +63,20 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-[100dvh] bg-base text-fg">
-        <ClerkProvider
-          signInUrl={root ? `https://app.${root}/sign-in` : "/sign-in"}
-          signUpUrl={root ? `https://app.${root}/sign-up` : "/sign-up"}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
         >
-          {children}
-        </ClerkProvider>
-        <Toaster position="bottom-right" theme="dark" />
+          <ClerkProvider
+            signInUrl={root ? `https://app.${root}/sign-in` : "/sign-in"}
+            signUpUrl={root ? `https://app.${root}/sign-up` : "/sign-up"}
+          >
+            {children}
+          </ClerkProvider>
+          <Toaster position="bottom-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -20,7 +20,7 @@ export function AnimatedOrbs() {
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-screen">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-60 mix-blend-screen dark:opacity-40">
       <motion.div
         animate={{
           x: ["0%", "10%", "-5%", "0%"],
@@ -32,7 +32,7 @@ export function AnimatedOrbs() {
           ease: "easeInOut",
           repeat: Infinity,
         }}
-        className="absolute -top-[20%] -left-[10%] w-[500px] h-[500px] rounded-full bg-accent blur-[120px]"
+        className="absolute -top-[20%] -left-[10%] w-[500px] h-[500px] rounded-full bg-emerald-400/60 blur-[120px] dark:bg-emerald-600/40"
       />
       <motion.div
         animate={{
@@ -45,7 +45,7 @@ export function AnimatedOrbs() {
           ease: "easeInOut",
           repeat: Infinity,
         }}
-        className="absolute top-[40%] right-[10%] w-[400px] h-[400px] rounded-full bg-blue-500 blur-[100px]"
+        className="absolute top-[40%] right-[10%] w-[400px] h-[400px] rounded-full bg-blue-500/50 blur-[100px] dark:bg-blue-600/40"
       />
       <motion.div
         animate={{
@@ -57,7 +57,7 @@ export function AnimatedOrbs() {
           ease: "easeInOut",
           repeat: Infinity,
         }}
-        className="absolute bottom-[-10%] left-[20%] w-[600px] h-[300px] rounded-full bg-emerald-300 blur-[150px] opacity-50"
+        className="absolute bottom-[-10%] left-[20%] w-[600px] h-[300px] rounded-full bg-teal-300/40 blur-[150px] dark:bg-teal-700/30"
       />
     </div>
   );

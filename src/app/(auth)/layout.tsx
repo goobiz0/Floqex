@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { marketingUrl, dashboardUrl } from "@/lib/urls";
 import { AnimatedOrbs } from "@/components/auth/animated-orbs";
+import { NoiseOverlay } from "@/components/ui/noise-overlay";
 
 const points = [
   { icon: ShieldCheck, text: "Hard risk limits the bot can never widen" },
@@ -20,6 +21,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
 
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative">
+      <NoiseOverlay />
       <AnimatedOrbs />
       
       {/* Brand panel */}

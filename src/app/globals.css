@@ -10,36 +10,36 @@
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), "SF Mono", "Fira Code", monospace;
 
-  /* Background scale: ultra-light page, pure white cards. */
-  --color-base: #f7f9fa;
-  --color-surface: #ffffff;
-  --color-elevated: #ffffff;
-  --color-overlay: rgba(255, 255, 255, 0.8);
+  /* Theme Colors */
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-overlay: var(--overlay);
 
-  /* Text scale (dark on light) */
-  --color-fg: #111827;
-  --color-fg-muted: #4b5563;
-  --color-fg-subtle: #6b7280;
-  --color-fg-faint: #9ca3af;
+  /* Text scale */
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-faint: var(--fg-faint);
 
   /* Brand Colors & Vibrant Accents */
-  --color-accent: #111827;
-  --color-accent-hover: #374151;
-  --color-accent-soft: rgba(17, 24, 39, 0.05);
-  --color-accent-ring: rgba(17, 24, 39, 0.2);
-  --color-on-accent: #ffffff;
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ring: var(--accent-ring);
+  --color-on-accent: var(--on-accent);
 
   /* Semantic */
-  --color-positive: #10b981;
-  --color-profit: #10b981;
-  --color-negative: #ef4444;
-  --color-negative-soft: rgba(239, 68, 68, 0.1);
-  --color-warning: #f59e0b;
-  --color-info: #3b82f6;
+  --color-positive: var(--positive);
+  --color-profit: var(--profit);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
 
   /* Borders */
-  --color-line: #e5e7eb;
-  --color-line-strong: #d1d5db;
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
 
   /* Radius (Generous scale for the bubbly light look) */
   --radius-control: 12px;
@@ -48,10 +48,10 @@
   --radius-pill: 9999px;
 
   /* Shadows: airy, cool-gray tinted */
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02);
-  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.06);
-  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 
   /* Easing */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -61,6 +61,72 @@
 
 :root {
   color-scheme: light;
+  
+  --base: #f7f9fa;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --overlay: rgba(255, 255, 255, 0.8);
+
+  --fg: #111827;
+  --fg-muted: #4b5563;
+  --fg-subtle: #6b7280;
+  --fg-faint: #9ca3af;
+
+  --accent: #111827;
+  --accent-hover: #374151;
+  --accent-soft: rgba(17, 24, 39, 0.05);
+  --accent-ring: rgba(17, 24, 39, 0.2);
+  --on-accent: #ffffff;
+
+  --positive: #10b981;
+  --profit: #10b981;
+  --negative: #ef4444;
+  --negative-soft: rgba(239, 68, 68, 0.1);
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  color-scheme: dark;
+  
+  --base: #0a0a0c;
+  --surface: #111214;
+  --elevated: #16181a;
+  --overlay: rgba(0, 0, 0, 0.8);
+
+  --fg: #ffffff;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --fg-faint: #52525b;
+
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --accent-soft: rgba(16, 185, 129, 0.15);
+  --accent-ring: rgba(16, 185, 129, 0.4);
+  --on-accent: #000000;
+
+  --positive: #10b981;
+  --profit: #10b981;
+  --negative: #ef4444;
+  --negative-soft: rgba(239, 68, 68, 0.15);
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  --line: #27272a;
+  --line-strong: #3f3f46;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {

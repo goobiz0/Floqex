@@ -10,6 +10,7 @@ import { OtpInput } from "./otp-input";
 import { Divider, clerkErrorMessage } from "./shared";
 import { SocialButtons, type OAuthStrategy } from "./social-buttons";
 import { dashboardUrl, onboardingUrl } from "@/lib/urls";
+import { WaitlistForm } from "./waitlist-form";
 
 export function SignUpForm() {
   const { signUp } = useSignUp();
@@ -21,6 +22,13 @@ export function SignUpForm() {
       window.location.assign(clerk.buildUrlWithAuth(dashboardUrl("/")));
     }
   }, [isLoaded, isSignedIn, clerk]);
+
+  // Try to detect Waitlist mode from Clerk environment or local env var
+  const env = (clerk as any)?.__unstable__environment;
+  const isWaitlistEnabled = 
+    env?.displayConfig?.waitlistEnabled === true || 
+    env?.displayConfig?.waitlistMode === true || 
+    process.env.NEXT_PUBLIC_WAITLIST_MODE === "true";
 
   const [step, setStep] = useState<"form" | "verify">("form");
   const [firstName, setFirstName] = useState("");
@@ -105,6 +113,10 @@ export function SignUpForm() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (isWaitlistEnabled) {
+    return <WaitlistForm />;
   }
 
   if (step === "verify") {

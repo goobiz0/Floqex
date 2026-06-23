@@ -8,6 +8,7 @@ import { TopbarUser } from "@/components/dashboard/topbar-user";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { HelpMenu } from "@/components/dashboard/help-menu";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { dashboardUrl } from "@/lib/urls";
 import { PLAN_ORDER, type Plan } from "@/lib/plans";
 
@@ -61,6 +62,7 @@ export async function Topbar() {
           <span className="hidden sm:block">
             <HelpMenu />
           </span>
+          <ThemeToggle />
           <Link
             href={dashboardUrl("/settings")}
             aria-label="Settings"

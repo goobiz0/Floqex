@@ -35,13 +35,13 @@ export function BentoCard({
           background: useMotionTemplate`
             radial-gradient(
               650px circle at ${mouseX}px ${mouseY}px,
-              rgba(255,255,255,0.1),
+              rgba(16, 185, 129, 0.15),
               transparent 80%
             )
           `,
         }}
       />
-      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ${innerClassName || 'bg-base border-line p-8'}`}>
+      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-md ${innerClassName || 'bg-base/80 p-8'}`}>
         {children}
       </Card>
     </motion.div>
