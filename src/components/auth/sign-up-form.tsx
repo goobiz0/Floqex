@@ -101,6 +101,11 @@ export function SignUpForm() {
         setSubmitting(false);
         return;
       }
+
+      // Mark legal requirements as accepted to satisfy Clerk's Dashboard settings
+      await signUp.update({
+        legalAccepted: true,
+      });
       const { error: sendError } = await signUp.verifications.sendEmailCode();
       if (sendError) {
         setError(clerkErrorMessage(sendError));
@@ -260,6 +265,11 @@ export function SignUpForm() {
         ) : null}
         {/* Clerk Smart CAPTCHA mounts here (required for custom sign-up flows). */}
         <div id="clerk-captcha" />
+        
+        <p className="text-xs text-center text-fg-subtle">
+          By creating an account, you agree to our Terms of Service and Privacy Policy.
+        </p>
+        
         <Button type="submit" size="lg" className="w-full" disabled={!ready || submitting}>
           {submitting ? "Creating account…" : "Create account"}
         </Button>
