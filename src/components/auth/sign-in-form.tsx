@@ -36,7 +36,7 @@ export function SignInForm() {
         window.location.assign(dashboardUrl());
       }
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, searchParams]);
 
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");

@@ -34,7 +34,7 @@ export function SignUpForm() {
         window.location.assign(dashboardUrl());
       }
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, searchParams]);
 
   // Try to detect Waitlist mode from Clerk environment or local env var
   const env = (clerk as any)?.__unstable__environment;
