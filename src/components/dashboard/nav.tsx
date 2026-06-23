@@ -59,7 +59,7 @@ const LINKS: NavItem[] = [
 function useIsActive() {
   const pathname = usePathname();
   return (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+    href === "/dashboard" ? pathname === href : (pathname?.startsWith(href) ?? false);
 }
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
