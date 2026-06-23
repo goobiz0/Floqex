@@ -22,16 +22,16 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative overflow-hidden bg-base">
       {/* Brand panel (Left) */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-[#0A1211] text-white p-12">
-        {/* Dark Emerald/Cobalt gradient background */}
+      <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-surface/50 text-fg p-12 border-r border-line/50 backdrop-blur-xl">
+        {/* Light Emerald/Cobalt gradient background */}
         <div className="absolute inset-0 z-0">
-          <div className="absolute top-0 left-0 w-[800px] h-[800px] bg-emerald-500/20 rounded-full blur-[120px] mix-blend-screen opacity-50 animate-pulse-slow" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-600/30 rounded-full blur-[100px] mix-blend-screen opacity-40" />
+          <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-emerald-300/30 rounded-full blur-[120px] opacity-60 animate-pulse-slow mix-blend-multiply" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-300/30 rounded-full blur-[100px] opacity-50 mix-blend-multiply" />
         </div>
         <NoiseOverlay />
         <div
           aria-hidden
-          className="grid-faint pointer-events-none absolute inset-0 opacity-20 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
+          className="grid-faint pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
         />
 
         <div className="flex flex-col gap-8 relative z-10">
@@ -47,14 +47,14 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
           </a>
         </div>
 
-        <div className="relative max-w-sm">
+        <div className="relative max-w-sm z-10">
           <h2 className="text-balance text-4xl font-semibold leading-tight tracking-tight text-fg">
             Automated trading, radically clear.
           </h2>
           <ul className="mt-8 space-y-4">
             {points.map((point) => (
               <li key={point.text} className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-white/80 shadow-sm text-accent">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-white shadow-sm text-accent ring-1 ring-black/5">
                   <point.icon size={20} />
                 </span>
                 <span className="text-sm font-medium text-fg-muted">{point.text}</span>
@@ -63,7 +63,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
           </ul>
         </div>
 
-        <p className="relative text-xs text-fg-faint font-medium">
+        <p className="relative text-xs text-fg-subtle font-medium z-10">
           Trading involves risk of loss. Floqex is software, not financial advice.
         </p>
       </aside>

@@ -20,12 +20,16 @@ export function SignUpForm() {
   const clerk = useClerk();
 
   const router = useRouter();
+  const { signOut } = useAuth();
+  
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.push("/dashboard");
+    if (isLoaded && isSignedIn && !isRedirecting) {
+      setIsRedirecting(true);
+      window.location.href = "/dashboard";
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, isRedirecting]);
 
   // Try to detect Waitlist mode from Clerk environment or local env var
   const env = (clerk as any)?.__unstable__environment;
@@ -43,6 +47,20 @@ export function SignUpForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const ready = Boolean(signUp);
+
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-4 text-center py-8">
+        <p className="text-fg font-medium">It looks like your session is out of sync with the server.</p>
+        <Button 
+          variant="secondary" 
+          onClick={() => signOut(() => window.location.assign("/sign-in"))}
+        >
+          Sign out to fix this
+        </Button>
+      </div>
+    );
+  }
 
   async function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

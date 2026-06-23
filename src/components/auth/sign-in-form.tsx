@@ -34,10 +34,19 @@ export function SignInForm() {
     }
   }, [isLoaded, isSignedIn, isRedirecting]);
 
+  const [step, setStep] = useState<Step>("form");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [backupCode, setBackupCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const ready = Boolean(signIn);
+
   if (isLoaded && isSignedIn) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-4 text-center">
-        <p className="text-fg">It looks like your session is out of sync with the server.</p>
+      <div className="flex flex-col items-center justify-center space-y-4 text-center py-8">
+        <p className="text-fg font-medium">It looks like your session is out of sync with the server.</p>
         <Button 
           variant="secondary" 
           onClick={() => signOut(() => window.location.assign("/sign-in"))}
@@ -47,15 +56,6 @@ export function SignInForm() {
       </div>
     );
   }
-
-  const [step, setStep] = useState<Step>("form");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [backupCode, setBackupCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const ready = Boolean(signIn);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
