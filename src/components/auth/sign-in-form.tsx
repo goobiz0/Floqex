@@ -27,8 +27,10 @@ export function SignInForm() {
   
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      // Use Next.js searchParams hook to reliably detect server rejections
-      const isServerRejection = searchParams?.has("redirect_url");
+      // Check both Next.js state and raw browser state to prevent hydration race conditions
+      // where searchParams might be briefly empty on initial client render
+      const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
+      const isServerRejection = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
       
       if (isServerRejection) {
         setDesynced(true);

@@ -27,7 +27,8 @@ export function SignUpForm() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      const isServerRejection = searchParams?.has("redirect_url");
+      const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
+      const isServerRejection = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
       if (isServerRejection) {
         setDesynced(true);
       } else {

@@ -23,16 +23,16 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative overflow-hidden bg-base">
       {/* Brand panel (Left) */}
       <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-surface/50 text-fg p-12 border-r border-line/50">
-        {/* Glass effect and blobs */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          {/* Purple/Blue blob */}
-          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-400/80 to-purple-400/80 rounded-full blur-[80px] opacity-30 mix-blend-multiply animate-pulse-slow" />
-          {/* Light Emerald blob */}
-          <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] bg-gradient-to-tl from-emerald-300/80 to-teal-200/80 rounded-full blur-[100px] opacity-30 mix-blend-multiply" />
-          {/* Heavy Glass Overlay to frost the blobs */}
-          <div className="absolute inset-0 bg-white/30 backdrop-blur-[80px]" />
+        {/* Animated drifting glass blobs */}
+        <AnimatedOrbs />
+        
+        {/* Extra heavy glass overlay to frost everything together */}
+        <div className="absolute inset-0 z-0 bg-white/30 backdrop-blur-[80px]" />
+        
+        {/* Subtle noise layered on top to add texture to the gradients */}
+        <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none">
+          <NoiseOverlay />
         </div>
-        <NoiseOverlay />
         <div
           aria-hidden
           className="grid-faint pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
