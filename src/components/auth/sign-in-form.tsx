@@ -83,29 +83,40 @@ export function SignInForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await signIn.create({ identifier: email, password });
+      const { error: signInError } = await signIn.password({ identifier: email, password });
+      if (signInError) {
+        setError(clerkErrorMessage(signInError));
+        setSubmitting(false);
+        return;
+      }
       
-      if (result.status === "needs_second_factor") {
+      if (signIn.status === "needs_second_factor") {
         setStep("mfa");
         setSubmitting(false);
         return;
       }
 
-      if (result.status === "needs_first_factor") {
-        await signIn.prepareFirstFactor({ strategy: "email_code" });
+      if (signIn.status === "needs_client_trust") {
+        const { error: sendError } = await signIn.mfa.sendEmailCode();
+        if (sendError) {
+          setError(clerkErrorMessage(sendError));
+          setSubmitting(false);
+          return;
+        }
         setStep("client-trust");
         setSubmitting(false);
         return;
       }
 
-      if (result.status === "complete") {
-        await signIn.setActive({ session: result.createdSessionId });
-        window.location.assign(dashboardUrl("/dashboard"));
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+        });
         return;
       }
       
-      console.warn("Unhandled Clerk signIn status:", result.status, result);
-      setError(`Additional verification is required. (Status: ${result.status})`);
+      console.warn("Unhandled Clerk signIn status:", signIn.status, signIn);
+      setError(`Additional verification is required. (Status: ${signIn.status})`);
       setSubmitting(false);
     } catch (err) {
       setError(clerkErrorMessage(err));
@@ -119,11 +130,17 @@ export function SignInForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await signIn.attemptSecondFactor({ strategy: "totp", code });
+      const { error: verifyError } = await signIn.mfa.verifyTOTP({ code });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
+        return;
+      }
 
-      if (result.status === "complete") {
-        await signIn.setActive({ session: result.createdSessionId });
-        window.location.assign(dashboardUrl("/dashboard"));
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+        });
         return;
       }
       
@@ -141,11 +158,17 @@ export function SignInForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await signIn.attemptSecondFactor({ strategy: "backup_code", code: backupCode });
+      const { error: verifyError } = await signIn.mfa.verifyBackupCode({ code: backupCode });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
+        return;
+      }
 
-      if (result.status === "complete") {
-        await signIn.setActive({ session: result.createdSessionId });
-        window.location.assign(dashboardUrl("/dashboard"));
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+        });
         return;
       }
       
@@ -163,15 +186,21 @@ export function SignInForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await signIn.attemptFirstFactor({ strategy: "email_code", code });
+      const { error: verifyError } = await signIn.mfa.verifyEmailCode({ code });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
+        return;
+      }
 
-      if (result.status === "complete") {
-        await signIn.setActive({ session: result.createdSessionId });
-        window.location.assign(dashboardUrl("/dashboard"));
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
+        });
         return;
       }
       
-      setError(`Additional verification is required. (Status: ${result.status})`);
+      setError(`Additional verification is required. (Status: ${signIn.status})`);
       setSubmitting(false);
     } catch (err) {
       setError(clerkErrorMessage(err));

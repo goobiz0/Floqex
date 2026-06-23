@@ -101,7 +101,12 @@ export function SignUpForm() {
         setSubmitting(false);
         return;
       }
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      const { error: sendError } = await signUp.verifications.sendEmailCode();
+      if (sendError) {
+        setError(clerkErrorMessage(sendError));
+        setSubmitting(false);
+        return;
+      }
       setStep("verify");
       setSubmitting(false);
     } catch (err) {
@@ -116,15 +121,22 @@ export function SignUpForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
-      
-      if (completeSignUp.status === "complete") {
-        await signUp.setActive({ session: completeSignUp.createdSessionId });
-        window.location.assign(onboardingUrl());
+      const { error: verifyError } = await signUp.verifications.verifyEmailCode({ code });
+      if (verifyError) {
+        setError(clerkErrorMessage(verifyError));
+        setSubmitting(false);
         return;
       }
       
-      setError("Verification could not be completed. Please try again.");
+      if (signUp.status === "complete") {
+        await signUp.finalize({
+          navigate: () => window.location.assign(onboardingUrl())
+        });
+        return;
+      }
+      
+      console.warn("Unhandled Clerk signUp status:", signUp.status, signUp);
+      setError(`Verification completed but account is incomplete. Missing fields: ${signUp.missingFields?.join(", ")}`);
       setSubmitting(false);
     } catch (err) {
       setError(clerkErrorMessage(err));
