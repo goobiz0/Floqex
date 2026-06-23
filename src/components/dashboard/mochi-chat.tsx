@@ -117,12 +117,17 @@ export function MochiChat() {
 
   const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
     }
     if (input.trim()) {
-      handleSubmit(e);
+      try {
+        handleSubmit(e);
+      } catch (err) {
+        console.error("Chat submit error", err);
+      }
       setIsOpen(true);
     }
   };

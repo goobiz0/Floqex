@@ -45,7 +45,13 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="4. Subscriptions and Billing">
+      <LegalSection heading="4. Third-Party Webhooks & Automation">
+        <p>
+          You may choose to connect your Floqex account to third-party automation tools (such as Make.com or Zapier) via custom webhooks. By configuring a webhook URL, you authorize Floqex to securely transmit your account data, onboarding survey responses, and trading alerts to the specified endpoint. We are not responsible for the data security, privacy practices, or reliability of any third-party service you choose to integrate with.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="5. Subscriptions and Billing">
         <p>
           Floqex is offered on a subscription basis. By selecting a paid plan, you agree to pay the fees specified at checkout.
         </p>

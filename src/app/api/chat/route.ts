@@ -30,7 +30,16 @@ export async function POST(req: Request) {
     where: { clerkId: userId },
     include: { strategies: { orderBy: { createdAt: "asc" } }, accounts: { include: { bot: true } } },
   });
-  if (!user) return new Response("User not found", { status: 404 });
+  
+  if (!user) {
+    return new Response(
+      JSON.stringify({ 
+        role: "assistant", 
+        content: "Your account is still being provisioned. Please complete onboarding first." 
+      }), 
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   const plan = PLANS[user.plan as Plan] ?? PLANS.FREE;
   const strategy = user.strategies[0] ?? null;

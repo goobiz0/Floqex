@@ -8,6 +8,7 @@ import { formatUSD } from "@/lib/utils";
 import { motion } from "motion/react";
 import { type TradeRow } from "@/lib/queries";
 import { EmptyState } from "@/components/ui/empty-state";
+import { toast } from "sonner";
 
 function HeroCard1({ balance }: { balance: number }) {
   return (
@@ -171,7 +172,7 @@ export function DashboardPageClient({
               ⌘K
             </div>
           </div>
-          <button className="flex h-10 items-center gap-2 rounded-full bg-fg px-4 text-sm font-medium text-base transition-transform hover:scale-105 active:scale-95">
+          <button onClick={() => toast.info("Bot creation coming in Phase 6")} className="flex h-10 items-center gap-2 rounded-full bg-fg px-4 text-sm font-medium text-base transition-transform hover:scale-105 active:scale-95">
             <Plus size={16} weight="bold" />
             New Bot
           </button>
@@ -193,17 +194,17 @@ export function DashboardPageClient({
         <div className="rounded-[32px] border border-line bg-base p-6 lg:col-span-5">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-1 rounded-full border border-line p-1">
-              <button className="rounded-full bg-surface px-4 py-1.5 text-[13px] font-medium text-fg shadow-sm">
+              <button onClick={() => toast.info("Filter applied: Recent")} className="rounded-full bg-surface px-4 py-1.5 text-[13px] font-medium text-fg shadow-sm">
                 Recent Operations
               </button>
-              <button className="rounded-full px-4 py-1.5 text-[13px] font-medium text-fg-subtle transition-colors hover:text-fg">
+              <button onClick={() => toast.info("Income filter coming soon")} className="rounded-full px-4 py-1.5 text-[13px] font-medium text-fg-subtle transition-colors hover:text-fg">
                 Income
               </button>
-              <button className="rounded-full px-4 py-1.5 text-[13px] font-medium text-fg-subtle transition-colors hover:text-fg">
+              <button onClick={() => toast.info("Costs filter coming soon")} className="rounded-full px-4 py-1.5 text-[13px] font-medium text-fg-subtle transition-colors hover:text-fg">
                 Costs
               </button>
             </div>
-            <button className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg">
+            <button onClick={() => toast.info("More options coming soon")} className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg">
               <DotsThree size={24} weight="bold" />
             </button>
           </div>
@@ -251,14 +252,14 @@ export function DashboardPageClient({
         <div className="flex min-h-[300px] flex-col rounded-[32px] border border-line bg-base p-6 lg:col-span-7">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 rounded-full border border-line p-1">
-              <button className="rounded-full bg-surface px-4 py-1.5 text-[13px] font-medium text-fg shadow-sm">
+              <button onClick={() => toast.info("Viewing Recent PnL")} className="rounded-full bg-surface px-4 py-1.5 text-[13px] font-medium text-fg shadow-sm">
                 Recent PnL
               </button>
-              <button className="rounded-full px-4 py-1.5 text-[13px] font-medium text-fg-subtle transition-colors hover:text-fg">
+              <button onClick={() => toast.info("Volume view coming soon")} className="rounded-full px-4 py-1.5 text-[13px] font-medium text-fg-subtle transition-colors hover:text-fg">
                 Volume
               </button>
             </div>
-            <button className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg">
+            <button onClick={() => toast.info("Chart options coming soon")} className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg">
               <DotsThree size={24} weight="bold" />
             </button>
           </div>
@@ -394,7 +395,7 @@ export function DashboardPageClient({
       </div>
 
       <div className="flex justify-center pt-4">
-        <button className="w-full max-w-[800px] rounded-full border border-line py-3 text-[13px] font-medium text-fg-subtle transition-colors hover:border-line-strong hover:text-fg">
+        <button onClick={() => toast.info("No more activity to load")} className="w-full max-w-[800px] rounded-full border border-line py-3 text-[13px] font-medium text-fg-subtle transition-colors hover:border-line-strong hover:text-fg">
           Load More
         </button>
       </div>

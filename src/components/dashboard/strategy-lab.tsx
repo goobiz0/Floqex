@@ -192,8 +192,17 @@ export function StrategyLab({
         </Card>
 
         <Card className="p-5">
-          <CardTitle>Bot learning</CardTitle>
-          <div className="mt-4">
+          <div className="flex items-center justify-between">
+            <CardTitle>Bot learning</CardTitle>
+            <div className="flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-2.5 py-1 text-[10px] font-bold tracking-wide uppercase text-accent">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+              </span>
+              Neural Engine Active
+            </div>
+          </div>
+          <div className="mt-6">
             <div className="flex items-center justify-between text-sm">
               <span className="text-fg-muted">Auto-adjustments used</span>
               <span className="tnum text-fg">
@@ -202,7 +211,7 @@ export function StrategyLab({
             </div>
             <div className="mt-2 h-1.5 rounded-full bg-surface">
               <div
-                className="h-full rounded-full bg-accent"
+                className="h-full rounded-full bg-accent transition-all duration-1000 ease-out"
                 style={{ width: `${Math.min(100, (autoAdjustmentsUsed / AUTO_LIMIT) * 100)}%` }}
               />
             </div>

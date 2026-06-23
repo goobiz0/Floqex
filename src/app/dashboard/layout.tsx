@@ -23,7 +23,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       });
       needsOnboarding = !user || user._count.accounts === 0;
     } catch {
-      needsOnboarding = false;
+      // If Prisma fails (e.g., db offline or schema unmigrated on Vercel),
+      // we must force onboarding to prevent them from hitting broken dashboard queries.
+      needsOnboarding = true;
     }
   }
   if (needsOnboarding) redirect("/onboarding");

@@ -21,7 +21,7 @@ export default function PrivacyPage() {
           <ul className="list-inside list-disc space-y-2 text-fg-subtle ml-4">
             <li><strong>Account Information:</strong> Name, email address, and authentication data provided via our identity provider.</li>
             <li><strong>Trading Data:</strong> Read-only access to your connected brokerage accounts (e.g., balance, positions, order history) required to execute the ORB strategy. We do not store your brokerage credentials directly; we use secure OAuth tokens or encrypted API keys.</li>
-            <li><strong>Usage & Voluntary Data:</strong> How you interact with the platform. During onboarding and documentation review, we may ask voluntary questions (e.g., your trading experience, goals, and documentation feedback). This data is transmitted securely to our internal analytics pipelines solely for the purpose of improving the product. Under GDPR and CCPA, you retain the right to request the deletion or export of this data at any time by contacting us.</li>
+            <li><strong>Usage & Voluntary Data:</strong> How you interact with the platform. During onboarding and documentation review, we may ask voluntary questions (e.g., your trading experience, goals, and documentation feedback). This data may be transmitted securely to our internal analytics pipelines, or securely routed to your connected third-party webhook services (such as Make.com or Zapier) for automation purposes. Under GDPR and CCPA, you retain the right to request the deletion or export of this data at any time by contacting us.</li>
           </ul>
         </div>
         <p className="mt-4"><strong>1.2 Information Collected Automatically:</strong></p>
