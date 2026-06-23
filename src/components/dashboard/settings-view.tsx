@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useUser, useClerk } from "@clerk/nextjs";
 import type { TradeRow } from "@/lib/metrics";
 import { updateCircuitBreaker } from "@/app/dashboard/accounts/actions";
@@ -131,6 +132,17 @@ export function SettingsView({
   return (
     <div className="max-w-2xl space-y-4">
       <ProfileSettings />
+
+      <Card className="p-5">
+        <CardTitle>Appearance</CardTitle>
+        <div className="mt-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-fg">Theme</p>
+            <p className="text-xs text-fg-subtle">Toggle between light and dark mode.</p>
+          </div>
+          <ThemeToggle />
+        </div>
+      </Card>
 
       <McpSettings mcpKey={mcpKey} />
 

@@ -15,8 +15,6 @@ export const revalidate = 300;
 export default function LandingPage() {
   return (
     <div className="bg-base overflow-hidden selection:bg-accent/20 relative">
-      <div className="absolute inset-0 grid-faint pointer-events-none" />
-      <div className="absolute inset-x-0 top-0 h-[800px] bg-gradient-to-b from-white via-white/80 to-transparent pointer-events-none" />
 
       <HeroClient />
 

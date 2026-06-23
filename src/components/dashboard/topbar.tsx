@@ -83,43 +83,43 @@ export async function Topbar() {
           </div>
         </div>
 
-        {/* Center: Bot Stats & Emergency Stop */}
-        <div className="hidden md:flex items-center gap-3 bg-surface/50 border border-line/80 rounded-full px-1.5 py-1.5 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center gap-2 px-3">
+        {/* Center: Sleek Stats Pill */}
+        <div className="hidden md:flex items-center gap-3 bg-surface/50 border border-line/50 rounded-full px-2 py-1 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-2 px-2">
             {isMarketOpen ? (
               <>
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-positive shadow-[0_0_8px_rgba(var(--color-positive),0.8)]"></span>
                 </span>
-                <span className="text-[11px] font-semibold text-fg tracking-widest uppercase">NYSE Open</span>
+                <span className="text-[10px] font-semibold text-fg tracking-widest uppercase">NYSE Open</span>
               </>
             ) : (
               <>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-fg-muted"></span>
-                <span className="text-[11px] font-semibold text-fg-subtle tracking-widest uppercase">NYSE Closed</span>
+                <span className="text-[10px] font-semibold text-fg-subtle tracking-widest uppercase">NYSE Closed</span>
               </>
             )}
           </div>
-          <div className="w-px h-4 bg-line" />
+          <div className="w-px h-3 bg-line" />
           <div className="flex items-center gap-2 px-2">
-            <span className="text-[10px] font-mono font-medium text-fg-muted tracking-widest uppercase">Uptime</span>
-            <span className="text-xs font-mono font-semibold text-fg">{uptimeString}</span>
+            <span className="text-[10px] font-mono font-medium text-fg-subtle uppercase">Uptime</span>
+            <span className="text-[11px] font-mono font-semibold text-fg">{uptimeString}</span>
           </div>
+        </div>
+
+        {/* Right cluster */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <form action={async () => {
             "use server";
             const { emergencyStop } = await import("@/app/dashboard/accounts/actions");
             await emergencyStop();
           }}>
-            <button className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-negative bg-negative/5 hover:bg-negative/15 px-3 py-1.5 rounded-full transition-all group border border-negative/10 hover:border-negative/30">
-              <div className="h-1.5 w-1.5 rounded-sm bg-negative shadow-[0_0_8px_rgba(var(--color-negative),0.8)] group-active:scale-90 transition-transform" />
-              E-Stop
+            <button title="Emergency Stop" className="hidden sm:flex items-center justify-center h-8 w-8 text-negative bg-negative/5 hover:bg-negative/15 rounded-full transition-all group border border-negative/10 hover:border-negative/30">
+              <div className="h-2 w-2 rounded-sm bg-negative shadow-[0_0_8px_rgba(var(--color-negative),0.8)] group-active:scale-90 transition-transform" />
             </button>
           </form>
-        </div>
 
-        {/* Right cluster */}
-        <div className="flex items-center gap-2 sm:gap-3">
           <NotificationsBell items={notifications} />
           
           <Link
@@ -128,17 +128,17 @@ export async function Topbar() {
             rel="noopener noreferrer"
             className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-fg-muted hover:text-fg hover:bg-surface px-3 py-1.5 rounded-full transition-colors"
           >
-            Help
+            Docs
           </Link>
 
-          <ThemeToggle />
           <Link
             href={dashboardUrl("/settings")}
             aria-label="Settings"
-            className="hidden h-8 w-8 items-center justify-center rounded-[var(--radius-pill)] text-fg-subtle transition-colors hover:bg-surface hover:text-fg sm:inline-flex"
+            className="hidden h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg sm:inline-flex"
           >
             <Gear size={18} />
           </Link>
+          
           {canUpgrade ? (
             <Link
               href={dashboardUrl("/billing")}

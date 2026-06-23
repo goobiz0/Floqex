@@ -24,9 +24,14 @@ export function HeroClient() {
 
   return (
     <section className="relative pt-32 pb-32 md:pt-48 md:pb-40 overflow-hidden">
+      {/* Grid Pattern with Edge Fade */}
+      <div className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-30" style={{ backgroundImage: 'radial-gradient(var(--color-line) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#FAFAFA_100%)] pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#FAFAFA] pointer-events-none z-0" />
+
       {/* Breathable Aurora Glows */}
-      <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-emerald-300/10 aurora rounded-full mix-blend-multiply pointer-events-none -translate-y-1/4 translate-x-1/4" />
-      <div className="absolute top-40 left-0 w-[600px] h-[600px] bg-blue-300/10 aurora rounded-full mix-blend-multiply pointer-events-none translate-y-1/4 -translate-x-1/4" style={{ animationDelay: '-7s' }} />
+      <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-emerald-400/20 aurora rounded-full mix-blend-multiply pointer-events-none -translate-y-1/4 translate-x-1/4 z-0" />
+      <div className="absolute top-40 left-0 w-[600px] h-[600px] bg-teal-400/20 aurora rounded-full mix-blend-multiply pointer-events-none translate-y-1/4 -translate-x-1/4 z-0" style={{ animationDelay: '-7s' }} />
 
       <motion.div 
         variants={container}
@@ -34,14 +39,14 @@ export function HeroClient() {
         animate="show"
         className="relative z-10 mx-auto max-w-[1200px] px-6 text-center flex flex-col items-center"
       >
-        <motion.div variants={item} className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-fg-subtle backdrop-blur-md mb-8 shadow-sm">
+        <motion.div variants={item} className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-accent mb-8 shadow-sm">
           <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
           Live automated execution
         </motion.div>
         
-        <motion.h1 variants={item} className="max-w-4xl text-balance text-5xl font-semibold tracking-tight text-fg md:text-7xl leading-[1.05]">
+        <motion.h1 variants={item} className="max-w-4xl text-balance text-5xl font-extrabold tracking-tight text-fg md:text-7xl leading-[1.05]">
           Trade smarter. <br className="hidden md:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 animate-gradient-x bg-[length:200%_auto]">
+          <span className="text-fg">
             Zero code required.
           </span>
         </motion.h1>

@@ -3,20 +3,19 @@
 import { useState, useRef, useEffect } from "react";
 import { MagnifyingGlass, BookBookmark, Strategy, RocketLaunch, ShieldCheck, CreditCard } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { DOCS_INDEX } from "./docs-index";
 
-const DOC_PAGES = [
-  { href: "/docs", label: "Getting Started", icon: RocketLaunch, keywords: "welcome intro engine autonomous start" },
-  { href: "/docs/strategy", label: "ORB Strategy", icon: Strategy, keywords: "orb opening range breakout algorithm strategy risk reward" },
-  { href: "/docs/risk", label: "Risk Management", icon: ShieldCheck, keywords: "risk mdd drawdown limit stop loss expectancy calculator" },
-  { href: "/docs/brokers", label: "Brokers & Connections", icon: CreditCard, keywords: "broker alpaca tradestation keys api secret" },
-  { href: "/docs/glossary", label: "Glossary", icon: BookBookmark, keywords: "terms definitions pnl rvol spread liquidity slippage" },
-];
+const ICONS: Record<string, React.ElementType> = {
+  RocketLaunch,
+  Strategy,
+  ShieldCheck,
+  CreditCard,
+  BookBookmark
+};
 
 export function DocsSearch() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const router = useRouter();
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,11 +28,52 @@ export function DocsSearch() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const results = DOC_PAGES.filter(page => {
-    if (!query) return true;
+  const results = [];
+  if (query.length > 1) {
     const lowerQuery = query.toLowerCase();
-    return page.label.toLowerCase().includes(lowerQuery) || page.keywords.includes(lowerQuery);
-  });
+    for (const page of DOCS_INDEX) {
+      let pageMatched = false;
+      
+      // Match against page title
+      if (page.title.toLowerCase().includes(lowerQuery)) {
+        results.push({
+          href: page.href,
+          title: page.title,
+          iconName: page.iconName,
+          snippet: "Match in page title"
+        });
+        pageMatched = true;
+      }
+      
+      // Match against sections
+      if (!pageMatched) {
+        for (const section of page.sections) {
+          if (section.heading.toLowerCase().includes(lowerQuery) || section.content.toLowerCase().includes(lowerQuery)) {
+            // Find a small snippet around the match
+            const matchIndex = section.content.toLowerCase().indexOf(lowerQuery);
+            let snippet = section.content;
+            if (matchIndex > -1) {
+              const start = Math.max(0, matchIndex - 30);
+              const end = Math.min(section.content.length, matchIndex + lowerQuery.length + 30);
+              snippet = (start > 0 ? "..." : "") + section.content.substring(start, end) + (end < section.content.length ? "..." : "");
+            } else {
+              snippet = section.content.substring(0, 80) + "..."; // Match was in heading
+            }
+            
+            results.push({
+              href: `${page.href}#${section.heading.toLowerCase().replace(/\s+/g, '-')}`,
+              title: `${page.title} — ${section.heading}`,
+              iconName: page.iconName,
+              snippet
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Deduplicate and limit
+  const uniqueResults = results.slice(0, 6);
 
   return (
     <div className="relative w-full" ref={searchRef}>
@@ -52,24 +92,27 @@ export function DocsSearch() {
         />
       </div>
 
-      {isOpen && query.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-line rounded-[var(--radius-card)] shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-          {results.length > 0 ? (
+      {isOpen && query.length > 1 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-line rounded-[var(--radius-card)] shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[400px] overflow-y-auto">
+          {uniqueResults.length > 0 ? (
             <div className="p-2 space-y-1">
-              {results.map(result => {
-                const Icon = result.icon;
+              {uniqueResults.map((result, i) => {
+                const Icon = ICONS[result.iconName] || BookBookmark;
                 return (
                   <Link
-                    key={result.href}
+                    key={i}
                     href={result.href}
                     onClick={() => {
                       setIsOpen(false);
                       setQuery("");
                     }}
-                    className="flex items-center gap-3 px-3 py-2 rounded-[var(--radius-control)] hover:bg-base text-sm font-medium text-fg-subtle hover:text-fg transition-colors"
+                    className="flex flex-col gap-1 px-3 py-2.5 rounded-[var(--radius-control)] hover:bg-base transition-colors"
                   >
-                    <Icon size={16} className="text-accent" />
-                    {result.label}
+                    <div className="flex items-center gap-2">
+                      <Icon size={14} className="text-accent shrink-0" />
+                      <span className="text-sm font-semibold text-fg truncate">{result.title}</span>
+                    </div>
+                    <span className="text-xs text-fg-subtle line-clamp-2 pl-6">{result.snippet}</span>
                   </Link>
                 );
               })}

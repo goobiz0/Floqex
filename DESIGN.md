@@ -37,9 +37,8 @@ Marketing pages (`(marketing)/*`) may run hotter (VARIANCE 6-7, MOTION 5-6).
 
 ## Non-negotiable rules
 
-1. **Light-locked.** One theme: light-gray page, white cards, dark text.
-   `color-scheme: light`. Never invert a section to dark.
-2. **Gradient Accents:** The brand is anchored by a vibrant gradient blending light emerald, light blue, and light purple. Use the `@utility vibrant-mesh` and `aurora` utilities for structural background elements.
+1. **Light Theme Primary**: The primary aesthetic is a light-gray page with white cards and dark text. `color-scheme: light`. A dark mode toggle exists for user preference, but the brand identity is anchored in the light theme.
+2. **Gradient Accents**: The brand is anchored by a vibrant gradient blending light emerald, light blue, and light purple. Use the `@utility vibrant-mesh` and `aurora-breathe` utilities for structural background elements.
 3. **One accent: emerald** `--color-accent` (deep emerald, legible on white).
    Text on the accent uses `--color-on-accent` (white). Profit-green
    `--color-profit` is a *separate* token from the brand accent. Brand accent is
@@ -143,7 +142,7 @@ once at the shell. All honor `prefers-reduced-transparency`.
 
 ## Pre-ship checklist
 
-- [ ] Light only; emerald accent; vibrant light-emerald/blue/purple gradients applied appropriately.
+- [ ] Light Theme primary; emerald accent; vibrant light-emerald/blue/purple gradients applied appropriately.
 - [ ] One radius system via tokens; no raw `rounded-*`/`shadow-*`.
 - [ ] Zero em-dashes anywhere visible.
 - [ ] Real data; empty/loading/error states present.
