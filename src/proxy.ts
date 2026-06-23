@@ -107,6 +107,14 @@ export default clerkMiddleware(
       await auth.protect();
     }
     return NextResponse.next();
+  },
+  {
+    // These options explicitly override any malformed environment variables 
+    // (like NEXT_PUBLIC_CLERK_DOMAIN) that might be causing handshake failures
+    // on custom domains with test keys.
+    domain: undefined,
+    isSatellite: false,
+    proxyUrl: undefined,
   }
 );
 

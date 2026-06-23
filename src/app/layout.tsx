@@ -70,8 +70,8 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <ClerkProvider
-            signInUrl={root ? `https://app.${root}/sign-in` : "/sign-in"}
-            signUpUrl={root ? `https://app.${root}/sign-up` : "/sign-up"}
+            signInUrl="/sign-in"
+            signUpUrl="/sign-up"
           >
             {children}
           </ClerkProvider>

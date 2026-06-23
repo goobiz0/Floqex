@@ -22,11 +22,15 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative overflow-hidden bg-base">
       {/* Brand panel (Left) */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-surface/50 text-fg p-12 border-r border-line/50 backdrop-blur-xl">
-        {/* Light Emerald/Cobalt gradient background */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-emerald-300/30 rounded-full blur-[120px] opacity-60 animate-pulse-slow mix-blend-multiply" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-300/30 rounded-full blur-[100px] opacity-50 mix-blend-multiply" />
+      <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-surface/50 text-fg p-12 border-r border-line/50">
+        {/* Glass effect and blobs */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          {/* Purple/Blue blob */}
+          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-400/80 to-purple-400/80 rounded-full blur-[80px] opacity-60 mix-blend-multiply animate-pulse-slow" />
+          {/* Light Emerald blob */}
+          <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] bg-gradient-to-tl from-emerald-300/80 to-teal-200/80 rounded-full blur-[100px] opacity-60 mix-blend-multiply" />
+          {/* Heavy Glass Overlay to frost the blobs */}
+          <div className="absolute inset-0 bg-white/30 backdrop-blur-[80px]" />
         </div>
         <NoiseOverlay />
         <div

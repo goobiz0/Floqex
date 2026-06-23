@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Envelope, Lock } from "@phosphor-icons/react";
 import { useSignIn, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -18,21 +18,25 @@ type Step = "form" | "mfa" | "mfa-backup" | "client-trust";
 
 export function SignInForm() {
   const { signIn } = useSignIn();
-  const { isLoaded, isSignedIn, signOut } = useAuth();
-  
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { signOut } = useAuth();
   
-  // We use state to track if we're trying to redirect, to avoid infinite loops if the server rejects the session
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [desynced, setDesynced] = useState(false);
   
   useEffect(() => {
-    if (isLoaded && isSignedIn && !isRedirecting) {
-      setIsRedirecting(true);
-      // Use window.location.href to force a full page load to the dashboard.
-      // This ensures the server middleware runs freshly and sets/clears cookies correctly.
-      window.location.href = "/dashboard";
+    if (isLoaded && isSignedIn) {
+      // Use Next.js searchParams hook to reliably detect server rejections
+      const isServerRejection = searchParams?.has("redirect_url");
+      
+      if (isServerRejection) {
+        setDesynced(true);
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [isLoaded, isSignedIn, isRedirecting]);
+  }, [isLoaded, isSignedIn, router]);
 
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
@@ -43,7 +47,7 @@ export function SignInForm() {
   const [submitting, setSubmitting] = useState(false);
   const ready = Boolean(signIn);
 
-  if (isLoaded && isSignedIn) {
+  if (desynced) {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 text-center py-8">
         <p className="text-fg font-medium">It looks like your session is out of sync with the server.</p>
@@ -51,7 +55,7 @@ export function SignInForm() {
           variant="secondary" 
           onClick={() => signOut(() => window.location.assign("/sign-in"))}
         >
-          Sign out to fix this
+          Sign out
         </Button>
       </div>
     );

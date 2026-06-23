@@ -12,53 +12,43 @@ export function AnimatedOrbs() {
 
   if (!mounted) {
     return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-screen">
-        <div className="absolute -top-[20%] -left-[10%] w-[500px] h-[500px] rounded-full bg-accent blur-[120px]" />
-        <div className="absolute top-[40%] right-[10%] w-[400px] h-[400px] rounded-full bg-blue-500 blur-[100px]" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-multiply">
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-300 blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-emerald-300 blur-[120px]" />
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-60 mix-blend-screen dark:opacity-40">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-80 mix-blend-multiply z-0">
       <motion.div
         animate={{
-          x: ["0%", "10%", "-5%", "0%"],
-          y: ["0%", "5%", "-10%", "0%"],
-          scale: [1, 1.05, 0.95, 1],
-        }}
-        transition={{
-          duration: 15,
-          ease: "easeInOut",
-          repeat: Infinity,
-        }}
-        className="absolute -top-[20%] -left-[10%] w-[500px] h-[500px] rounded-full bg-emerald-400/60 blur-[120px] dark:bg-emerald-600/40"
-      />
-      <motion.div
-        animate={{
-          x: ["0%", "-10%", "5%", "0%"],
-          y: ["0%", "-5%", "10%", "0%"],
-          scale: [1, 0.95, 1.05, 1],
+          x: ["0%", "15%", "-5%", "0%"],
+          y: ["0%", "10%", "-15%", "0%"],
+          scale: [1, 1.1, 0.95, 1],
         }}
         transition={{
           duration: 20,
           ease: "easeInOut",
           repeat: Infinity,
         }}
-        className="absolute top-[40%] right-[10%] w-[400px] h-[400px] rounded-full bg-blue-500/50 blur-[100px] dark:bg-blue-600/40"
+        className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-indigo-400/80 to-purple-400/80 blur-[80px]"
       />
       <motion.div
         animate={{
-          x: ["0%", "5%", "-5%", "0%"],
-          y: ["0%", "10%", "-5%", "0%"],
+          x: ["0%", "-15%", "10%", "0%"],
+          y: ["0%", "-10%", "15%", "0%"],
+          scale: [1, 0.9, 1.05, 1],
         }}
         transition={{
           duration: 25,
           ease: "easeInOut",
           repeat: Infinity,
         }}
-        className="absolute bottom-[-10%] left-[20%] w-[600px] h-[300px] rounded-full bg-teal-300/40 blur-[150px] dark:bg-teal-700/30"
+        className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-gradient-to-tl from-emerald-300/80 to-teal-200/80 blur-[100px]"
       />
+      {/* Heavy Glass Overlay to frost the blobs */}
+      <div className="absolute inset-0 bg-white/30 backdrop-blur-[80px]" />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Envelope, Lock, User } from "@phosphor-icons/react";
 import { useSignUp, useAuth, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -20,16 +20,21 @@ export function SignUpForm() {
   const clerk = useClerk();
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signOut } = useAuth();
   
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [desynced, setDesynced] = useState(false);
 
   useEffect(() => {
-    if (isLoaded && isSignedIn && !isRedirecting) {
-      setIsRedirecting(true);
-      window.location.href = "/dashboard";
+    if (isLoaded && isSignedIn) {
+      const isServerRejection = searchParams?.has("redirect_url");
+      if (isServerRejection) {
+        setDesynced(true);
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [isLoaded, isSignedIn, isRedirecting]);
+  }, [isLoaded, isSignedIn, router]);
 
   // Try to detect Waitlist mode from Clerk environment or local env var
   const env = (clerk as any)?.__unstable__environment;
@@ -48,7 +53,7 @@ export function SignUpForm() {
   const [submitting, setSubmitting] = useState(false);
   const ready = Boolean(signUp);
 
-  if (isLoaded && isSignedIn) {
+  if (desynced) {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 text-center py-8">
         <p className="text-fg font-medium">It looks like your session is out of sync with the server.</p>
@@ -56,7 +61,7 @@ export function SignUpForm() {
           variant="secondary" 
           onClick={() => signOut(() => window.location.assign("/sign-in"))}
         >
-          Sign out to fix this
+          Sign out
         </Button>
       </div>
     );
