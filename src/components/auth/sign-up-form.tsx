@@ -27,13 +27,10 @@ export function SignUpForm() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
-      const hasRedirectUrl = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
-      
       const lastAttempt = sessionStorage.getItem("floqex_auth_attempt");
       const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
 
-      if (hasRedirectUrl || isLooping) {
+      if (isLooping) {
         setDesynced(true);
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
@@ -58,6 +55,7 @@ export function SignUpForm() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const ready = Boolean(signUp);
 
   if (desynced) {
@@ -273,11 +271,23 @@ export function SignUpForm() {
         {/* Clerk Smart CAPTCHA mounts here (required for custom sign-up flows). */}
         <div id="clerk-captcha" />
         
-        <p className="text-xs text-center text-fg-subtle">
-          By creating an account, you agree to our Terms of Service and Privacy Policy.
-        </p>
+        <div className="flex items-start space-x-2 pt-1 pb-2">
+          <input 
+            type="checkbox" 
+            id="terms" 
+            checked={agreedToTerms} 
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-fg-muted/30 text-fg focus:ring-2 focus:ring-fg/20 bg-transparent transition-colors cursor-pointer"
+          />
+          <label htmlFor="terms" className="text-xs text-fg-subtle leading-relaxed cursor-pointer select-none">
+            I agree to the{" "}
+            <Link href="/terms" className="font-medium underline underline-offset-2 hover:text-fg transition-colors">Terms of Service</Link>
+            {" "}and{" "}
+            <Link href="/privacy" className="font-medium underline underline-offset-2 hover:text-fg transition-colors">Privacy Policy</Link>.
+          </label>
+        </div>
         
-        <Button type="submit" size="lg" className="w-full" disabled={!ready || submitting}>
+        <Button type="submit" size="lg" className="w-full" disabled={!ready || submitting || !agreedToTerms}>
           {submitting ? "Creating account…" : "Create account"}
         </Button>
       </form>

@@ -28,13 +28,10 @@ export function SignInForm() {
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       // Check Next.js state, raw browser state, AND a sessionStorage timestamp to completely bulletproof against Next.js cache loops
-      const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
-      const hasRedirectUrl = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
-      
       const lastAttempt = sessionStorage.getItem("floqex_auth_attempt");
       const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
       
-      if (hasRedirectUrl || isLooping) {
+      if (isLooping) {
         setDesynced(true);
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
