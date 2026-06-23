@@ -48,11 +48,13 @@ export default async function SettingsPage() {
   // Notification prefs live on the Clerk user's privateMetadata (same store as
   // onboarding; read by the engine for Discord alerts).
   let settings = DEFAULT_SETTINGS;
+  let mcpKey = "";
   if (userId) {
     try {
       const client = await clerkClient();
       const cu = await client.users.getUser(userId);
       const m = (cu.privateMetadata ?? {}) as Record<string, unknown>;
+      mcpKey = typeof m.mcpKey === "string" ? m.mcpKey : "";
       settings = {
         discordWebhookUrl: typeof m.discordWebhookUrl === "string" ? m.discordWebhookUrl : "",
         notifyDiscord: m.notifyDiscord !== false,
@@ -75,7 +77,7 @@ export default async function SettingsPage() {
           Notifications, alert thresholds, and data export.
         </p>
       </div>
-      <SettingsView trades={trades} accounts={accounts} settings={settings} />
+      <SettingsView trades={trades} accounts={accounts} settings={settings} mcpKey={mcpKey} />
     </div>
   );
 }

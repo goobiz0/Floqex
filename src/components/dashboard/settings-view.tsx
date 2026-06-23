@@ -79,14 +79,19 @@ type NotificationSettings = {
   drawdownAlertPct: number;
 };
 
+import { generateMcpKey } from "@/app/dashboard/settings/actions";
+import { TerminalWindow, Copy, Check } from "@phosphor-icons/react";
+
 export function SettingsView({
   trades,
   accounts = [],
   settings,
+  mcpKey,
 }: {
   trades: TradeRow[];
   accounts?: SettingsAccount[];
   settings: NotificationSettings;
+  mcpKey?: string;
 }) {
   const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
   const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
@@ -126,6 +131,9 @@ export function SettingsView({
   return (
     <div className="max-w-2xl space-y-4">
       <ProfileSettings />
+
+      <McpSettings mcpKey={mcpKey} />
+
 
       <Card className="p-5">
         <CardTitle>Notifications</CardTitle>
@@ -478,5 +486,81 @@ function CircuitBreakerRow({ account }: { account: SettingsAccount }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+function McpSettings({ mcpKey }: { mcpKey?: string }) {
+  const [pending, startTransition] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  function handleGenerate() {
+    startTransition(async () => {
+      const res = await generateMcpKey();
+      if (!res.ok) alert(res.error);
+    });
+  }
+
+  function handleCopy() {
+    if (mcpKey) {
+      navigator.clipboard.writeText(mcpKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <Card className="p-5 overflow-hidden">
+      <div className="flex items-center gap-2 mb-4">
+        <TerminalWindow size={20} className="text-accent" weight="duotone" />
+        <CardTitle>Developer & MCP Server</CardTitle>
+      </div>
+      <p className="text-sm text-fg-subtle mb-4 leading-relaxed">
+        Floqex exposes a native Model Context Protocol (MCP) server. Connect Cursor or Claude Desktop to analyze your account, fetch balances, and safely adjust bot parameters using natural language.
+      </p>
+
+      <div className="space-y-4">
+        <div>
+          <Label>SSE Endpoint URL</Label>
+          <div className="mt-1.5 flex h-10 w-full items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-3">
+            <span className="truncate text-sm text-fg font-mono">
+              https://app.floqex.com/api/mcp/sse
+            </span>
+          </div>
+          <p className="text-xs text-fg-subtle mt-1.5">
+            Use this URL in your MCP client configuration.
+          </p>
+        </div>
+
+        <div className="pt-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <Label>Bearer Token</Label>
+            {mcpKey && (
+              <button 
+                type="button" 
+                onClick={handleCopy}
+                className="text-xs text-accent hover:text-accent-hover font-medium flex items-center gap-1 transition-colors"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex-1 flex h-10 items-center rounded-[var(--radius-control)] border border-line bg-surface px-3">
+              <span className="truncate text-sm text-fg-muted font-mono selection:bg-accent/20 selection:text-fg">
+                {mcpKey ? mcpKey : "No key generated yet."}
+              </span>
+            </div>
+            <Button size="sm" variant="secondary" onClick={handleGenerate} disabled={pending}>
+              {pending ? "Generating..." : mcpKey ? "Regenerate" : "Generate Key"}
+            </Button>
+          </div>
+          <p className="text-xs text-fg-subtle mt-1.5">
+            Pass this token as a Bearer token in your MCP client headers.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }

@@ -13,6 +13,7 @@ import {
   CreditCard,
   UserCircle,
   Gear,
+  Bell,
   type Icon,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -30,8 +31,8 @@ const COMMANDS: Command[] = [
   { label: "Accounts", href: "/dashboard/accounts", icon: Wallet, keywords: "broker connect balance" },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard, keywords: "plan upgrade invoice" },
   { label: "Profile", href: "/dashboard/profile", icon: UserCircle, keywords: "personal name" },
-  { label: "Settings", href: "/dashboard/settings", icon: Gear, keywords: "notifications export danger" },
-  { label: "Help & Support", href: "/help", icon: UserCircle, keywords: "contact ticket email" },
+  { label: "Preferences", href: "/dashboard/profile", icon: Bell, keywords: "notifications theme profile" },
+  { label: "Help & Support", href: "/docs", icon: UserCircle, keywords: "contact ticket email docs documentation" },
   { label: "Documentation", href: "https://docs.floqex.com", icon: Notebook, keywords: "guides manual tutorial read" },
 ];
 

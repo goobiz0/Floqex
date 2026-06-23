@@ -41,7 +41,7 @@ export function BentoCard({
           `,
         }}
       />
-      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-md ${innerClassName || 'bg-base/80 p-8'}`}>
+      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ring-1 ring-black/5 backdrop-blur-md ${innerClassName || 'bg-base/80 p-8'}`}>
         {children}
       </Card>
     </motion.div>

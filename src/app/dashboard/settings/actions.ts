@@ -178,3 +178,33 @@ export async function applyStrategyChanges(changes: Record<string, unknown>): Pr
     })),
   };
 }
+
+import { randomBytes } from "crypto";
+
+/**
+ * Generate a new MCP authentication key and persist it on the Clerk user.
+ */
+export async function generateMcpKey(): Promise<Result & { key?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "You are not signed in." };
+  
+  try {
+    const rawBytes = randomBytes(16).toString("hex");
+    const newKey = `fqx_mcp_${userId}_${rawBytes}`;
+    const client = await clerkClient();
+    const current = await client.users.getUser(userId);
+    
+    await client.users.updateUserMetadata(userId, {
+      privateMetadata: {
+        ...current.privateMetadata,
+        mcpKey: newKey,
+      },
+    });
+    
+    revalidatePath("/dashboard/settings");
+    return { ok: true, key: newKey };
+  } catch {
+    return { ok: false, error: "Could not generate MCP key." };
+  }
+}
+

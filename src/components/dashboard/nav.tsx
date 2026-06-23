@@ -46,7 +46,7 @@ const MORE: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Gear },
   { href: "/dashboard/profile", label: "Preferences", icon: UserCircle },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-  { href: "/help", label: "Help Center", icon: Question },
+  { href: "/docs", label: "Help Center", icon: Question },
 ];
 
 const LINKS: NavItem[] = [
@@ -64,9 +64,13 @@ function useIsActive() {
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
+  const isDocs = item.href === "/docs";
+  
   return (
     <Link
       href={item.href}
+      target={isDocs ? "_blank" : undefined}
+      rel={isDocs ? "noopener noreferrer" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
         "group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-[13px] font-medium transition-colors",

@@ -7,7 +7,6 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { TopbarUser } from "@/components/dashboard/topbar-user";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
-import { HelpMenu } from "@/components/dashboard/help-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { dashboardUrl } from "@/lib/urls";
 import { PLAN_ORDER, type Plan } from "@/lib/plans";
@@ -23,18 +22,58 @@ const NAV_LINKS = [
 
 /** Full-width top bar: brand at the left, centered links, right cluster. */
 export async function Topbar() {
-  const [plan, notifications] = await Promise.all([userPlan(), getRecentNotifications()]);
+  const [plan, notifications, user] = await Promise.all([
+    userPlan(),
+    getRecentNotifications(),
+    getTopBarUserMeta(),
+  ]);
   const canUpgrade = plan !== TOP_PLAN;
 
+  // Market logic: NY Session is 9:30 AM to 4:00 PM EST, Mon-Fri.
+  // For a generic status, we'll just check if it's currently a weekday and within those hours in EST.
+  const now = new Date();
+  const estTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const estHour = estTime.getHours();
+  const estMinute = estTime.getMinutes();
+  const estDay = estTime.getDay();
+  const isMarketOpen = estDay >= 1 && estDay <= 5 && (estHour > 9 || (estHour === 9 && estMinute >= 30)) && estHour < 16;
+
+  // Uptime logic: find the earliest running bot for the user
+  let uptimeString = "00h 00m";
+  if (user?.accounts) {
+    const runningBots = user.accounts
+      .map(a => a.bot)
+      .filter(b => b && b.status === "RUNNING");
+    
+    if (runningBots.length > 0) {
+      // Find oldest updated/created bot that's running
+      const oldestBot = runningBots.reduce((oldest, bot) => {
+        if (!bot) return oldest;
+        const ts = bot.updatedAt ? bot.updatedAt.getTime() : 0;
+        const oldestTs = oldest.updatedAt ? oldest.updatedAt.getTime() : 0;
+        return ts < oldestTs ? bot : oldest;
+      }, runningBots[0]);
+
+      if (oldestBot && oldestBot.updatedAt) {
+        const diffMs = now.getTime() - oldestBot.updatedAt.getTime();
+        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        uptimeString = `${diffHrs.toString().padStart(2, "0")}h ${diffMins.toString().padStart(2, "0")}m`;
+      }
+    } else {
+      uptimeString = "OFFLINE";
+    }
+  }
+
   return (
-    <header className="fixed inset-x-0 top-0 z-40 h-16 bg-base">
+    <header className="fixed inset-x-0 top-0 z-40 h-16 bg-base/80 backdrop-blur-md border-b border-line/50">
       <div className="flex h-full items-center justify-between px-4 lg:px-8">
         {/* Left: Brand + Search */}
         <div className="flex items-center gap-6">
           <Link
             href="/dashboard"
             aria-label="Floqex home"
-            className="flex shrink-0 items-center"
+            className="flex shrink-0 items-center transition-opacity hover:opacity-80"
           >
             <Wordmark />
           </Link>
@@ -44,24 +83,35 @@ export async function Topbar() {
         </div>
 
         {/* Center: Bot Stats & Emergency Stop */}
-        <div className="hidden md:flex items-center gap-4 border border-line rounded-full bg-surface px-4 py-1.5 shadow-sm">
-          <div className="flex items-center gap-2 pr-4 border-r border-line">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-positive"></span>
-            </span>
-            <span className="text-xs font-medium text-fg uppercase tracking-wide">NY Session Open</span>
+        <div className="hidden md:flex items-center gap-3 bg-surface/50 border border-line/80 rounded-full px-1.5 py-1.5 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-2 px-3">
+            {isMarketOpen ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-positive shadow-[0_0_8px_rgba(var(--color-positive),0.8)]"></span>
+                </span>
+                <span className="text-[11px] font-semibold text-fg tracking-widest uppercase">NYSE Open</span>
+              </>
+            ) : (
+              <>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-fg-muted"></span>
+                <span className="text-[11px] font-semibold text-fg-subtle tracking-widest uppercase">NYSE Closed</span>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-2 pr-4 border-r border-line">
-            <span className="text-xs font-mono text-fg-subtle">UPTIME</span>
-            <span className="text-xs font-medium text-fg">04h 12m</span>
+          <div className="w-px h-4 bg-line" />
+          <div className="flex items-center gap-2 px-2">
+            <span className="text-[10px] font-mono font-medium text-fg-muted tracking-widest uppercase">Uptime</span>
+            <span className="text-xs font-mono font-semibold text-fg">{uptimeString}</span>
           </div>
           <form action={async () => {
             "use server";
-            // In a real implementation this would trigger the stop procedure
+            const { emergencyStop } = await import("@/app/dashboard/accounts/actions");
+            await emergencyStop();
           }}>
-            <button className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-negative hover:bg-negative/10 px-2 py-1 rounded transition-colors">
-              <div className="h-2 w-2 rounded-sm bg-negative" />
+            <button className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-negative bg-negative/5 hover:bg-negative/15 px-3 py-1.5 rounded-full transition-all group border border-negative/10 hover:border-negative/30">
+              <div className="h-1.5 w-1.5 rounded-sm bg-negative shadow-[0_0_8px_rgba(var(--color-negative),0.8)] group-active:scale-90 transition-transform" />
               E-Stop
             </button>
           </form>
@@ -70,6 +120,16 @@ export async function Topbar() {
         {/* Right cluster */}
         <div className="flex items-center gap-2 sm:gap-3">
           <NotificationsBell items={notifications} />
+          
+          <Link
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-fg-muted hover:text-fg hover:bg-surface px-3 py-1.5 rounded-full transition-colors"
+          >
+            Help
+          </Link>
+
           <ThemeToggle />
           <Link
             href={dashboardUrl("/settings")}
@@ -81,13 +141,15 @@ export async function Topbar() {
           {canUpgrade ? (
             <Link
               href={dashboardUrl("/billing")}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] bg-accent py-1.5 pl-2.5 pr-3 text-xs font-medium text-[var(--color-on-accent)] transition-opacity hover:opacity-90 shadow-sm shadow-accent/20"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent py-1.5 pl-2.5 pr-3 text-xs font-semibold tracking-wide text-[var(--color-on-accent)] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_15px_rgba(var(--color-accent),0.3)]"
             >
-              <Star size={14} weight="fill" className="text-white" />
+              <Star size={14} weight="fill" className="text-white drop-shadow-sm" />
               Upgrade
             </Link>
           ) : null}
-          <TopbarUser />
+          <div className="pl-1">
+            <TopbarUser />
+          </div>
         </div>
       </div>
     </header>
@@ -106,5 +168,22 @@ async function userPlan(): Promise<Plan> {
     return (user?.plan as Plan) ?? "FREE";
   } catch {
     return "FREE";
+  }
+}
+
+async function getTopBarUserMeta() {
+  try {
+    const { userId } = await auth();
+    if (!userId) return null;
+    return await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: {
+        accounts: {
+          include: { bot: true }
+        }
+      }
+    });
+  } catch {
+    return null;
   }
 }

@@ -46,13 +46,15 @@ export function DashboardFooter() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Chat Support"
+          <Link
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Help Documentation"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-fg-subtle transition-colors hover:text-fg hover:bg-surface/50"
           >
             <ChatCircle size={16} weight="fill" />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={() => window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" })}

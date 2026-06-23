@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BookBookmark, MagnifyingGlass } from "@phosphor-icons/react";
+import { motion } from "motion/react";
 
 const GLOSSARY_TERMS = [
   { term: "Alpha", desc: "The excess return of an investment relative to the return of a benchmark index." },
@@ -26,44 +27,72 @@ export default function GlossaryPage() {
     item.desc.toLowerCase().includes(search.toLowerCase())
   );
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+  };
+
   return (
-    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="space-y-4">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-12"
+    >
+      <motion.header variants={itemVariants} className="space-y-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
-          <BookBookmark size={14} weight="bold" />
+          <BookBookmark size={14} weight="duotone" />
           Terminology
         </div>
-        <h1 className="text-4xl font-bold tracking-tight text-fg">Trading Glossary</h1>
-        <p className="mt-4 text-lg text-fg-muted leading-relaxed">
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-fg">Trading Glossary</h1>
+        <p className="mt-4 text-lg text-fg-muted leading-relaxed max-w-2xl">
           Master the terminology used in algorithmic trading and the Floqex platform.
         </p>
-      </header>
-      <section className="space-y-6 mt-8">
+      </motion.header>
+
+      <motion.section variants={itemVariants} className="space-y-6 mt-8">
         <div className="relative max-w-md">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted" size={18} />
+          <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-muted" size={18} weight="bold" />
           <input 
             type="text" 
             placeholder="Search terms..." 
-            className="w-full bg-surface border border-line rounded-lg pl-10 pr-4 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all"
+            className="w-full bg-surface border border-line rounded-[var(--radius-control)] pl-11 pr-4 py-3 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all shadow-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredTerms.map(item => (
-            <div key={item.term} className="bg-surface border border-line rounded-[var(--radius-card)] p-5 hover:border-accent/30 transition-colors group">
+            <motion.div 
+              key={item.term} 
+              layout
+              className="bg-surface border border-line rounded-[var(--radius-card)] p-6 hover:border-accent/50 hover:shadow-[0_0_15px_rgba(var(--color-accent),0.05)] transition-all group"
+            >
               <h3 className="text-lg font-semibold text-fg group-hover:text-accent transition-colors">{item.term}</h3>
-              <p className="mt-2 text-sm text-fg-subtle leading-relaxed">{item.desc}</p>
-            </div>
+              <p className="mt-3 text-sm text-fg-subtle leading-relaxed">{item.desc}</p>
+            </motion.div>
           ))}
           {filteredTerms.length === 0 && (
-            <div className="col-span-full py-8 text-center text-fg-muted border border-dashed border-line rounded-xl">
-              No terminology found matching &quot;{search}&quot;.
-            </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="col-span-full py-12 text-center text-fg-muted border border-dashed border-line rounded-[var(--radius-card)] bg-base/50"
+            >
+              <BookBookmark size={32} className="mx-auto mb-3 opacity-20" />
+              No terminology found matching &quot;<span className="text-fg font-medium">{search}</span>&quot;.
+            </motion.div>
           )}
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }

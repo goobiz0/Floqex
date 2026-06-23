@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/brand/wordmark";
 import { BookOpen, RocketLaunch, Flask, ShieldCheck, CreditCard, Strategy, BookBookmark } from "@phosphor-icons/react/dist/ssr";
 import { FeedbackWidget } from "@/components/docs/feedback-widget";
+import { DocsSearch } from "@/components/docs/docs-search";
 
 const NAV_ITEMS = [
   { href: "/docs", label: "Getting Started", icon: RocketLaunch },
@@ -18,11 +19,12 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       
       {/* Sidebar Navigation */}
       <aside className="fixed inset-y-0 left-0 w-64 border-r border-line bg-surface/50 backdrop-blur-xl">
-        <div className="flex h-16 items-center px-6 border-b border-line">
-          <Link href="/docs" aria-label="Floqex Docs Home" className="flex items-center gap-2">
+        <div className="flex flex-col gap-4 p-4 border-b border-line">
+          <Link href="/docs" aria-label="Floqex Docs Home" className="flex items-center gap-2 px-2 pt-2">
             <Wordmark />
             <span className="text-[10px] font-bold uppercase tracking-wider text-accent bg-accent/10 px-1.5 py-0.5 rounded">Docs</span>
           </Link>
+          <DocsSearch />
         </div>
         <nav className="p-4 space-y-1">
           {NAV_ITEMS.map((item) => (

@@ -94,40 +94,7 @@
   --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
 }
 
-.dark {
-  color-scheme: dark;
-  
-  --base: #0a0a0c;
-  --surface: #111214;
-  --elevated: #16181a;
-  --overlay: rgba(0, 0, 0, 0.8);
-
-  --fg: #ffffff;
-  --fg-muted: #a1a1aa;
-  --fg-subtle: #71717a;
-  --fg-faint: #52525b;
-
-  --accent: #10b981;
-  --accent-hover: #34d399;
-  --accent-soft: rgba(16, 185, 129, 0.15);
-  --accent-ring: rgba(16, 185, 129, 0.4);
-  --on-accent: #000000;
-
-  --positive: #10b981;
-  --profit: #10b981;
-  --negative: #ef4444;
-  --negative-soft: rgba(239, 68, 68, 0.15);
-  --warning: #f59e0b;
-  --info: #3b82f6;
-
-  --line: #27272a;
-  --line-strong: #3f3f46;
-
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.5);
-}
+/* Removed .dark block as the theme is light-locked */
 
 @layer base {
   *,
@@ -193,23 +160,23 @@
   }
 }
 
-/* Vibrant Mesh Gradients */
+/* Vibrant Mesh Gradients - Light Emerald / Light Blue / Light Purple */
 @utility vibrant-mesh {
-  background-color: #8b5cf6;
+  background-color: #f0fdf4; /* ultra light emerald */
   background-image: 
-    radial-gradient(at 0% 0%, #a855f7 0px, transparent 50%),
-    radial-gradient(at 100% 0%, #ec4899 0px, transparent 50%),
-    radial-gradient(at 100% 100%, #ef4444 0px, transparent 50%),
-    radial-gradient(at 0% 100%, #f59e0b 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.2) 0px, transparent 50%),    /* light emerald */
+    radial-gradient(at 100% 0%, rgba(96, 165, 250, 0.2) 0px, transparent 50%),  /* light blue */
+    radial-gradient(at 100% 100%, rgba(192, 132, 252, 0.2) 0px, transparent 50%), /* light purple */
+    radial-gradient(at 0% 100%, rgba(52, 211, 153, 0.15) 0px, transparent 50%); /* soft emerald */
 }
 
 @utility vibrant-mesh-blue {
-  background-color: #3b82f6;
+  background-color: #eff6ff; /* ultra light blue */
   background-image: 
-    radial-gradient(at 0% 0%, #60a5fa 0px, transparent 50%),
-    radial-gradient(at 100% 0%, #8b5cf6 0px, transparent 50%),
-    radial-gradient(at 100% 100%, #10b981 0px, transparent 50%),
-    radial-gradient(at 0% 100%, #3b82f6 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(96, 165, 250, 0.25) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(192, 132, 252, 0.2) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.2) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(147, 197, 253, 0.2) 0px, transparent 50%);
 }
 
 /* Subtle dotted grid backdrop */
@@ -225,8 +192,8 @@
 
 @utility aurora {
   background-image: 
-    radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, #a855f7 15%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse at 50% 100%, color-mix(in srgb, #3b82f6 15%, transparent) 0%, transparent 60%);
+    radial-gradient(ellipse at 0% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 100% 0%, rgba(192, 132, 252, 0.1) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(96, 165, 250, 0.1) 0%, transparent 60%);
   filter: blur(40px);
 }
