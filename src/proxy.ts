@@ -13,14 +13,16 @@ const AUTH_PREFIXES = ["/sign-in", "/sign-up", "/forgot-password", "/sso-callbac
  * Returns "" for the apex domain, localhost, and preview hosts so path-based
  * routing keeps working everywhere except the real subdomains.
  */
-function hostRole(host: string): "app" | "" {
+function hostRole(host: string): "app" | "docs" | "marketing" {
   const h = host.split(":")[0].toLowerCase();
-  if (h.endsWith("localhost")) return "";
+  if (h.endsWith("localhost") && !h.startsWith("app.") && !h.startsWith("docs.")) return "marketing";
   const parts = h.split(".");
-  if (parts.length < 3) return ""; // apex like floqex.com
+  if (parts.length < 3 && !h.includes("localhost")) return "marketing"; // apex like floqex.com
   const sub = parts[0];
   if (sub === "app") return "app";
-  return "";
+  if (sub === "docs") return "docs";
+  if (h.includes("vercel.app")) return "app"; // Previews
+  return "marketing";
 }
 
 function getRootDomain(host: string): string {
@@ -99,6 +101,13 @@ export default clerkMiddleware(
         return NextResponse.rewrite(rewritten);
       }
       return NextResponse.next();
+    }
+
+    // ── docs.floqex.com — Documentation Portal ──
+    if (role === "docs") {
+      const rewritten = url.clone();
+      rewritten.pathname = `/docs${pathname === "/" ? "" : pathname}`;
+      return NextResponse.rewrite(rewritten);
     }
 
     // ── apex / localhost / previews — path-based routing ──

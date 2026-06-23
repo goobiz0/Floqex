@@ -14,15 +14,16 @@ export default function PrivacyPage() {
       intro="This Privacy Policy describes how Floqex ('we', 'our', or 'us') collects, uses, processes, and shares your personal information. By using our Services, you agree to the collection and use of information in accordance with this Privacy Policy."
     >
       <LegalSection heading="1. Information We Collect">
-        <p>
-          We collect information that identifies, relates to, describes, or could reasonably be linked, directly or indirectly, with a particular consumer or device (&quot;Personal Information&quot;). We collect this information directly from you, automatically through your use of our Services, and from third-party sources.
-        </p>
-        <p><strong>1.1 Information You Provide Directly:</strong></p>
-        <ul className="list-disc pl-6 space-y-2 mt-2">
-          <li><strong>Account Information:</strong> Name, email address, password, and profile picture (facilitated via our authentication provider, Clerk).</li>
-          <li><strong>Financial & Brokerage Information:</strong> API keys for connected brokerage accounts. These are encrypted at rest and used strictly for automated trade execution on your behalf. We do not store your full payment card details; payments are processed securely by Stripe.</li>
-          <li><strong>Communications:</strong> Information you provide when contacting our support team or participating in surveys.</li>
-        </ul>
+        <div className="space-y-4">
+          <p>
+            When you use Floqex, we collect the following types of information:
+          </p>
+          <ul className="list-inside list-disc space-y-2 text-fg-subtle ml-4">
+            <li><strong>Account Information:</strong> Name, email address, and authentication data provided via our identity provider.</li>
+            <li><strong>Trading Data:</strong> Read-only access to your connected brokerage accounts (e.g., balance, positions, order history) required to execute the ORB strategy. We do not store your brokerage credentials directly; we use secure OAuth tokens or encrypted API keys.</li>
+            <li><strong>Usage & Voluntary Data:</strong> How you interact with the platform. During onboarding and documentation review, we may ask voluntary questions (e.g., your trading experience, goals, and documentation feedback). This data is transmitted securely to our internal analytics pipelines solely for the purpose of improving the product. Under GDPR and CCPA, you retain the right to request the deletion or export of this data at any time by contacting us.</li>
+          </ul>
+        </div>
         <p className="mt-4"><strong>1.2 Information Collected Automatically:</strong></p>
         <ul className="list-disc pl-6 space-y-2 mt-2">
           <li><strong>Device & Usage Data:</strong> IP addresses, browser type, operating system, referring URLs, pages viewed, links clicked, and the dates and times of your visits.</li>

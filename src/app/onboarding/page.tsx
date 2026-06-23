@@ -60,7 +60,7 @@ const TIMEZONES = [
   "Australia/Sydney",
 ];
 
-const STEPS = ["About you", "Experience", "Goal", "Account", "Alerts", "Activate"] as const;
+const STEPS = ["About you", "Experience", "Goal", "Plan", "Account", "Alerts", "Activate"] as const;
 
 const labelOf = (opts: Option[], id: string) => opts.find((o) => o.id === id)?.label ?? "—";
 
@@ -70,6 +70,7 @@ export default function OnboardingPage() {
   const [referral, setReferral] = useState<string | null>(null);
   const [experience, setExperience] = useState<string | null>(null);
   const [goal, setGoal] = useState<string | null>(null);
+  const [planSelection, setPlanSelection] = useState<"FREE" | "PAID">("FREE");
   const [tz, setTz] = useState("America/New_York");
   const [nickname, setNickname] = useState("Main account");
   const [discord, setDiscord] = useState("");
@@ -83,9 +84,10 @@ export default function OnboardingPage() {
     (step === 0 && !!referral) ||
     (step === 1 && !!experience) ||
     (step === 2 && !!goal) ||
-    (step === 3 && nickname.trim().length > 0) ||
-    step === 4 ||
-    step === 5;
+    step === 3 || // Plan selection is made via click directly, but if they hit continue, we default to FREE
+    (step === 4 && nickname.trim().length > 0) ||
+    step === 5 ||
+    step === 6;
 
   function activate() {
     setError(null);
@@ -102,7 +104,11 @@ export default function OnboardingPage() {
         setError(res.error ?? "Could not finish setup. Please try again.");
         return;
       }
-      router.push("/dashboard");
+      if (planSelection === "PAID") {
+        router.push("/dashboard/billing");
+      } else {
+        router.push("/dashboard");
+      }
       router.refresh();
     });
   }
@@ -143,23 +149,62 @@ export default function OnboardingPage() {
             >
               {step === 0 && (
                 <Step icon={Megaphone} title="How did you hear about us?" desc="No wrong answer. It helps us know where to show up next.">
-                  <SelectGrid options={REFERRAL} value={referral} onSelect={setReferral} columns={2} />
+                  <SelectGrid options={REFERRAL} value={referral} onSelect={(val) => { setReferral(val); setTimeout(() => setStep(1), 300); }} columns={2} />
                 </Step>
               )}
 
               {step === 1 && (
                 <Step icon={ChartLineUp} title="How would you describe your trading?" desc="We tune the guidance and defaults to match where you are.">
-                  <SelectGrid options={EXPERIENCE} value={experience} onSelect={setExperience} columns={2} />
+                  <SelectGrid options={EXPERIENCE} value={experience} onSelect={(val) => { setExperience(val); setTimeout(() => setStep(2), 300); }} columns={2} />
                 </Step>
               )}
 
               {step === 2 && (
                 <Step icon={Target} title="What brings you to Floqex?" desc="Pick the one that fits best. You can change direction any time.">
-                  <SelectGrid options={GOALS} value={goal} onSelect={setGoal} columns={1} />
+                  <SelectGrid options={GOALS} value={goal} onSelect={(val) => { setGoal(val); setTimeout(() => setStep(3), 300); }} columns={1} />
                 </Step>
               )}
 
               {step === 3 && (
+                <Step icon={Rocket} title="Choose your path" desc="You can upgrade to trade live capital, or start with Paper trading for free.">
+                  <div className="grid gap-4 sm:grid-cols-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setPlanSelection("FREE"); setTimeout(() => setStep(4), 300); }}
+                      className={cn("flex flex-col items-start rounded-[var(--radius-card)] border-2 p-5 text-left transition-colors hover:border-line-strong", planSelection === "FREE" ? "border-accent bg-accent-soft/30" : "border-line bg-surface")}
+                    >
+                      <h3 className="font-semibold text-fg">Free (Paper)</h3>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-fg-subtle">
+                        Simulated trading. Perfect for watching the bot and learning the strategy.
+                      </p>
+                      <div className="mt-6 flex w-full items-center justify-between">
+                        <span className="text-xl font-bold text-fg">$0<span className="text-[11px] font-normal text-fg-subtle">/mo</span></span>
+                        <span className="text-[11px] font-semibold tracking-wide uppercase text-fg-muted">Continue Free</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setPlanSelection("PAID"); setTimeout(() => setStep(4), 300); }}
+                      className={cn("flex flex-col items-start rounded-[var(--radius-card)] border-2 p-5 text-left transition-opacity hover:opacity-90", planSelection === "PAID" ? "border-accent bg-accent-soft/50 shadow-sm" : "border-accent/40 bg-accent-soft/10")}
+                    >
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-accent">Trader</h3>
+                        <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-accent">Live</span>
+                      </div>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-accent/80">
+                        Live broker connection. Let the bot trade your real capital with strict risk controls.
+                      </p>
+                      <div className="mt-6 flex w-full items-center justify-between">
+                        <span className="text-xl font-bold text-accent">$49<span className="text-[11px] font-normal opacity-80">/mo</span></span>
+                        <span className="rounded-[6px] bg-accent px-2.5 py-1.5 text-[11px] font-bold tracking-wide uppercase text-[var(--color-on-accent)]">Upgrade</span>
+                      </div>
+                    </button>
+                  </div>
+                </Step>
+              )}
+
+              {step === 4 && (
                 <Step icon={Wallet} title="Your paper account is ready" desc="A simulated account so you can watch the bot trade with real market data and zero risk.">
                   <div className="space-y-4">
                     <Field label="Account nickname" id="ob-nickname">
@@ -196,7 +241,7 @@ export default function OnboardingPage() {
                 </Step>
               )}
 
-              {step === 4 && (
+              {step === 5 && (
                 <Step icon={ChatCircleDots} title="Get the decision feed on Discord" desc="Optional. Paste a webhook to receive the bot's narration and milestone alerts.">
                   <Field label="Discord webhook" id="ob-discord" hint="Server Settings, then Integrations, then Webhooks, then Copy URL.">
                     <Input
@@ -211,12 +256,13 @@ export default function OnboardingPage() {
                 </Step>
               )}
 
-              {step === 5 && (
-                <Step icon={Rocket} title="Activate your bot" desc="It will watch the next session and trade your paper account automatically, inside its risk guardrails.">
+              {step === 6 && (
+                <Step icon={Check} title="Activate your bot" desc="It will watch the next session and trade your paper account automatically, inside its risk guardrails.">
                   <div className="rounded-[var(--radius-control)] border border-line bg-base/40 p-4 text-sm">
                     <Summary k="How you found us" v={labelOf(REFERRAL, referral ?? "")} />
                     <Summary k="Experience" v={labelOf(EXPERIENCE, experience ?? "")} />
                     <Summary k="Goal" v={labelOf(GOALS, goal ?? "")} />
+                    <Summary k="Plan Selected" v={planSelection === "PAID" ? "Trader ($49/mo)" : "Free (Paper)"} />
                     <Summary k="Timezone" v={tz.replace(/_/g, " ")} />
                     <Summary k="Account" v={`${nickname || "Main account"} · Paper`} />
                     <Summary k="Discord" v={discord ? "Connected" : "Skipped"} last />
@@ -250,7 +296,7 @@ export default function OnboardingPage() {
           ) : (
             <Button size="sm" disabled={pending} onClick={activate}>
               <Check size={16} weight="bold" />
-              {pending ? "Activating…" : "Activate and go to dashboard"}
+              {pending ? "Activating…" : planSelection === "PAID" ? "Activate and Upgrade" : "Activate and go to dashboard"}
             </Button>
           )}
         </div>

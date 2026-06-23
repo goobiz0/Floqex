@@ -63,6 +63,43 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
         goal: input.goal || null,
       },
     });
+
+    // Notify the admin via Slack/Discord if configured
+    if (process.env.ADMIN_DISCORD_WEBHOOK_URL) {
+      await fetch(process.env.ADMIN_DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{
+            title: "🚀 New User Onboarded",
+            color: 0x34d399, // Emerald
+            fields: [
+              { name: "Email", value: user.email, inline: true },
+              { name: "Referral", value: input.referralSource || "N/A", inline: true },
+              { name: "Experience", value: input.experience || "N/A", inline: true },
+              { name: "Goal", value: input.goal || "N/A", inline: true },
+            ],
+            timestamp: new Date().toISOString()
+          }]
+        })
+      });
+    }
+
+    // Push to Automation Webhook (Make.com/Zapier) if configured
+    if (process.env.AUTOMATION_WEBHOOK_URL) {
+      await fetch(process.env.AUTOMATION_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "onboarding_complete",
+          email: user.email,
+          referralSource: input.referralSource || "N/A",
+          experience: input.experience || "N/A",
+          goal: input.goal || "N/A",
+          timestamp: new Date().toISOString()
+        })
+      }).catch(err => console.error("[Webhook] Failed to send onboarding data", err));
+    }
   } catch (err) {
     // Non-fatal: the account exists; preferences can still be set in Settings.
     console.error("[completeOnboarding] could not save preferences", err);

@@ -32,6 +32,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <div className="min-h-[100dvh] bg-base">
+      <div aria-hidden className="aurora pointer-events-none fixed inset-0 -z-10 opacity-70" />
       <Topbar />
       <Sidebar accounts={navAccounts} />
       <div className="pt-16 lg:pl-64">

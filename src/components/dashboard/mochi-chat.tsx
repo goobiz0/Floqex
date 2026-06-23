@@ -144,17 +144,17 @@ export function MochiChat() {
   const showDialog = isOpen || messages.length > 0;
 
   return (
-    <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       <AnimatePresence>
         {showDialog && (
           <motion.div
             role="dialog"
             aria-label="Mochi assistant"
-            initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96 }}
+            initial={reduce ? false : { opacity: 0, y: 16, scale: 0.96, originX: 1, originY: 1 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.97, transition: { duration: 0.15 } }}
             transition={spring}
-            className="mb-4 flex h-[500px] max-h-[calc(100dvh-7rem)] w-[600px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[24px] border border-line bg-base shadow-2xl"
+            className="mb-4 flex h-[500px] max-h-[calc(100dvh-7rem)] w-[400px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[24px] border border-line bg-base shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
@@ -189,13 +189,13 @@ export function MochiChat() {
                   <p className="mt-1.5 text-[13px] leading-relaxed text-fg-subtle">
                     Ask about your performance, the bot, or tune your strategy in plain English.
                   </p>
-                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  <div className="mt-6 flex flex-col justify-center gap-2 w-full">
                     {SUGGESTIONS.map((s) => (
                       <button
                         key={s}
                         type="button"
                         onClick={() => setInput(s)}
-                        className="rounded-full border border-line bg-surface px-4 py-2 text-[12px] font-medium text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
+                        className="rounded-xl border border-line bg-surface px-4 py-2.5 text-[12px] font-medium text-left text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
                       >
                         {s}
                       </button>
@@ -236,11 +236,11 @@ export function MochiChat() {
                               return (
                                 <div key={inv.toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
                                   <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
-                                  <pre className="text-[11px] text-accent/80 mb-3 bg-white/50 p-2 rounded">{JSON.stringify(inv.args, null, 2)}</pre>
+                                  <pre className="text-[11px] text-accent/80 mb-3 bg-white/50 p-2 rounded overflow-x-auto">{JSON.stringify(inv.args, null, 2)}</pre>
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => handleToolAccept(inv.toolCallId, inv.args)}
-                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90"
                                     >
                                       Accept & Apply
                                     </button>
@@ -254,7 +254,6 @@ export function MochiChat() {
                                 </div>
                               );
                             } else if (isResult) {
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
                               const res = (inv as any).result;
                               const ok = res?.ok;
                               return (
@@ -266,7 +265,6 @@ export function MochiChat() {
                             }
                           }
 
-                          // Other tools (getPerformance, getBotStatus)
                           const labels: Record<string, [string, string]> = {
                             getPerformance: ["Reading performance", "Performance loaded"],
                             getBotStatus: ["Checking bot status", "Status loaded"],
@@ -301,70 +299,82 @@ export function MochiChat() {
               )}
               <div ref={bottomRef} className="h-px" />
             </div>
+
+            {/* Input Form inside the Dialog */}
+            <form
+              onSubmit={onFormSubmit}
+              className="flex border-t border-line bg-base px-3 py-3"
+            >
+              <div className="relative flex-1 flex items-center gap-2 rounded-full border border-line bg-surface px-2 pl-4 transition-colors focus-within:border-line-strong overflow-hidden">
+                {isListening && (
+                  <div className="absolute inset-0 z-0 flex items-center justify-start pointer-events-none">
+                    <div className="h-full w-full bg-gradient-to-r from-rose-500/10 via-fuchsia-500/10 to-transparent animate-pulse" />
+                  </div>
+                )}
+                
+                {isListening ? (
+                  <div className="relative z-10 flex-1 flex items-center gap-2 font-mono text-[13px] font-medium text-rose-500 animate-pulse py-2">
+                    <span>Listening...</span>
+                    <span>{formatDuration(listenTime)}</span>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    maxLength={500}
+                    aria-label="Message Mochi assistant"
+                    value={input}
+                    onChange={handleInputChange}
+                    placeholder="Ask Mochi..."
+                    className="w-full bg-transparent py-2.5 text-[14px] font-medium text-fg placeholder:text-fg-faint focus:outline-none"
+                  />
+                )}
+                <div className="relative z-10 flex shrink-0 items-center gap-1.5 pr-1">
+                  <button
+                    type="button"
+                    onClick={toggleListen}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                      isListening 
+                        ? "bg-rose-500 text-white" 
+                        : "text-fg-subtle hover:text-fg hover:bg-line/50"
+                    )}
+                    title="Voice Input"
+                  >
+                    <Microphone size={16} weight={isListening ? "fill" : "regular"} />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading || (!input.trim() && !isListening)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[var(--color-on-accent)] transition-transform hover:enabled:scale-[1.05] active:enabled:scale-95 disabled:opacity-40"
+                  >
+                    <ArrowUp size={16} weight="bold" />
+                  </button>
+                </div>
+              </div>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Input Pill Bar */}
-      <form
-        onSubmit={onFormSubmit}
-        className="flex h-[56px] w-[600px] max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-line/40 bg-white/90 px-2 pl-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] backdrop-blur-xl transition-all focus-within:border-line-strong focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden"
-      >
-        {isListening && (
-          <div className="absolute inset-0 z-0 flex items-center justify-start pointer-events-none">
-            {/* Cool gradient orb visualizer */}
-            <div className="h-full w-[200px] bg-gradient-to-r from-rose-500/20 via-fuchsia-500/20 to-transparent animate-pulse" />
-          </div>
-        )}
-
-        <div className="relative z-10 flex-1 flex items-center gap-3">
-          {isListening ? (
-            <div className="flex-1 flex items-center gap-2 font-mono text-[13px] font-medium text-rose-500 animate-pulse">
-              <span>Listening...</span>
-              <span>{formatDuration(listenTime)}</span>
-            </div>
-          ) : (
-            <input
-              type="text"
-              maxLength={500}
-              aria-label="Message Mochi assistant"
-              value={input}
-              onChange={handleInputChange}
-              onFocus={() => setIsOpen(true)}
-              placeholder="Ask anything"
-              className="w-full bg-transparent py-2 text-[15px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none"
-            />
-          )}
-        </div>
-        
-        <div className="relative z-10 flex shrink-0 items-center gap-2 pr-1">
-          {!isListening && input.length > 0 && (
-            <span className="text-[10px] font-mono text-fg-faint mr-2">
-              {input.length}/500
-            </span>
-          )}
-          <button
+      {/* Floating Action Button (FAB) */}
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
             type="button"
-            onClick={toggleListen}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-300",
-              isListening 
-                ? "border-rose-500 bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)] scale-110" 
-                : "border-line bg-surface text-fg-subtle hover:text-fg hover:border-line-strong"
+            onClick={() => setIsOpen(true)}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-[var(--color-on-accent)] shadow-xl shadow-accent/20 transition-transform hover:scale-105 active:scale-95"
+            aria-label="Open Mochi Chat"
+          >
+            <Robot size={24} weight="fill" />
+            {messages.length > 0 && !isLoading && (
+              <span className="absolute right-0 top-0 h-3.5 w-3.5 rounded-full border-2 border-base bg-profit" />
             )}
-            title="Voice Input"
-          >
-            <Microphone size={16} weight={isListening ? "fill" : "regular"} />
-          </button>
-          <button
-            type="submit"
-            disabled={isLoading || (!input.trim() && !isListening)}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111] text-white transition-transform hover:enabled:scale-[1.05] active:enabled:scale-95 disabled:opacity-40"
-          >
-            <ArrowUp size={16} weight="bold" />
-          </button>
-        </div>
-      </form>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

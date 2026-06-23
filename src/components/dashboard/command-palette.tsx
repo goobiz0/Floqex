@@ -31,6 +31,8 @@ const COMMANDS: Command[] = [
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard, keywords: "plan upgrade invoice" },
   { label: "Profile", href: "/dashboard/profile", icon: UserCircle, keywords: "personal name" },
   { label: "Settings", href: "/dashboard/settings", icon: Gear, keywords: "notifications export danger" },
+  { label: "Help & Support", href: "/help", icon: UserCircle, keywords: "contact ticket email" },
+  { label: "Documentation", href: "https://docs.floqex.com", icon: Notebook, keywords: "guides manual tutorial read" },
 ];
 
 /** ⌘K command palette: real keyboard-driven navigation across the product. */

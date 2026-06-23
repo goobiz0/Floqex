@@ -73,9 +73,9 @@ export async function Topbar() {
           {canUpgrade ? (
             <Link
               href={dashboardUrl("/billing")}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] bg-fg py-1.5 pl-2.5 pr-3 text-xs font-medium text-[var(--color-on-accent)] transition-opacity hover:opacity-90"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] bg-accent py-1.5 pl-2.5 pr-3 text-xs font-medium text-[var(--color-on-accent)] transition-opacity hover:opacity-90 shadow-sm shadow-accent/20"
             >
-              <Star size={14} weight="fill" className="text-accent" />
+              <Star size={14} weight="fill" className="text-white" />
               Upgrade
             </Link>
           ) : null}
