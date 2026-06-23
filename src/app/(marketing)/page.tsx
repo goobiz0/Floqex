@@ -5,6 +5,10 @@ import { authUrl } from "@/lib/urls";
 import { BentoCard } from "@/components/marketing/bento-card";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { PricingTable } from "@/components/marketing/pricing-table";
+import { HeroClient } from "@/components/marketing/hero-client";
+import { InfrastructureVisual } from "@/components/marketing/bento-visuals/infrastructure-visual";
+import { StrategyLabVisual } from "@/components/marketing/bento-visuals/strategy-lab-visual";
+import { RiskControlVisual } from "@/components/marketing/bento-visuals/risk-control-visual";
 
 export const revalidate = 300;
 
@@ -14,33 +18,7 @@ export default function LandingPage() {
       <div className="absolute inset-0 grid-faint pointer-events-none" />
       <div className="absolute inset-x-0 top-0 h-[800px] bg-gradient-to-b from-white via-white/80 to-transparent pointer-events-none" />
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-32 md:pt-48 md:pb-40">
-        <div className="relative z-10 mx-auto max-w-[1200px] px-6 text-center flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-fg-subtle backdrop-blur-md mb-8 shadow-sm">
-            <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
-            Live automated execution
-          </div>
-          
-          <h1 className="max-w-4xl text-balance text-5xl font-semibold tracking-tight text-fg md:text-7xl leading-[1.05]">
-            Trade smarter. <br className="hidden md:block" />
-            Zero code required.
-          </h1>
-          
-          <p className="mt-6 max-w-xl text-pretty text-lg text-fg-muted md:text-xl">
-            A precise trading engine that automates your strategies while keeping you completely in control. Built for speed and absolute clarity.
-          </p>
-          
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
-            <Button href={authUrl("/sign-up")} size="lg" className="rounded-full w-full sm:w-auto h-14 px-8 text-[16px] shadow-lg shadow-accent/20 font-semibold tracking-wide">
-              Start building for free
-            </Button>
-            <Button href="#features" variant="secondary" size="lg" className="rounded-full w-full sm:w-auto h-14 px-8 text-[16px] bg-white border border-line shadow-sm transition-all hover:bg-surface text-fg font-medium tracking-wide">
-              Explore platform
-            </Button>
-          </div>
-        </div>
-      </section>
+      <HeroClient />
 
       <LogoWall />
 
@@ -61,6 +39,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+              <InfrastructureVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <ChartLineUp size={24} className="text-fg" weight="duotone" />
@@ -78,6 +57,7 @@ export default function LandingPage() {
             </BentoCard>
 
             <BentoCard className="min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+              <StrategyLabVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <Flask size={24} className="text-fg" weight="duotone" />
@@ -95,6 +75,7 @@ export default function LandingPage() {
             </BentoCard>
 
             <BentoCard className="min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <Notebook size={24} className="text-fg" weight="duotone" />
@@ -112,6 +93,7 @@ export default function LandingPage() {
             </BentoCard>
 
             <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+              <RiskControlVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <ShieldCheck size={24} className="text-fg" weight="duotone" />

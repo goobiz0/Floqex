@@ -15,11 +15,11 @@ export function BentoCard({
 }) {
   return (
     <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className={`group relative ${className}`}
     >
-      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ring-1 ring-black/5 hover:ring-accent/50 backdrop-blur-md transition-shadow duration-300 ${innerClassName || 'bg-base/80 p-8'}`}>
+      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] bg-white/80 backdrop-blur-md ring-1 ring-line shadow-sm hover:shadow-xl hover:shadow-accent/5 transition-all duration-500 ease-out ${innerClassName || 'p-8'}`}>
         {children}
       </Card>
     </motion.div>
