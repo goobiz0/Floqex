@@ -33,7 +33,7 @@ export function SignInForm() {
       if (isServerRejection) {
         setDesynced(true);
       } else {
-        router.push("/dashboard");
+        window.location.assign(dashboardUrl());
       }
     }
   }, [isLoaded, isSignedIn, router]);
@@ -94,7 +94,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => router.push("/dashboard")
+          navigate: () => window.location.assign(dashboardUrl())
         });
         return;
       }
@@ -123,7 +123,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => router.push("/dashboard")
+          navigate: () => window.location.assign(dashboardUrl())
         });
         return;
       }
@@ -151,7 +151,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => router.push("/dashboard")
+          navigate: () => window.location.assign(dashboardUrl())
         });
         return;
       }
@@ -179,7 +179,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => router.push("/dashboard")
+          navigate: () => window.location.assign(dashboardUrl())
         });
         return;
       }

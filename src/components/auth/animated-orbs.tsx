@@ -20,7 +20,7 @@ export function AnimatedOrbs() {
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-80 mix-blend-multiply z-0">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-multiply z-0">
       <motion.div
         animate={{
           x: ["0%", "15%", "-5%", "0%"],

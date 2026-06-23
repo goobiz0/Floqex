@@ -31,7 +31,7 @@ export function SignUpForm() {
       if (isServerRejection) {
         setDesynced(true);
       } else {
-        router.push("/dashboard");
+        window.location.assign(dashboardUrl());
       }
     }
   }, [isLoaded, isSignedIn, router]);
@@ -112,7 +112,7 @@ export function SignUpForm() {
       }
       if (signUp.status === "complete") {
         await signUp.finalize({
-          navigate: () => router.push("/onboarding")
+          navigate: () => window.location.assign(onboardingUrl())
         });
         return;
       }

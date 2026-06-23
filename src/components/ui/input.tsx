@@ -35,7 +35,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className="relative">
       {icon ? (
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-faint [&_svg]:h-4 [&_svg]:w-4">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted [&_svg]:h-[18px] [&_svg]:w-[18px]">
           {icon}
         </span>
       ) : null}
