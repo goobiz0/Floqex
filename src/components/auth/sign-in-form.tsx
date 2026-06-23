@@ -18,15 +18,35 @@ type Step = "form" | "mfa" | "mfa-backup" | "client-trust";
 
 export function SignInForm() {
   const { signIn } = useSignIn();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, signOut } = useAuth();
   
   const router = useRouter();
   
+  // We use state to track if we're trying to redirect, to avoid infinite loops if the server rejects the session
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.push("/dashboard");
+    if (isLoaded && isSignedIn && !isRedirecting) {
+      setIsRedirecting(true);
+      // Use window.location.href to force a full page load to the dashboard.
+      // This ensures the server middleware runs freshly and sets/clears cookies correctly.
+      window.location.href = "/dashboard";
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, isRedirecting]);
+
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-4 text-center">
+        <p className="text-fg">It looks like your session is out of sync with the server.</p>
+        <Button 
+          variant="secondary" 
+          onClick={() => signOut(() => window.location.assign("/sign-in"))}
+        >
+          Sign out to fix this
+        </Button>
+      </div>
+    );
+  }
 
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");

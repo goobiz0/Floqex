@@ -20,12 +20,15 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
   }
 
   return (
-    <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative">
-      <NoiseOverlay />
-      <AnimatedOrbs />
-      
-      {/* Brand panel */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-line/50 bg-white/40 backdrop-blur-3xl p-10 lg:flex">
+    <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative overflow-hidden bg-base">
+      {/* Brand panel (Left) */}
+      <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-[#0A1211] text-white p-12">
+        {/* Dark Emerald/Cobalt gradient background */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-0 left-0 w-[800px] h-[800px] bg-emerald-500/20 rounded-full blur-[120px] mix-blend-screen opacity-50 animate-pulse-slow" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-600/30 rounded-full blur-[100px] mix-blend-screen opacity-40" />
+        </div>
+        <NoiseOverlay />
         <div
           aria-hidden
           className="grid-faint pointer-events-none absolute inset-0 opacity-20 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
