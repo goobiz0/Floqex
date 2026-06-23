@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 declare global {
-  var mcpTransports: Map<string, any> | undefined;
+  var mcpTransports: Map<string, SSEServerTransport> | undefined;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

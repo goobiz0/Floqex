@@ -49,6 +49,7 @@ export async function Topbar() {
       // Find oldest updated/created bot that's running
       const oldestBot = runningBots.reduce((oldest, bot) => {
         if (!bot) return oldest;
+        if (!oldest) return bot;
         const ts = bot.updatedAt ? bot.updatedAt.getTime() : 0;
         const oldestTs = oldest.updatedAt ? oldest.updatedAt.getTime() : 0;
         return ts < oldestTs ? bot : oldest;

@@ -173,7 +173,7 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
 export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
   const isActiveRoute = useIsActive();
   const searchParams = useSearchParams();
-  const activeAccountId = searchParams.get("account") || (accounts.length > 0 ? accounts[0].id : null);
+  const activeAccountId = searchParams?.get("account") || (accounts.length > 0 ? accounts[0].id : undefined);
   
   return (
     <aside className="fixed bottom-0 left-0 top-16 hidden w-64 flex-col border-r border-line bg-base lg:flex">

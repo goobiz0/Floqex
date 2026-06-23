@@ -20,7 +20,7 @@ export function FeedbackWidget() {
     if (helpful === null) return;
     setIsSubmitting(true);
     await submitDocsFeedback({
-      url: pathname,
+      url: pathname ?? "",
       helpful,
       comments
     });
