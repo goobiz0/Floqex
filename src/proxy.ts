@@ -20,6 +20,9 @@ function hostRole(host: string): "app" | "" {
   if (parts.length < 3) return ""; // apex like floqex.com
   const sub = parts[0];
   if (sub === "app") return "app";
+  return "";
+}
+
 function getRootDomain(host: string): string {
   const envRoot = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
   if (envRoot) return envRoot;
