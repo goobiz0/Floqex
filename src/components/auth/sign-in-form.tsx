@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Envelope, Lock } from "@phosphor-icons/react";
 import { useSignIn, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,13 @@ export function SignInForm() {
   const { signIn } = useSignIn();
   const { isLoaded, isSignedIn } = useAuth();
   
+  const router = useRouter();
+  
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      window.location.assign(dashboardUrl("/"));
+      router.push("/dashboard");
     }
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, router]);
 
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
@@ -67,7 +70,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+          navigate: () => router.push("/dashboard")
         });
         return;
       }
@@ -96,7 +99,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+          navigate: () => router.push("/dashboard")
         });
         return;
       }
@@ -124,7 +127,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+          navigate: () => router.push("/dashboard")
         });
         return;
       }
@@ -152,7 +155,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(dashboardUrl()))
+          navigate: () => router.push("/dashboard")
         });
         return;
       }

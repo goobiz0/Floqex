@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Envelope, Lock, User } from "@phosphor-icons/react";
 import { useSignUp, useAuth, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -17,11 +19,13 @@ export function SignUpForm() {
   const { isLoaded, isSignedIn } = useAuth();
   const clerk = useClerk();
 
+  const router = useRouter();
+
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      window.location.assign(clerk.buildUrlWithAuth(dashboardUrl("/")));
+      router.push("/dashboard");
     }
-  }, [isLoaded, isSignedIn, clerk]);
+  }, [isLoaded, isSignedIn, router]);
 
   // Try to detect Waitlist mode from Clerk environment or local env var
   const env = (clerk as any)?.__unstable__environment;
@@ -85,7 +89,7 @@ export function SignUpForm() {
       }
       if (signUp.status === "complete") {
         await signUp.finalize({
-          navigate: ({ decorateUrl }) => window.location.assign(decorateUrl(onboardingUrl()))
+          navigate: () => router.push("/onboarding")
         });
         return;
       }

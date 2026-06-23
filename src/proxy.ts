@@ -107,16 +107,6 @@ export default clerkMiddleware(
       await auth.protect();
     }
     return NextResponse.next();
-  },
-  (req) => {
-    const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
-    const root = getRootDomain(host);
-
-    return {
-      signInUrl: root ? `https://app.${root}/sign-in` : "/sign-in",
-      signUpUrl: root ? `https://app.${root}/sign-up` : "/sign-up",
-      authorizedParties: getAuthorizedParties(root),
-    };
   }
 );
 

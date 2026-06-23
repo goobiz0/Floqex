@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Envelope, Lock } from "@phosphor-icons/react";
 import { useSignIn } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -15,6 +16,7 @@ type Step = "request" | "reset" | "mfa" | "mfa-backup";
 
 export function ForgotPasswordForm() {
   const { signIn } = useSignIn();
+  const router = useRouter();
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState(""); // Used for both reset code and MFA code
@@ -80,7 +82,7 @@ export function ForgotPasswordForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize();
-        window.location.assign(dashboardUrl());
+        router.push("/dashboard");
         return;
       }
       
@@ -107,7 +109,7 @@ export function ForgotPasswordForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize();
-        window.location.assign(dashboardUrl());
+        router.push("/dashboard");
         return;
       }
       
@@ -134,7 +136,7 @@ export function ForgotPasswordForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize();
-        window.location.assign(dashboardUrl());
+        router.push("/dashboard");
         return;
       }
       
