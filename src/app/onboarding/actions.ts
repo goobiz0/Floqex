@@ -131,13 +131,13 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
         }
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("[completeOnboarding] could not save preferences", err);
     }
 
     return { ok: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[completeOnboarding] Failed to complete onboarding:", err);
-    return { ok: false, error: "A database connection error occurred. Please try again." };
+    return { ok: false, error: `A database connection error occurred: ${err.message || String(err)}` };
   }
 }
