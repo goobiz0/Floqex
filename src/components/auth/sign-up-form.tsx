@@ -28,10 +28,16 @@ export function SignUpForm() {
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
-      const isServerRejection = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
-      if (isServerRejection) {
+      const hasRedirectUrl = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
+      
+      const lastAttempt = sessionStorage.getItem("floqex_auth_attempt");
+      const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
+
+      if (hasRedirectUrl || isLooping) {
         setDesynced(true);
+        sessionStorage.removeItem("floqex_auth_attempt");
       } else {
+        sessionStorage.setItem("floqex_auth_attempt", Date.now().toString());
         window.location.assign(dashboardUrl());
       }
     }

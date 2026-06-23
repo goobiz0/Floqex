@@ -1,6 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+// Force-delete bad environment variables so Clerk's internal SDK cannot read them
+delete process.env.NEXT_PUBLIC_CLERK_DOMAIN;
+delete process.env.CLERK_DOMAIN;
+delete process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL;
+delete process.env.NEXT_PUBLIC_CLERK_IS_SATELLITE;
+
 // Next.js 16 renames `middleware` to `proxy` (Node runtime). Clerk runs here.
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/onboarding(.*)"]);
 
@@ -64,9 +70,14 @@ export default clerkMiddleware(
       // Root of app.floqex.com -> route based on session
       if (pathname === "/") {
         const { userId } = await auth();
-        const redirect = url.clone();
-        redirect.pathname = userId ? "/dashboard" : "/sign-in";
-        return NextResponse.redirect(redirect);
+        const redirectUrl = url.clone();
+        if (userId) {
+          redirectUrl.pathname = "/dashboard";
+        } else {
+          redirectUrl.pathname = "/sign-in";
+          redirectUrl.searchParams.set("redirect_url", url.href);
+        }
+        return NextResponse.redirect(redirectUrl);
       }
 
       // Auth pages

@@ -26,9 +26,6 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
         {/* Animated drifting glass blobs */}
         <AnimatedOrbs />
         
-        {/* Extra heavy glass overlay to frost everything together */}
-        <div className="absolute inset-0 z-0 bg-white/30 backdrop-blur-[80px]" />
-        
         {/* Subtle noise layered on top to add texture to the gradients */}
         <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none">
           <NoiseOverlay />

@@ -27,14 +27,18 @@ export function SignInForm() {
   
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      // Check both Next.js state and raw browser state to prevent hydration race conditions
-      // where searchParams might be briefly empty on initial client render
+      // Check Next.js state, raw browser state, AND a sessionStorage timestamp to completely bulletproof against Next.js cache loops
       const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
-      const isServerRejection = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
+      const hasRedirectUrl = searchParams?.has("redirect_url") || new URLSearchParams(rawSearch).has("redirect_url");
       
-      if (isServerRejection) {
+      const lastAttempt = sessionStorage.getItem("floqex_auth_attempt");
+      const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
+      
+      if (hasRedirectUrl || isLooping) {
         setDesynced(true);
+        sessionStorage.removeItem("floqex_auth_attempt");
       } else {
+        sessionStorage.setItem("floqex_auth_attempt", Date.now().toString());
         window.location.assign(dashboardUrl());
       }
     }
