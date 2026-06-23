@@ -98,6 +98,61 @@ export default async function ProfilePage() {
           </Button>
         </div>
       </Card>
+
+      {/* Developer & MCP Access */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>Developer & MCP Configuration</CardTitle>
+          <Badge tone="accent">Beta</Badge>
+        </div>
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-fg-muted">
+          Connect your Floqex account directly to AI agents like Claude Desktop or Cursor using the Model Context Protocol (MCP).
+        </p>
+
+        {dbUser?.mcpKey ? (
+          <div className="mt-5 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-fg mb-1">Your API Key:</p>
+              <code className="px-3 py-1.5 bg-surface border border-line rounded-md text-xs font-mono text-accent">
+                {dbUser.mcpKey}
+              </code>
+            </div>
+            
+            <div className="bg-surface border border-line p-4 rounded-[var(--radius-card)] space-y-3">
+              <p className="text-sm font-semibold text-fg">1. Download Server</p>
+              <Button href="/floqex-mcp.js" target="_blank" download="floqex-mcp.js" variant="secondary" size="sm">
+                Download floqex-mcp.js
+              </Button>
+              <p className="text-sm font-semibold text-fg mt-4">2. Add to Claude Desktop Config</p>
+              <pre className="text-xs font-mono bg-base p-3 rounded-md overflow-x-auto text-fg-subtle border border-line">
+{`{
+  "mcpServers": {
+    "floqex": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/floqex-mcp.js",
+        "--key=${dbUser.mcpKey}"
+      ]
+    }
+  }
+}`}
+              </pre>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5">
+            <form action={async () => {
+              "use server";
+              const { generateMcpKey } = await import("./actions");
+              await generateMcpKey();
+            }}>
+              <Button variant="secondary" size="sm">
+                Generate MCP Key
+              </Button>
+            </form>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

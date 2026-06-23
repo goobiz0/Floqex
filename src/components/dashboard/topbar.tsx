@@ -43,25 +43,33 @@ export async function Topbar() {
           </div>
         </div>
 
-        {/* Center: Navigation Links */}
-        <nav className="hidden items-center gap-6 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Center: Bot Stats & Emergency Stop */}
+        <div className="hidden md:flex items-center gap-4 border border-line rounded-full bg-surface px-4 py-1.5 shadow-sm">
+          <div className="flex items-center gap-2 pr-4 border-r border-line">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-positive"></span>
+            </span>
+            <span className="text-xs font-medium text-fg uppercase tracking-wide">NY Session Open</span>
+          </div>
+          <div className="flex items-center gap-2 pr-4 border-r border-line">
+            <span className="text-xs font-mono text-fg-subtle">UPTIME</span>
+            <span className="text-xs font-medium text-fg">04h 12m</span>
+          </div>
+          <form action={async () => {
+            "use server";
+            // In a real implementation this would trigger the stop procedure
+          }}>
+            <button className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-negative hover:bg-negative/10 px-2 py-1 rounded transition-colors">
+              <div className="h-2 w-2 rounded-sm bg-negative" />
+              E-Stop
+            </button>
+          </form>
+        </div>
 
         {/* Right cluster */}
         <div className="flex items-center gap-2 sm:gap-3">
           <NotificationsBell items={notifications} />
-          <span className="hidden sm:block">
-            <HelpMenu />
-          </span>
           <ThemeToggle />
           <Link
             href={dashboardUrl("/settings")}

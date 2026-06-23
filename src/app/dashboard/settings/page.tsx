@@ -20,13 +20,23 @@ export default async function SettingsPage() {
   const { trades } = await getTradeData();
   const { userId } = await auth();
 
-  const user = userId ? await prisma.user.findUnique({ where: { clerkId: userId } }) : null;
-  const accountRows = user
-    ? await prisma.account.findMany({
-        where: { userId: user.id },
-        select: { id: true, nickname: true, broker: true, maxDailyDrawdown: true },
-      })
-    : [];
+  let user = null;
+  let accountRows: any[] = [];
+  
+  if (userId) {
+    try {
+      user = await prisma.user.findUnique({ where: { clerkId: userId } });
+      if (user) {
+        accountRows = await prisma.account.findMany({
+          where: { userId: user.id },
+          select: { id: true, nickname: true, broker: true, maxDailyDrawdown: true },
+        });
+      }
+    } catch (e) {
+      console.error("Prisma error in Settings:", e);
+    }
+  }
+
   // Serialize Prisma Decimal to a plain number at the Server/Client boundary.
   const accounts = accountRows.map((a) => ({
     id: a.id,

@@ -1,26 +1,96 @@
 "use client";
 
 import { useState } from "react";
-import { Info, Target, Strategy } from "@phosphor-icons/react";
+import { Info, Target, Strategy, ShieldCheck, Crosshair, TrendUp } from "@phosphor-icons/react";
 
 export default function StrategyPage() {
   const [range, setRange] = useState(15);
   const [takeProfit, setTakeProfit] = useState(2.5);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header>
-        <h1 className="text-4xl font-bold tracking-tight text-fg">ORB Strategy</h1>
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <header className="space-y-4">
+        <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
+          <Strategy size={14} weight="bold" />
+          The Algorithm
+        </div>
+        <h1 className="text-4xl font-bold tracking-tight text-fg">Opening Range Breakout (ORB)</h1>
         <p className="mt-4 text-lg text-fg-muted leading-relaxed">
-          The Opening Range Breakout (ORB) strategy is one of the most reliable and highly traded setups in the morning session. This page explains exactly how the bot trades it.
+          The Opening Range Breakout (ORB) strategy is the core mathematical edge that Floqex is built upon. It exploits the massive institutional liquidity and price discovery that occurs during the first hour of the New York trading session.
         </p>
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">The Concept</h2>
-        <p className="text-fg-subtle leading-relaxed">
-          The market open is the most volatile period of the day. Institutional players are executing large orders, and the price rapidly discovers fair value. The ORB strategy capitalizes on this by identifying the high and low of the first X minutes (the "Opening Range"), and entering a trade when price decisively breaks out of that range.
+        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">Mechanical Rules of Engagement</h2>
+        <div className="grid md:grid-cols-3 gap-6 mt-6">
+          <div className="bg-surface border border-line p-5 rounded-[var(--radius-card)] shadow-sm space-y-3">
+            <div className="h-10 w-10 bg-accent/10 text-accent rounded flex items-center justify-center">
+              <Crosshair size={24} />
+            </div>
+            <h3 className="font-semibold text-fg text-lg">1. Identify the Range</h3>
+            <p className="text-sm text-fg-subtle">
+              The algorithm records the absolute High and absolute Low of the asset during the specified Opening Range (e.g., the first 15 minutes of trading from 9:30 AM to 9:45 AM EST). This establishes the immediate support and resistance.
+            </p>
+          </div>
+          <div className="bg-surface border border-line p-5 rounded-[var(--radius-card)] shadow-sm space-y-3">
+            <div className="h-10 w-10 bg-profit/10 text-profit rounded flex items-center justify-center">
+              <TrendUp size={24} />
+            </div>
+            <h3 className="font-semibold text-fg text-lg">2. Confirm the Breakout</h3>
+            <p className="text-sm text-fg-subtle">
+              When the price closes outside of the established range, the bot checks relative volume (RVOL). If RVOL exceeds 1.5x the 20-period average, the breakout is considered valid and the bot executes a market order.
+            </p>
+          </div>
+          <div className="bg-surface border border-line p-5 rounded-[var(--radius-card)] shadow-sm space-y-3">
+            <div className="h-10 w-10 bg-negative/10 text-negative rounded flex items-center justify-center">
+              <ShieldCheck size={24} />
+            </div>
+            <h3 className="font-semibold text-fg text-lg">3. Risk & Reward</h3>
+            <p className="text-sm text-fg-subtle">
+              Simultaneous to the entry, an OCO (One-Cancels-Other) bracket is placed. The Stop Loss is set below the breakout candle's low, and the Take Profit is set at exactly 2x (or user-defined) the risk amount.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Volatility Environments Table */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">Optimal Range Durations</h2>
+        <p className="text-fg-subtle leading-relaxed mb-4">
+          Different volatility regimes require different range lengths. Use the table below to understand when the algorithm adjusts its time horizons.
         </p>
+        <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-base border-b border-line text-fg font-semibold">
+              <tr>
+                <th className="px-4 py-3">Duration</th>
+                <th className="px-4 py-3">Best Environment</th>
+                <th className="px-4 py-3">Win Rate (Avg)</th>
+                <th className="px-4 py-3">Drawdown Risk</th>
+              </tr>
+            </thead>
+            <tbody className="text-fg-subtle divide-y divide-line">
+              <tr className="hover:bg-line/20 transition-colors">
+                <td className="px-4 py-3 font-mono text-fg">5 Minutes</td>
+                <td className="px-4 py-3">High Volatility (VIX &gt; 25)</td>
+                <td className="px-4 py-3 text-negative">42% (Lower)</td>
+                <td className="px-4 py-3 text-negative">High (Prone to Fakeouts)</td>
+              </tr>
+              <tr className="hover:bg-line/20 transition-colors">
+                <td className="px-4 py-3 font-mono text-accent font-semibold">15 Minutes</td>
+                <td className="px-4 py-3">Normal Markets (Sweet Spot)</td>
+                <td className="px-4 py-3 text-profit">58%</td>
+                <td className="px-4 py-3 text-warning">Medium</td>
+              </tr>
+              <tr className="hover:bg-line/20 transition-colors">
+                <td className="px-4 py-3 font-mono text-fg">30 Minutes</td>
+                <td className="px-4 py-3">Low Volatility / Chop</td>
+                <td className="px-4 py-3 text-profit">65% (Higher)</td>
+                <td className="px-4 py-3 text-positive">Low</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* Interactive Interactive Component */}
@@ -29,7 +99,7 @@ export default function StrategyPage() {
           <div className="p-2 bg-accent-soft rounded-lg text-accent">
             <Target size={24} />
           </div>
-          <h2 className="text-xl font-semibold text-fg">Interactive ORB Visualizer</h2>
+          <h2 className="text-xl font-semibold text-fg">Interactive Risk Visualizer</h2>
         </div>
         
         <div className="grid gap-6 md:grid-cols-2">
@@ -48,7 +118,7 @@ export default function StrategyPage() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-fg-subtle">
-                A {range} minute range {range === 5 ? "is aggressive but has lower win rate." : range === 30 ? "is highly conservative with fewer setups." : "is the sweet spot for SPY/QQQ."}
+                A {range} minute range {range === 5 ? "is highly aggressive but prone to whipsaws." : range === 30 ? "is conservative with fewer, higher quality setups." : "is the mathematical sweet spot for SPY/QQQ."}
               </p>
             </div>
 
@@ -86,10 +156,10 @@ export default function StrategyPage() {
             </svg>
 
             {/* Annotations */}
-            <div className="absolute top-8 left-1/2 text-[10px] font-bold text-profit px-2 py-1 bg-profit/10 rounded">
-              Entry
+            <div className="absolute top-8 left-1/2 text-[10px] font-bold text-profit px-2 py-1 bg-profit/10 rounded border border-profit/30">
+              Entry Target
             </div>
-            <div className="absolute top-[20%] right-[10%] text-[10px] font-bold text-profit px-2 py-1 border border-profit rounded">
+            <div className="absolute top-[20%] right-[10%] text-[10px] font-bold text-profit px-2 py-1 bg-profit/20 border border-profit rounded shadow-[0_0_10px_rgba(var(--color-profit),0.3)] transition-all" style={{ transform: `translateY(${Math.max(-20, 20 - (takeProfit * 10))}px)` }}>
               TP (+{takeProfit}R)
             </div>
           </div>
@@ -99,23 +169,8 @@ export default function StrategyPage() {
       <section className="space-y-4 mt-8">
         <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">Time Decay Rules</h2>
         <p className="text-fg-subtle leading-relaxed">
-          The best setups occur when the market has maximum liquidity and momentum. This is why Floqex utilizes strict <strong>Time Decay Guards</strong>. By default, the bot stops looking for new entries after 11:00 AM EST. Volume naturally drops during the midday lunch hour, leading to choppy, mean-reverting price action which is hostile to breakout strategies.
+          The best setups occur when the market has maximum liquidity and momentum. This is why Floqex utilizes strict <strong>Time Decay Guards</strong>. By default, the bot stops looking for new entries after 11:00 AM EST. Volume naturally drops during the midday lunch hour, leading to choppy, mean-reverting price action which is mathematically hostile to breakout strategies.
         </p>
-      </section>
-
-      <section className="space-y-4 mt-8">
-        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">Mochi Copilot Integration</h2>
-        <p className="text-fg-subtle leading-relaxed">
-          While the algorithm runs autonomously, you retain control as the pilot. Using the <strong>Mochi Chat Assistant</strong> (the floating button in your dashboard), you can use natural language to override parameters on the fly. 
-        </p>
-        <div className="bg-surface border border-line rounded-[var(--radius-card)] p-4 flex flex-col space-y-2 font-mono text-sm">
-          <div className="flex items-center gap-2 text-fg-subtle">
-            <span className="text-accent font-bold">You:</span> "Mochi, the market looks choppy today. Reduce my risk to 0.5%."
-          </div>
-          <div className="flex items-center gap-2 text-fg">
-            <span className="text-profit font-bold">Mochi:</span> "Understood. I have updated your strategy risk to 0.5%. Good call."
-          </div>
-        </div>
       </section>
     </div>
   );
