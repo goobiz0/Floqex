@@ -117,8 +117,10 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="dark relative flex min-h-[100dvh] flex-col overflow-hidden bg-base text-fg font-sans selection:bg-accent/20 selection:text-fg">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10 opacity-30" />
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#FAFAFA] text-slate-900 font-sans selection:bg-emerald-500/20 selection:text-emerald-900">
+      {/* Light Emerald to Light Purple gradient background */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-100/50 via-purple-100/30 to-transparent" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-100/50 via-transparent to-transparent" />
       <div aria-hidden className="grid-faint pointer-events-none absolute inset-0 -z-10 opacity-20" />
 
       <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-8">

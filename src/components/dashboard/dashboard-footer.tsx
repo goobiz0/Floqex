@@ -2,6 +2,7 @@
 
 import { XLogo, FacebookLogo, InstagramLogo, PinterestLogo, ArrowUp, CaretDown, ChatCircle, type Icon } from "@phosphor-icons/react";
 import { useReducedMotion } from "motion/react";
+import Link from "next/link";
 
 const socials: { href: string; label: string; icon: Icon }[] = [
   { href: "https://facebook.com/floqex", label: "Facebook", icon: FacebookLogo },
