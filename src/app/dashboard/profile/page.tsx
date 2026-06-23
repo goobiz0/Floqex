@@ -109,12 +109,12 @@ export default async function ProfilePage() {
           Connect your Floqex account directly to AI agents like Claude Desktop or Cursor using the Model Context Protocol (MCP).
         </p>
 
-        {dbUser?.mcpKey ? (
+        {user?.privateMetadata?.mcpKey ? (
           <div className="mt-5 space-y-4">
             <div>
               <p className="text-xs font-semibold text-fg mb-1">Your API Key:</p>
               <code className="px-3 py-1.5 bg-surface border border-line rounded-md text-xs font-mono text-accent">
-                {dbUser.mcpKey}
+                {user.privateMetadata.mcpKey as string}
               </code>
             </div>
             
@@ -131,7 +131,7 @@ export default async function ProfilePage() {
       "command": "node",
       "args": [
         "/absolute/path/to/floqex-mcp.js",
-        "--key=${dbUser.mcpKey}"
+        "--key=${user.privateMetadata.mcpKey as string}"
       ]
     }
   }

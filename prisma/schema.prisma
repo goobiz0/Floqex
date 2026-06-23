@@ -37,7 +37,7 @@ model User {
   stripeCurrentPeriodEnd DateTime?
 
   // Developer & MCP API Access
-  mcpKey                 String?   @unique
+  // mcpKey stored in Clerk privateMetadata instead of DB to avoid schema migrations
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

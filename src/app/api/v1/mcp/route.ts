@@ -8,8 +8,21 @@ async function getMcpUser(request: NextRequest) {
   if (!authHeader?.startsWith("Bearer ")) return null;
   const key = authHeader.split(" ")[1];
 
+  const match = key.match(/^fqx_mcp_(user_[a-zA-Z0-9]+)_/);
+  if (!match) return null;
+  const clerkId = match[1];
+
+  const { clerkClient } = await import("@clerk/nextjs/server");
+  const client = await clerkClient();
+  try {
+    const clerkUser = await client.users.getUser(clerkId);
+    if (clerkUser.privateMetadata.mcpKey !== key) return null;
+  } catch {
+    return null;
+  }
+
   const user = await prisma.user.findUnique({
-    where: { mcpKey: key },
+    where: { clerkId },
     include: {
       accounts: { include: { bot: { include: { strategy: true } } } },
       strategies: true,
