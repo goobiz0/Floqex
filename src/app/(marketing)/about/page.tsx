@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Info, ShieldCheck, Lightning, TrendUp } from "@phosphor-icons/react/dist/ssr";
 import { AboutClientMotion } from "./about-client-motion";
-import { VibrantMesh } from "@/components/marketing/vibrant-mesh";
 
 export const metadata: Metadata = { title: "About | Floqex" };
 
 export default function AboutPage() {
   return (
     <div className="bg-base overflow-hidden selection:bg-accent/20 min-h-screen relative pb-32">
-      <VibrantMesh />
       
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 md:pt-48 md:pb-32 px-6">

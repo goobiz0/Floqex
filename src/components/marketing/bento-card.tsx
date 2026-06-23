@@ -1,8 +1,8 @@
 "use client";
 
-import { motion, useMotionTemplate, useMotionValue } from "motion/react";
+import { motion } from "motion/react";
 import { Card } from "@/components/ui/card";
-import { ReactNode, MouseEvent } from "react";
+import { ReactNode } from "react";
 
 export function BentoCard({ 
   children, 
@@ -13,35 +13,13 @@ export function BentoCard({
   className?: string;
   innerClassName?: string;
 }) {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  function handleMouseMove({ currentTarget, clientX, clientY }: MouseEvent) {
-    const { left, top } = currentTarget.getBoundingClientRect();
-    mouseX.set(clientX - left);
-    mouseY.set(clientY - top);
-  }
-
   return (
     <motion.div
-      onMouseMove={handleMouseMove}
-      whileHover={{ y: -4, scale: 1.01 }}
+      whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={`group relative ${className}`}
     >
-      <motion.div
-        className="pointer-events-none absolute -inset-px rounded-[32px] opacity-0 transition duration-300 group-hover:opacity-100 z-10"
-        style={{
-          background: useMotionTemplate`
-            radial-gradient(
-              650px circle at ${mouseX}px ${mouseY}px,
-              rgba(16, 185, 129, 0.15),
-              transparent 80%
-            )
-          `,
-        }}
-      />
-      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ring-1 ring-black/5 backdrop-blur-md ${innerClassName || 'bg-base/80 p-8'}`}>
+      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[32px] ring-1 ring-black/5 hover:ring-accent/50 backdrop-blur-md transition-shadow duration-300 ${innerClassName || 'bg-base/80 p-8'}`}>
         {children}
       </Card>
     </motion.div>

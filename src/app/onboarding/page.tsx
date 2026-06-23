@@ -238,7 +238,7 @@ function OnboardingFlow() {
 
               {step === 3 && (
                 <Step icon={Rocket} title="Choose your path" desc="Upgrade to trade live capital, or start with Paper trading for free.">
-                  <div className="grid gap-3 sm:grid-cols-3 mt-6">
+                  <div className="grid gap-3 sm:grid-cols-3 mt-4">
                     {PLAN_ORDER.map((planKey) => {
                       const plan = PLANS[planKey];
                       const selected = planSelection === planKey;
@@ -255,17 +255,17 @@ function OnboardingFlow() {
                           )}
                         >
                           <div className="flex w-full items-center justify-between">
-                            <h3 className={cn("font-bold", selected ? "text-emerald-700" : "text-fg")}>{plan.name}</h3>
+                            <h3 className={cn("font-bold text-sm", selected ? "text-emerald-700" : "text-fg")}>{plan.name}</h3>
                             {plan.popular && <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Popular</span>}
                           </div>
-                          <div className="mt-3 flex items-baseline gap-0.5">
-                            <span className={cn("text-2xl font-black tracking-tight", selected ? "text-emerald-700" : "text-fg")}>${plan.price}</span>
+                          <div className="mt-2 flex items-baseline gap-0.5">
+                            <span className={cn("text-xl font-black tracking-tight", selected ? "text-emerald-700" : "text-fg")}>${plan.price}</span>
                             <span className="text-[10px] font-medium text-fg-subtle">/mo</span>
                           </div>
-                          <ul className="mt-4 flex flex-col gap-2 text-[11px] text-fg-subtle">
+                          <ul className="mt-3 flex flex-col gap-1.5 text-[11px] text-fg-subtle">
                             {plan.features.slice(0, 3).map((f, i) => (
-                              <li key={i} className="flex items-start gap-1.5">
-                                <Check size={12} className={cn("mt-0.5 shrink-0", selected ? "text-accent" : "text-fg-faint")} weight="bold" />
+                              <li key={i} className="flex items-start gap-1.5 leading-tight">
+                                <Check size={12} className={cn("mt-[1px] shrink-0", selected ? "text-accent" : "text-fg-faint")} weight="bold" />
                                 <span className={selected ? "text-emerald-900" : "text-fg-subtle"}>{f}</span>
                               </li>
                             ))}
@@ -273,6 +273,18 @@ function OnboardingFlow() {
                         </button>
                       );
                     })}
+                  </div>
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlanSelection("FREE");
+                        advance();
+                      }}
+                      className="text-[13px] font-semibold text-fg-subtle hover:text-fg underline underline-offset-4 transition-colors"
+                    >
+                      Continue for free
+                    </button>
                   </div>
                 </Step>
               )}

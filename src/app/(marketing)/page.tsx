@@ -2,37 +2,29 @@ import { ArrowRight, ChartLineUp, Flask, Notebook, ShieldCheck } from "@phosphor
 import { Button } from "@/components/ui/button";
 import { LogoWall } from "@/components/marketing/logo-wall";
 import { authUrl } from "@/lib/urls";
-import { LandingClientVisuals } from "./landing-client-visuals";
-import { VibrantMesh } from "@/components/marketing/vibrant-mesh";
 import { BentoCard } from "@/components/marketing/bento-card";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { PricingTable } from "@/components/marketing/pricing-table";
-import { ExecutionSpeedRadar } from "@/components/marketing/visuals/execution-speed-radar";
-import { StrategyLogicTree } from "@/components/marketing/visuals/strategy-logic-tree";
-import { ProfitHeatmap } from "@/components/marketing/visuals/profit-heatmap";
-import { HardStopVisualizer } from "@/components/marketing/visuals/hard-stop-visualizer";
 
 export const revalidate = 300;
 
 export default function LandingPage() {
   return (
-    <div className="bg-base overflow-hidden selection:bg-accent/20">
-      
+    <div className="bg-base overflow-hidden selection:bg-accent/20 relative">
+      <div className="absolute inset-0 grid-faint pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-[800px] bg-gradient-to-b from-white via-white/80 to-transparent pointer-events-none" />
+
       {/* Hero Section */}
       <section className="relative pt-32 pb-32 md:pt-48 md:pb-40">
-        <VibrantMesh />
-
         <div className="relative z-10 mx-auto max-w-[1200px] px-6 text-center flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-fg-subtle backdrop-blur-md mb-8 shadow-sm ring-1 ring-black/5">
+          <div className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-fg-subtle backdrop-blur-md mb-8 shadow-sm">
             <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
             Live automated execution
           </div>
           
           <h1 className="max-w-4xl text-balance text-5xl font-semibold tracking-tight text-fg md:text-7xl leading-[1.05]">
             Trade smarter. <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-blue-600">
-              Zero code required.
-            </span>
+            Zero code required.
           </h1>
           
           <p className="mt-6 max-w-xl text-pretty text-lg text-fg-muted md:text-xl">
@@ -40,19 +32,14 @@ export default function LandingPage() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
-            <Button href={authUrl("/sign-up")} size="lg" className="rounded-full w-full sm:w-auto h-14 px-8 text-[16px] shadow-lg shadow-accent/20">
+            <Button href={authUrl("/sign-up")} size="lg" className="rounded-full w-full sm:w-auto h-14 px-8 text-[16px] shadow-lg shadow-accent/20 font-semibold tracking-wide">
               Start building for free
             </Button>
-            <Button href="#visuals" variant="secondary" size="lg" className="rounded-full w-full sm:w-auto h-14 px-8 text-[16px] bg-white/60 backdrop-blur-md border border-white/50 shadow-sm transition-all hover:bg-white/80 text-fg">
+            <Button href="#features" variant="secondary" size="lg" className="rounded-full w-full sm:w-auto h-14 px-8 text-[16px] bg-white border border-line shadow-sm transition-all hover:bg-surface text-fg font-medium tracking-wide">
               Explore platform
             </Button>
           </div>
         </div>
-      </section>
-
-      {/* Floating Interactive Visual Showcase (Overlapping Hero) */}
-      <section id="visuals" className="relative z-20 mx-auto max-w-[1200px] px-6 -mt-24 md:-mt-32 pb-20">
-        <LandingClientVisuals />
       </section>
 
       <LogoWall />
@@ -60,10 +47,11 @@ export default function LandingPage() {
       <HowItWorks />
 
       {/* Bento Grid Features */}
-      <section className="py-24 bg-surface/30 relative">
-        <div className="mx-auto max-w-[1200px] px-6">
+      <section id="features" className="py-24 relative">
+        <div className="absolute inset-0 bg-surface/50 border-y border-line" />
+        <div className="mx-auto max-w-[1200px] px-6 relative z-10">
           <div className="max-w-2xl mb-16">
-            <h2 className="text-3xl font-medium tracking-tight text-fg md:text-5xl mb-4">
+            <h2 className="text-3xl font-semibold tracking-tight text-fg md:text-5xl mb-4">
               Everything you need to scale.
             </h2>
             <p className="text-lg text-fg-muted">
@@ -72,86 +60,70 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <BentoCard className="md:col-span-2 min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
-              <div className="absolute inset-y-0 right-0 w-1/2 md:w-3/5 opacity-40 md:opacity-100 mix-blend-multiply md:mix-blend-normal transition-opacity duration-500 pointer-events-none group-hover:opacity-100">
-                <ExecutionSpeedRadar />
-              </div>
-              <div className="absolute -right-20 -top-20 w-64 h-64 bg-accent/10 blur-[60px] rounded-full opacity-50" />
+            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
-                  <ChartLineUp size={20} className="text-accent" />
+                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
+                  <ChartLineUp size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Infrastructure</span>
+                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Infrastructure</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-3xl font-medium tracking-tight mb-2 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
                   Low-latency execution.
                 </h3>
-                <p className="text-fg-subtle text-[15px]">
+                <p className="text-fg-subtle text-[15px] leading-relaxed">
                   Our engine processes market data and executes orders in milliseconds, directly at the broker level for zero slippage.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-[200px] opacity-40 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-                <StrategyLogicTree />
-              </div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-blue-500/10 blur-[50px] rounded-full opacity-30" />
+            <BentoCard className="min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
-                  <Flask size={20} className="text-blue-500" />
+                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
+                  <Flask size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Strategy Lab</span>
+                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Strategy Lab</span>
               </div>
               <div className="mt-auto relative z-10">
-                <h3 className="text-2xl font-medium tracking-tight mb-2 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
                   Tune instantly.
                 </h3>
-                <p className="text-fg-subtle text-[15px]">
+                <p className="text-fg-subtle text-[15px] leading-relaxed">
                   Visual node-based backtesting without a single line of code.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-[200px] opacity-40 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-                <ProfitHeatmap />
-              </div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-purple-500/10 blur-[50px] rounded-full opacity-30" />
+            <BentoCard className="min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
-                  <Notebook size={20} className="text-purple-500" />
+                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
+                  <Notebook size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Journal</span>
+                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Journal</span>
               </div>
               <div className="mt-auto relative z-10">
-                <h3 className="text-2xl font-medium tracking-tight mb-2 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
                   Automated records.
                 </h3>
-                <p className="text-fg-subtle text-[15px]">
+                <p className="text-fg-subtle text-[15px] leading-relaxed">
                   Every execution is logged and analyzed automatically.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="md:col-span-2 min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
-              <div className="absolute inset-y-0 right-0 w-1/2 md:w-3/5 opacity-40 md:opacity-100 mix-blend-multiply md:mix-blend-normal transition-opacity duration-500 pointer-events-none group-hover:opacity-100">
-                <HardStopVisualizer />
-              </div>
-              <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-emerald-500/10 blur-[60px] rounded-full opacity-50" />
+            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
-                  <ShieldCheck size={20} className="text-emerald-500" />
+                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
+                  <ShieldCheck size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Risk Control</span>
+                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Risk Control</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-3xl font-medium tracking-tight mb-2 text-fg">
+                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
                   Hard limits that actually work.
                 </h3>
-                <p className="text-fg-subtle text-[15px]">
-                  Set daily drawdown limits and max position sizing. Our engine enforces them at the broker level, keeping your capital completely safe.
+                <p className="text-fg-subtle text-[15px] leading-relaxed">
+                  Set daily drawdown limits and max position sizing. Our engine enforces them at the broker level, keeping your capital safe.
                 </p>
               </div>
             </BentoCard>
@@ -163,14 +135,14 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-accent/5" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute inset-0 bg-surface/80 border-t border-line" />
+        <div className="absolute inset-0 grid-faint pointer-events-none opacity-50" />
         
-        <div className="relative mx-auto max-w-3xl text-center px-6">
+        <div className="relative z-10 mx-auto max-w-3xl text-center px-6">
           <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-fg mb-8">
             Ready to trade?
           </h2>
-          <Button href={authUrl("/sign-up")} size="lg" className="rounded-full h-14 px-10 text-[16px] shadow-lg shadow-accent/20">
+          <Button href={authUrl("/sign-up")} size="lg" className="rounded-full h-14 px-10 text-[16px] shadow-lg shadow-accent/20 font-semibold tracking-wide">
             Open your account
             <ArrowRight size={20} weight="bold" className="ml-2" />
           </Button>
@@ -178,7 +150,7 @@ export default function LandingPage() {
       </section>
 
       {/* Regulatory Disclaimer */}
-      <section className="bg-base border-t border-line py-12">
+      <section className="bg-base border-t border-line py-12 relative z-10">
         <div className="mx-auto max-w-[1200px] px-6 text-center">
           <p className="max-w-4xl mx-auto text-xs leading-relaxed text-fg-muted/80">
             <strong className="font-semibold text-fg-subtle">Risk Warning:</strong> Trading involves a high level of risk and may not be suitable for all investors. 
