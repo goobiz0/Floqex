@@ -14,6 +14,9 @@ export type OnboardingInput = {
   referralSource?: string;
   experience?: string;
   goal?: string;
+  apiKey?: string;
+  apiSecret?: string;
+  broker?: string;
 };
 
 const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
@@ -41,13 +44,19 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
       return { ok: false, error: "That does not look like a Discord webhook URL." };
     }
 
-    // Create the first paper account only if the user has none (idempotent).
+    // Create the first account only if the user has none (idempotent).
     const accountCount = await prisma.account.count({ where: { userId: user.id } });
     if (accountCount === 0) {
+      const mode = input.apiKey && input.apiSecret ? "LIVE" : "PAPER";
+      // Currently defaulting to ALPACA for live accounts if keys are provided
+      const broker = mode === "LIVE" ? (input.broker || "ALPACA") : "PAPER";
+
       const res = await connectAccount({
         nickname: input.nickname.trim() || "Main account",
-        broker: "PAPER",
-        mode: "PAPER",
+        broker: broker as any,
+        mode: mode as any,
+        apiKey: input.apiKey,
+        apiSecret: input.apiSecret,
       });
       if (!res.ok) return res;
     }

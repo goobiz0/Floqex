@@ -41,7 +41,7 @@ async function ensureCustomer(): Promise<{ id: string; customerId: string } | nu
 }
 
 /** Start a Stripe Checkout session for a paid plan; returns the redirect URL. */
-export async function startCheckout(plan: Plan): Promise<Result> {
+export async function startCheckout(plan: Plan, returnUrls?: { success: string; cancel: string }): Promise<Result> {
   // Server actions receive arbitrary client input; guard before indexing PLANS.
   const cfg = PLANS[plan];
   if (!cfg) return { ok: false, error: "Invalid plan." };
@@ -51,13 +51,16 @@ export async function startCheckout(plan: Plan): Promise<Result> {
   if (!customer) return { ok: false, error: "You are not signed in." };
 
   const billing = absolute(dashboardUrl("/billing"), await requestOrigin());
+  const successUrl = returnUrls ? returnUrls.success : `${billing}?status=success`;
+  const cancelUrl = returnUrls ? returnUrls.cancel : `${billing}?status=cancelled`;
+
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       customer: customer.customerId,
       line_items: [{ price: cfg.priceId, quantity: 1 }],
-      success_url: `${billing}?status=success`,
-      cancel_url: `${billing}?status=cancelled`,
+      success_url: absolute(successUrl, await requestOrigin()),
+      cancel_url: absolute(cancelUrl, await requestOrigin()),
       allow_promotion_codes: true,
       subscription_data: { metadata: { plan } },
     });

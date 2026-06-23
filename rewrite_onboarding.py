@@ -1,3 +1,11 @@
+import re
+
+with open("src/app/onboarding/page.tsx", "r") as f:
+    content = f.read()
+
+# We will just write a new file instead of complex regexes.
+
+new_content = """\
 "use client";
 
 import { useState, useTransition, useEffect, Suspense } from "react";
@@ -159,8 +167,6 @@ function OnboardingFlow() {
         referralSource: effectiveReferral ?? undefined,
         experience: experience ?? undefined,
         goal: goal ?? undefined,
-        apiKey: isPaid ? apiKey : undefined,
-        apiSecret: isPaid ? apiSecret : undefined,
       });
       if (!res.ok) {
         setError(res.error ?? "Could not finish setup. Please try again.");
@@ -521,3 +527,8 @@ function Summary({ k, v, last }: { k: string; v: string; last?: boolean }) {
     </div>
   );
 }
+"""
+
+with open("src/app/onboarding/page.tsx", "w") as f:
+    f.write(new_content)
+
