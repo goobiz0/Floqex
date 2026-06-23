@@ -39,7 +39,7 @@ export function SignInForm() {
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
         sessionStorage.setItem("floqex_auth_attempt", Date.now().toString());
-        window.location.assign(dashboardUrl());
+        window.location.assign(dashboardUrl("/dashboard"));
       }
     }
   }, [isLoaded, isSignedIn, searchParams]);
@@ -110,7 +110,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl())
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
         });
         return;
       }
@@ -139,7 +139,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl())
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
         });
         return;
       }
@@ -167,7 +167,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl())
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
         });
         return;
       }
@@ -195,7 +195,7 @@ export function SignInForm() {
 
       if (signIn.status === "complete") {
         await signIn.finalize({
-          navigate: () => window.location.assign(dashboardUrl())
+          navigate: () => window.location.assign(dashboardUrl("/dashboard"))
         });
         return;
       }
@@ -215,7 +215,7 @@ export function SignInForm() {
     try {
       const { error: ssoError } = await signIn.sso({
         strategy,
-        redirectUrl: dashboardUrl(),
+        redirectUrl: dashboardUrl("/dashboard"),
         redirectCallbackUrl: "/sso-callback",
       });
       if (ssoError) setError(clerkErrorMessage(ssoError));

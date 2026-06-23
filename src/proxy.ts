@@ -118,6 +118,13 @@ export default clerkMiddleware(
       await auth.protect();
     }
     return NextResponse.next();
+  },
+  (req) => {
+    const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
+    const root = getRootDomain(host);
+    return {
+      authorizedParties: getAuthorizedParties(root),
+    };
   }
 );
 

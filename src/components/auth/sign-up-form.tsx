@@ -38,7 +38,7 @@ export function SignUpForm() {
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
         sessionStorage.setItem("floqex_auth_attempt", Date.now().toString());
-        window.location.assign(dashboardUrl());
+        window.location.assign(dashboardUrl("/dashboard"));
       }
     }
   }, [isLoaded, isSignedIn, searchParams]);
@@ -148,7 +148,7 @@ export function SignUpForm() {
     try {
       const { error: ssoError } = await signUp.sso({
         strategy,
-        redirectUrl: dashboardUrl(),
+        redirectUrl: dashboardUrl("/dashboard"),
         redirectCallbackUrl: "/sso-callback",
       });
       if (ssoError) setError(clerkErrorMessage(ssoError));
