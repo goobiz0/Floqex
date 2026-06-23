@@ -55,9 +55,6 @@ export default async function RootLayout({
     const parts = host.split(".");
     if (parts.length >= 2) root = parts.slice(-2).join(".");
   }
-  const useSubdomains = root.length > 0 && host.endsWith(root) && host !== root && !host.startsWith("www.");
-  const isAuth = host.startsWith("users.");
-  const isSatellite = !!useSubdomains && !isAuth;
 
   return (
     <html
@@ -66,10 +63,8 @@ export default async function RootLayout({
     >
       <body className="min-h-[100dvh] bg-base text-fg">
         <ClerkProvider
-          isSatellite={isSatellite}
-          domain={useSubdomains ? root : undefined}
-          signInUrl={root ? `https://users.${root}/sign-in` : "/sign-in"}
-          signUpUrl={root ? `https://users.${root}/sign-up` : "/sign-up"}
+          signInUrl={root ? `https://app.${root}/sign-in` : "/sign-in"}
+          signUpUrl={root ? `https://app.${root}/sign-up` : "/sign-up"}
         >
           {children}
         </ClerkProvider>

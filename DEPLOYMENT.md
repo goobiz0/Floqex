@@ -9,12 +9,9 @@ subdomains are mapped to their sections by `src/proxy.ts`.
 | Domain | Serves | How |
 | --- | --- | --- |
 | `floqex.com` | Marketing landing | Default app routes (`/`) |
-| `users.floqex.com` | Auth | Root rewrites to `/sign-in`; `/sign-up` works directly |
-| `accounts.floqex.com` | Product (the account dashboard) | Root rewrites to `/dashboard`; protected by Clerk |
-| `dashboard.floqex.com` | Product (alias of `accounts.`) | Same as above; kept for backward compatibility |
+| `app.floqex.com` | Unified Auth & Product | Root rewrites to `/sign-in` or `/dashboard` based on session; `/sign-up` works directly. |
 
-On Vercel, add all four domains to the same project (apex + three subdomains, all
-pointing at this deployment). No separate projects are needed.
+On Vercel, add both domains to the same project (apex + `app.` subdomain). No separate projects are needed.
 
 ## Environment variables
 
@@ -31,13 +28,11 @@ project settings for production. See `.env.example` for the full list:
 ## Clerk
 
 1. Create a Clerk application.
-2. Set the **session cookie domain** to `.floqex.com` so the session is shared across
-   `floqex.com`, `users.floqex.com`, and `accounts.floqex.com`.
-3. Set the sign-in/up URLs to `https://users.floqex.com/sign-in` and `/sign-up`, and
-   the after-auth URLs to `https://accounts.floqex.com` (sign-in) and
-   `https://accounts.floqex.com/onboarding` (sign-up). For path-based dev these are the
-   `NEXT_PUBLIC_CLERK_*` values in `.env`.
-4. Add a webhook to `https://accounts.floqex.com/api/webhooks/clerk` for the
+2. Ensure you have standard session settings. (You DO NOT need `isSatellite` or a custom shared session cookie domain unless spanning different root domains).
+3. Set the sign-in/up URLs to `https://app.floqex.com/sign-in` and `/sign-up`, and
+   the after-auth URLs to `https://app.floqex.com/dashboard` and
+   `https://app.floqex.com/onboarding`.
+4. Add a webhook to `https://app.floqex.com/api/webhooks/clerk` for the
    `user.created`, `user.updated`, and `user.deleted` events, and put its signing secret
    in `CLERK_WEBHOOK_SIGNING_SECRET`. This keeps the `users` table in sync.
 
@@ -59,7 +54,7 @@ npm run db:seed        # creates the "Floqex Demo" account for the preview
 
 ## Stripe (billing)
 
-Add a webhook to `https://dashboard.floqex.com/api/webhooks/stripe` subscribed to
+Add a webhook to `https://app.floqex.com/api/webhooks/stripe` subscribed to
 `checkout.session.completed` and `customer.subscription.created/updated/deleted`, and
 put its signing secret in `STRIPE_WEBHOOK_SECRET`. The Trader and Pro products/prices
 exist in test mode; create live-mode prices and update `NEXT_PUBLIC_STRIPE_PRICE_*`
