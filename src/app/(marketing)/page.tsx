@@ -7,6 +7,10 @@ import { VibrantMesh } from "@/components/marketing/vibrant-mesh";
 import { BentoCard } from "@/components/marketing/bento-card";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { PricingTable } from "@/components/marketing/pricing-table";
+import { ExecutionSpeedRadar } from "@/components/marketing/visuals/execution-speed-radar";
+import { StrategyLogicTree } from "@/components/marketing/visuals/strategy-logic-tree";
+import { ProfitHeatmap } from "@/components/marketing/visuals/profit-heatmap";
+import { HardStopVisualizer } from "@/components/marketing/visuals/hard-stop-visualizer";
 
 export const revalidate = 300;
 
@@ -68,26 +72,32 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <BentoCard className="md:col-span-2 min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8">
-              <div className="absolute -right-20 -top-20 w-64 h-64 bg-accent/10 blur-[60px] rounded-full transition-opacity group-hover:opacity-100 opacity-50" />
+            <BentoCard className="md:col-span-2 min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-y-0 right-0 w-1/2 md:w-3/5 opacity-40 md:opacity-100 mix-blend-multiply md:mix-blend-normal transition-opacity duration-500 pointer-events-none group-hover:opacity-100">
+                <ExecutionSpeedRadar />
+              </div>
+              <div className="absolute -right-20 -top-20 w-64 h-64 bg-accent/10 blur-[60px] rounded-full opacity-50" />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
                   <ChartLineUp size={20} className="text-accent" />
                 </div>
-                <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Live Dashboard</span>
+                <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Infrastructure</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
                 <h3 className="text-3xl font-medium tracking-tight mb-2 text-fg">
-                  Total visibility, real-time control.
+                  Low-latency execution.
                 </h3>
                 <p className="text-fg-subtle text-[15px]">
-                  Monitor all your active bots, open positions, and equity curves in a beautiful, unified command center.
+                  Our engine processes market data and executes orders in milliseconds, directly at the broker level for zero slippage.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-blue-500/10 blur-[50px] rounded-full transition-opacity group-hover:opacity-100 opacity-30" />
+            <BentoCard className="min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-[200px] opacity-40 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <StrategyLogicTree />
+              </div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-blue-500/10 blur-[50px] rounded-full opacity-30" />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
                   <Flask size={20} className="text-blue-500" />
@@ -99,13 +109,16 @@ export default function LandingPage() {
                   Tune instantly.
                 </h3>
                 <p className="text-fg-subtle text-[15px]">
-                  Backtest and optimize your parameters without touching a single line of code.
+                  Visual node-based backtesting without a single line of code.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-purple-500/10 blur-[50px] rounded-full transition-opacity group-hover:opacity-100 opacity-30" />
+            <BentoCard className="min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-[200px] opacity-40 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <ProfitHeatmap />
+              </div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-purple-500/10 blur-[50px] rounded-full opacity-30" />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
                   <Notebook size={20} className="text-purple-500" />
@@ -117,20 +130,23 @@ export default function LandingPage() {
                   Automated records.
                 </h3>
                 <p className="text-fg-subtle text-[15px]">
-                  Every execution is logged, tagged, and analyzed automatically to help you find your edge.
+                  Every execution is logged and analyzed automatically.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="md:col-span-2 min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8">
-              <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-emerald-500/10 blur-[60px] rounded-full transition-opacity group-hover:opacity-100 opacity-50" />
+            <BentoCard className="md:col-span-2 min-h-[360px] group" innerClassName="bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] p-8 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-y-0 right-0 w-1/2 md:w-3/5 opacity-40 md:opacity-100 mix-blend-multiply md:mix-blend-normal transition-opacity duration-500 pointer-events-none group-hover:opacity-100">
+                <HardStopVisualizer />
+              </div>
+              <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-emerald-500/10 blur-[60px] rounded-full opacity-50" />
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-10 h-10 rounded-full bg-white/80 shadow-sm flex items-center justify-center border border-white/50">
                   <ShieldCheck size={20} className="text-emerald-500" />
                 </div>
                 <span className="font-semibold text-sm uppercase tracking-wider text-fg-subtle">Risk Control</span>
               </div>
-              <div className="mt-auto max-w-md relative z-10">
+              <div className="mt-auto max-w-sm relative z-10">
                 <h3 className="text-3xl font-medium tracking-tight mb-2 text-fg">
                   Hard limits that actually work.
                 </h3>

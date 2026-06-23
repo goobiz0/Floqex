@@ -47,14 +47,14 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
   if (!cfg) return { ok: false, error: "Invalid plan." };
   if (!cfg.priceId) return { ok: false, error: "That plan does not require checkout." };
 
-  const customer = await ensureCustomer();
-  if (!customer) return { ok: false, error: "You are not signed in." };
-
   const billing = absolute(dashboardUrl("/billing"), await requestOrigin());
   const successUrl = returnUrls ? returnUrls.success : `${billing}?status=success`;
   const cancelUrl = returnUrls ? returnUrls.cancel : `${billing}?status=cancelled`;
 
   try {
+    const customer = await ensureCustomer();
+    if (!customer) return { ok: false, error: "You are not signed in." };
+
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       customer: customer.customerId,
@@ -73,11 +73,11 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
 
 /** Open the Stripe Billing Portal so the user can manage/cancel their plan. */
 export async function openBillingPortal(): Promise<Result> {
-  const customer = await ensureCustomer();
-  if (!customer) return { ok: false, error: "You are not signed in." };
-
   const billing = absolute(dashboardUrl("/billing"), await requestOrigin());
   try {
+    const customer = await ensureCustomer();
+    if (!customer) return { ok: false, error: "You are not signed in." };
+
     const session = await getStripe().billingPortal.sessions.create({
       customer: customer.customerId,
       return_url: billing,

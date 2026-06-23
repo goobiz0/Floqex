@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { FlowArrow, TerminalWindow, WebhooksLogo } from "@phosphor-icons/react";
+import { BacktestingTimelapse } from "@/components/marketing/visuals/backtesting-timelapse";
 
 const steps = [
   {
@@ -58,6 +59,20 @@ export function HowItWorks() {
             </motion.div>
           ))}
         </div>
+
+        {/* Backtesting Timelapse Visual */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="mt-20 max-w-4xl mx-auto"
+        >
+          <div className="text-center mb-6">
+            <span className="text-sm font-semibold tracking-wide text-fg-subtle uppercase">High-Speed Simulation Engine</span>
+          </div>
+          <BacktestingTimelapse />
+        </motion.div>
       </div>
     </section>
   );
