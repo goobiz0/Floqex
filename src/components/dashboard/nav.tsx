@@ -103,6 +103,8 @@ function MiniLink({ item }: { item: NavItem }) {
   );
 }
 
+import { useSearchParams } from "next/navigation";
+
 /** Collapsible section: a header with a rotating chevron. */
 function Section({
   label,
@@ -135,21 +137,28 @@ function Section({
 }
 
 /** Real accounts with balances. */
-function AccountRow({ account }: { account: NavAccount }) {
+function AccountRow({ account, isActive }: { account: NavAccount; isActive: boolean }) {
+  const pathname = usePathname();
+  // Keep them on the same dashboard page they are on, but swap the account parameter
+  const href = `${pathname}?account=${account.id}`;
+  
   return (
     <Link
-      href="/dashboard/accounts"
-      className="group flex items-center justify-between rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:bg-surface/50"
+      href={href}
+      className={cn(
+        "group flex items-center justify-between rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors",
+        isActive ? "bg-surface text-fg" : "hover:bg-surface/50 text-fg-subtle hover:text-fg"
+      )}
     >
       <div className="flex items-center gap-3 min-w-0">
-        <span className="flex items-center justify-center text-fg-subtle group-hover:text-fg-muted">
-          <Wallet size={18} />
+        <span className={cn("flex items-center justify-center transition-colors", isActive ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")}>
+          <Wallet size={18} weight={isActive ? "fill" : "regular"} />
         </span>
-        <span className="truncate text-[13px] font-medium text-fg-subtle group-hover:text-fg">
+        <span className="truncate text-[13px] font-medium">
           {account.nickname}
         </span>
       </div>
-      <span className="tnum shrink-0 text-[12px] font-medium text-accent">
+      <span className={cn("tnum shrink-0 text-[12px] font-medium", isActive ? "text-accent font-bold" : "text-accent/70")}>
         {formatUSD(account.balance)}
       </span>
     </Link>
@@ -158,20 +167,23 @@ function AccountRow({ account }: { account: NavAccount }) {
 
 /** Desktop sidebar, fixed 240px at lg+. */
 export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
-  const isActive = useIsActive();
+  const isActiveRoute = useIsActive();
+  const searchParams = useSearchParams();
+  const activeAccountId = searchParams.get("account") || (accounts.length > 0 ? accounts[0].id : null);
   
   return (
     <aside className="fixed bottom-0 left-0 top-16 hidden w-64 flex-col border-r border-line bg-base lg:flex">
       <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-6">
         <Section label="Navigate">
-          {NAVIGATE.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(item.href)} />
-          ))}
+          {NAVIGATE.map((item) => {
+            const hrefWithContext = activeAccountId ? `${item.href}?account=${activeAccountId}` : item.href;
+            return <NavLink key={item.href} item={{...item, href: hrefWithContext}} active={isActiveRoute(item.href)} />;
+          })}
         </Section>
 
         <Section label="Accounts and Cards">
           {accounts.map((a) => (
-            <AccountRow key={a.id} account={a} />
+            <AccountRow key={a.id} account={a} isActive={a.id === activeAccountId} />
           ))}
           <Link
             href="/dashboard/accounts"
@@ -185,9 +197,10 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
         </Section>
 
         <Section label="More">
-          {MORE.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(item.href)} />
-          ))}
+          {MORE.map((item) => {
+            const hrefWithContext = activeAccountId ? `${item.href}?account=${activeAccountId}` : item.href;
+            return <NavLink key={item.href} item={{...item, href: hrefWithContext}} active={isActiveRoute(item.href)} />;
+          })}
           <button className="group flex w-full items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-[13px] font-medium text-fg-subtle transition-colors hover:bg-surface/50 hover:text-fg">
             <span className="flex items-center justify-center text-fg-subtle group-hover:text-fg-muted">
               <Moon size={18} />

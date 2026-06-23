@@ -161,7 +161,7 @@ async function getAgentEvents(accountId: string): Promise<AgentEventRow[]> {
   }
 }
 
-export async function getOverviewData(): Promise<OverviewData> {
+export async function getOverviewData(accountId?: string): Promise<OverviewData> {
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY_OVERVIEW;
@@ -169,11 +169,19 @@ export async function getOverviewData(): Promise<OverviewData> {
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
-        accounts: { take: 1, orderBy: { createdAt: "asc" }, include: { bot: true } },
+        accounts: { 
+          orderBy: { createdAt: "asc" }, 
+          include: { bot: true } 
+        },
       },
     });
 
-    const account = user?.accounts[0];
+    if (!user || user.accounts.length === 0) return EMPTY_OVERVIEW;
+
+    const account = accountId 
+      ? user.accounts.find(a => a.id === accountId) || user.accounts[0]
+      : user.accounts[0];
+
     if (!account) return EMPTY_OVERVIEW;
 
     const [trades, summaries, openTrade, agentEvents] = await Promise.all([
@@ -223,17 +231,22 @@ export async function getOverviewData(): Promise<OverviewData> {
 }
 
 /** Closed trades + daily summaries for the user's account (journal/analytics/settings). */
-export async function getTradeData(): Promise<TradeData> {
+export async function getTradeData(accountId?: string): Promise<TradeData> {
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY_TRADES;
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { accounts: { take: 1, orderBy: { createdAt: "asc" } } },
+      include: { accounts: { orderBy: { createdAt: "asc" } } },
     });
 
-    const account = user?.accounts[0];
+    if (!user || user.accounts.length === 0) return EMPTY_TRADES;
+
+    const account = accountId 
+      ? user.accounts.find(a => a.id === accountId) || user.accounts[0]
+      : user.accounts[0];
+
     if (!account) return EMPTY_TRADES;
 
     const [trades, summaries] = await Promise.all([
@@ -277,6 +290,7 @@ export type AdjustmentRow = {
 
 export type StrategyData = {
   hasStrategy: boolean;
+  accountId: string | null;
   params: StrategyParams | null;
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
@@ -286,6 +300,7 @@ export type StrategyData = {
 
 const EMPTY_STRATEGY: StrategyData = {
   hasStrategy: false,
+  accountId: null,
   params: null,
   changeLog: [],
   pending: [],
@@ -326,7 +341,7 @@ function serializeAdjustment(a: DbAdjustment): AdjustmentRow {
 }
 
 /** The user's strategy params, change log, pending suggestions, and auto-adjust meter. */
-export async function getStrategyData(): Promise<StrategyData> {
+export async function getStrategyData(accountId?: string): Promise<StrategyData> {
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY_STRATEGY;
@@ -334,15 +349,21 @@ export async function getStrategyData(): Promise<StrategyData> {
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
-        accounts: { take: 1, orderBy: { createdAt: "asc" }, include: { bot: true } },
+        accounts: { orderBy: { createdAt: "asc" }, include: { bot: true } },
         strategies: { take: 1, orderBy: { createdAt: "asc" } },
       },
     });
 
-    const bot = user?.accounts[0]?.bot ?? null;
+    if (!user) return EMPTY_STRATEGY;
+
+    const account = accountId 
+      ? user.accounts.find(a => a.id === accountId) || user.accounts[0]
+      : user.accounts[0];
+
+    const bot = account?.bot ?? null;
     const strategy = bot
       ? await prisma.strategy.findUnique({ where: { id: bot.strategyId } })
-      : (user?.strategies[0] ?? null);
+      : (user.strategies[0] ?? null);
     if (!strategy) return EMPTY_STRATEGY;
 
     const adjustments = bot
@@ -355,6 +376,7 @@ export async function getStrategyData(): Promise<StrategyData> {
 
     return {
       hasStrategy: true,
+      accountId: account?.id ?? null,
       params: coerceStrategyParams(strategy.params),
       changeLog: adjustments.filter((a) => a.status !== "PENDING").map(serializeAdjustment),
       pending: adjustments.filter((a) => a.status === "PENDING").map(serializeAdjustment),

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { StrategyLab } from "@/components/dashboard/strategy-lab";
+import { AIOptimizer } from "@/components/dashboard/ai-optimizer";
 import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
 import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Strategy Lab" };
 
-export default async function StrategyPage() {
-  const data = await getStrategyData();
+export default async function StrategyPage(props: { searchParams: Promise<{ account?: string }> }) {
+  const searchParams = await props.searchParams;
+  const data = await getStrategyData(searchParams.account);
 
   return (
     <div className="space-y-4">
@@ -17,6 +19,9 @@ export default async function StrategyPage() {
           Tune the rules within safe bounds. Every change is logged.
         </p>
       </div>
+      
+      {data.accountId && <AIOptimizer activeAccountId={data.accountId} />}
+
       {data.error ? (
         <DashboardError title="Strategy lab unavailable" message="We couldn't load your active strategies or parameters. Please try again." />
       ) : data.hasStrategy && data.params ? (

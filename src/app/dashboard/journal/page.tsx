@@ -6,8 +6,9 @@ import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Journal" };
 
-export default async function JournalPage() {
-  const { hasAccount, trades, summaries, error } = await getTradeData();
+export default async function JournalPage(props: { searchParams: Promise<{ account?: string }> }) {
+  const searchParams = await props.searchParams;
+  const { hasAccount, trades, summaries, error } = await getTradeData(searchParams.account);
 
   return (
     <div className="space-y-4">

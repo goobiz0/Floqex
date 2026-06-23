@@ -11,8 +11,9 @@ import { DashboardPageClient } from "./page-client";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-export default async function DashboardPage() {
-  const data = await getOverviewData();
+export default async function DashboardPage(props: { searchParams: Promise<{ account?: string }> }) {
+  const searchParams = await props.searchParams;
+  const data = await getOverviewData(searchParams.account);
   const { userId } = await auth();
 
   let userNickname = "User";
