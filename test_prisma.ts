@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-process.env.DATABASE_URL = "postgresql://postgres:z5b4O%294TK0l%3A@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+process.env.DATABASE_URL = "postgresql://postgres:z5b4O%294TK0l%3A@db.fisqjoalatwvddzityww.supabase.co:6543/postgres?pgbouncer=true";
 
 async function run() {
   const user = await prisma.user.findFirst({
