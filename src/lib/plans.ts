@@ -5,11 +5,12 @@
  * live modes can differ; the defaults are the current Stripe (test) prices.
  */
 
-export type Plan = "FREE" | "TRADER" | "PRO";
+export type Plan = "FREE" | "TRADER" | "PRO" | "ELITE";
 
 export const PRICE_IDS = {
   TRADER: process.env.NEXT_PUBLIC_STRIPE_PRICE_TRADER ?? "price_1Tl6eJDfBPHnomO37xRo5dKY",
   PRO: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? "price_1Tl6eSDfBPHnomO3uM9K9M2j",
+  ELITE: process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE ?? "price_1Tl6eYDfBPHnomO3jL1vT4kP",
 } as const;
 
 export type PlanConfig = {
@@ -68,6 +69,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     accountLimit: 10,
     liveTrading: true,
     copyTrading: true,
+    popular: true,
     tagline: "Scale with advanced bots and tooling.",
     features: [
       "Everything in Trader",
@@ -77,18 +79,36 @@ export const PLANS: Record<Plan, PlanConfig> = {
       "Backtesting & API access",
     ],
   },
+  ELITE: {
+    id: "ELITE",
+    name: "Elite",
+    price: 99,
+    priceId: PRICE_IDS.ELITE,
+    accountLimit: 25,
+    liveTrading: true,
+    copyTrading: true,
+    tagline: "Institutional-grade infrastructure.",
+    features: [
+      "25 Active Bots",
+      "Ultra-low latency execution",
+      "Unlimited backtests",
+      "24/7 dedicated support",
+      "Full API access",
+    ],
+  },
 };
 
-export const PLAN_ORDER: Plan[] = ["FREE", "TRADER", "PRO"];
+export const PLAN_ORDER: Plan[] = ["FREE", "TRADER", "PRO", "ELITE"];
 
 /** True when the price id maps to a known paid tier. Side-effect free (no logging). */
 export function isPaidPriceId(priceId: string | null | undefined): boolean {
-  return priceId === PRICE_IDS.TRADER || priceId === PRICE_IDS.PRO;
+  return priceId === PRICE_IDS.TRADER || priceId === PRICE_IDS.PRO || priceId === PRICE_IDS.ELITE;
 }
 
 /** Map a Stripe price id back to the plan it grants. */
 export function planFromPriceId(priceId: string | null | undefined): Plan {
   if (!priceId) return "FREE";
+  if (priceId === PRICE_IDS.ELITE) return "ELITE";
   if (priceId === PRICE_IDS.PRO) return "PRO";
   if (priceId === PRICE_IDS.TRADER) return "TRADER";
   // A non-null price we don't recognize means env drift or a new product.

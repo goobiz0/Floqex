@@ -10,16 +10,14 @@ type Result = { ok: boolean; error?: string };
 export type OnboardingInput = {
   nickname: string;
   timezone?: string;
-  discordWebhookUrl?: string;
   referralSource?: string;
   experience?: string;
   goal?: string;
+  asset?: string;
   apiKey?: string;
   apiSecret?: string;
   broker?: string;
 };
-
-const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
 
 /**
  * Finish onboarding: provision a real paper account (with its ORB strategy and
@@ -38,11 +36,6 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
   try {
     const user = await getOrCreateUser();
     if (!user) return { ok: false, error: "You are not signed in." };
-
-    const discord = (input.discordWebhookUrl ?? "").trim();
-    if (discord && !DISCORD_WEBHOOK.test(discord)) {
-      return { ok: false, error: "That does not look like a Discord webhook URL." };
-    }
 
     // Create the first account only if the user has none (idempotent).
     const accountCount = await prisma.account.count({ where: { userId: user.id } });
@@ -68,10 +61,10 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
         privateMetadata: {
           onboardedAt: new Date().toISOString(),
           timezone: input.timezone || "America/New_York",
-          discordWebhookUrl: discord || null,
           referralSource: input.referralSource || null,
           experience: input.experience || null,
           goal: input.goal || null,
+          asset: input.asset || null,
         },
       });
 
@@ -123,7 +116,7 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
               "Referral": { select: { name: input.referralSource || "N/A" } },
               "Experience": { select: { name: input.experience || "N/A" } },
               "Goal": { select: { name: input.goal || "N/A" } },
-              "Discord": { url: input.discordWebhookUrl || null }
+              "Asset": { select: { name: input.asset || "N/A" } }
             }
           });
         } catch (notionErr) {

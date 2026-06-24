@@ -32,7 +32,10 @@ type Option = { id: string; label: string; sub?: string };
 const REFERRAL: Option[] = [
   { id: "twitter", label: "X / Twitter", sub: "Seen on the timeline" },
   { id: "youtube", label: "YouTube", sub: "Watched a breakdown" },
-  { id: "friend", label: "Colleague", sub: "Personal recommendation" },
+  { id: "ai", label: "AI Search", sub: "ChatGPT, Claude, Perplexity" },
+  { id: "social", label: "Other Social Media", sub: "Instagram, TikTok, LinkedIn" },
+  { id: "search", label: "Search Engine", sub: "Google, Bing, etc." },
+  { id: "friend", label: "Colleague / Friend", sub: "Personal recommendation" },
   { id: "other", label: "Something else", sub: "Type your response" },
 ];
 
@@ -50,12 +53,19 @@ const GOALS: Option[] = [
   { id: "handsoff", label: "Hands-off investing", sub: "Set it and check in sometimes" },
 ];
 
+const ASSETS: Option[] = [
+  { id: "crypto", label: "Crypto", sub: "Bitcoin, Ethereum, Altcoins" },
+  { id: "forex", label: "Forex", sub: "Major & minor currency pairs" },
+  { id: "equities", label: "Stocks & Options", sub: "US Equities, Index Funds" },
+  { id: "futures", label: "Futures", sub: "Indices, Commodities" },
+];
+
 const TIMEZONES = [
   "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
   "Europe/London", "Europe/Berlin", "Asia/Dubai", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney",
 ];
 
-const STEPS = ["About you", "Experience", "Goal", "Plan", "Account", "Alerts", "Activate"] as const;
+const STEPS = ["About you", "Experience", "Goal", "Assets", "Plan", "Account", "Activate"] as const;
 
 const labelOf = (opts: Option[], id: string) => opts.find((o) => o.id === id)?.label ?? "—";
 
@@ -68,6 +78,7 @@ function OnboardingFlow() {
   const [customReferral, setCustomReferral] = useState("");
   const [experience, setExperience] = useState<string | null>(null);
   const [goal, setGoal] = useState<string | null>(null);
+  const [asset, setAsset] = useState<string | null>(null);
   const [planSelection, setPlanSelection] = useState<Plan>("FREE");
   const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York");
   const [nickname, setNickname] = useState("Main account");
@@ -87,18 +98,18 @@ function OnboardingFlow() {
         if (parsed.customReferral) setCustomReferral(parsed.customReferral);
         if (parsed.experience) setExperience(parsed.experience);
         if (parsed.goal) setGoal(parsed.goal);
+        if (parsed.asset) setAsset(parsed.asset);
         if (parsed.planSelection) setPlanSelection(parsed.planSelection);
         if (parsed.tz) setTz(parsed.tz);
         if (parsed.nickname) setNickname(parsed.nickname);
-        if (parsed.discord) setDiscord(parsed.discord);
         
         // If returning from stripe checkout
         if (searchParams?.get("checkout") === "success") {
-          setStep(4); // Advance to Account step
+          setStep(5); // Advance to Account step
           // clear query param to avoid looping
           router.replace("/onboarding", { scroll: false });
         } else if (searchParams?.get("checkout") === "cancelled") {
-          setStep(3); // Stay on Plan step
+          setStep(4); // Stay on Plan step
           setError("Checkout was cancelled. You can try again or select a Free plan.");
           router.replace("/onboarding", { scroll: false });
         } else if (parsed.step) {
@@ -111,9 +122,9 @@ function OnboardingFlow() {
   // Save state whenever it changes
   useEffect(() => {
     localStorage.setItem("ob_state", JSON.stringify({
-      step, referral, customReferral, experience, goal, planSelection, tz, nickname, discord
+      step, referral, customReferral, experience, goal, asset, planSelection, tz, nickname
     }));
-  }, [step, referral, customReferral, experience, goal, planSelection, tz, nickname, discord]);
+  }, [step, referral, customReferral, experience, goal, asset, planSelection, tz, nickname]);
 
   const last = STEPS.length - 1;
   const isPaid = planSelection !== "FREE";
@@ -124,14 +135,14 @@ function OnboardingFlow() {
     (step === 0 && !!referral && (referral !== "other" || customReferral.trim().length > 0)) ||
     (step === 1 && !!experience) ||
     (step === 2 && !!goal) ||
-    step === 3 || // Plan handled by click
-    (step === 4 && nickname.trim().length > 0 && (!isPaid || (apiKey.trim().length > 0 && apiSecret.trim().length > 0))) ||
-    step === 5 ||
+    (step === 3 && !!asset) ||
+    step === 4 || // Plan handled by click
+    (step === 5 && nickname.trim().length > 0 && (!isPaid || (apiKey.trim().length > 0 && apiSecret.trim().length > 0))) ||
     step === 6;
 
   function advance() {
     setError(null);
-    if (step === 3 && isPaid) {
+    if (step === 4 && isPaid) {
       // Go to Stripe
       startTransition(async () => {
         const res = await startCheckout(planSelection, {
@@ -155,10 +166,10 @@ function OnboardingFlow() {
       const res = await completeOnboarding({
         nickname,
         timezone: tz,
-        discordWebhookUrl: discord,
         referralSource: effectiveReferral ?? undefined,
         experience: experience ?? undefined,
         goal: goal ?? undefined,
+        asset: asset ?? undefined,
         apiKey: isPaid ? apiKey : undefined,
         apiSecret: isPaid ? apiSecret : undefined,
       });
@@ -237,9 +248,15 @@ function OnboardingFlow() {
               )}
 
               {step === 3 && (
+                <Step icon={Wallet} title="Preferred asset class" desc="Which markets are you planning to deploy capital into?">
+                  <SelectGrid options={ASSETS} value={asset} onSelect={(val) => setAsset(val)} columns={2} />
+                </Step>
+              )}
+
+              {step === 4 && (
                 <Step icon={Rocket} title="Choose your path" desc="Upgrade to trade live capital, or start with Paper trading for free.">
                   <div className="grid gap-3 sm:grid-cols-3 mt-4">
-                    {PLAN_ORDER.map((planKey) => {
+                    {PLAN_ORDER.filter(p => p !== "FREE").map((planKey) => {
                       const plan = PLANS[planKey];
                       const selected = planSelection === planKey;
                       return (
@@ -263,7 +280,7 @@ function OnboardingFlow() {
                             <span className="text-[10px] font-medium text-fg-subtle">/mo</span>
                           </div>
                           <ul className="mt-3 flex flex-col gap-1.5 text-[11px] text-fg-subtle">
-                            {plan.features.slice(0, 3).map((f, i) => (
+                            {plan.features.slice(0, 4).map((f, i) => (
                               <li key={i} className="flex items-start gap-1.5 leading-tight">
                                 <Check size={12} className={cn("mt-[1px] shrink-0", selected ? "text-accent" : "text-fg-faint")} weight="bold" />
                                 <span className={selected ? "text-fg" : "text-fg-subtle"}>{f}</span>
@@ -289,7 +306,7 @@ function OnboardingFlow() {
                 </Step>
               )}
 
-              {step === 4 && (
+              {step === 5 && (
                 <Step icon={Wallet} title={isPaid ? "Connect your exchange" : "Your paper account"} desc={isPaid ? "You are on a paid plan. Connect your broker API keys to trade live capital." : "A simulated account so you can watch the bot trade with real market data and zero risk."}>
                   <div className="space-y-4 mt-6">
                     <Field label="Account nickname" id="ob-nickname">
@@ -348,35 +365,15 @@ function OnboardingFlow() {
                 </Step>
               )}
 
-              {step === 5 && (
-                <Step icon={ChatCircleDots} title="Get the decision feed on Discord" desc="Optional. Paste a webhook to receive the bot's narration and milestone alerts directly to your server.">
-                  <div className="mt-6">
-                    <Field label="Discord webhook URL" id="ob-discord" hint="Server Settings → Integrations → Webhooks → Copy URL">
-                      <div className="relative">
-                        <Input
-                          id="ob-discord"
-                          type="url"
-                          value={discord}
-                          onChange={(e) => setDiscord(e.target.value)}
-                          placeholder="https://discord.com/api/webhooks/..."
-                          className="pl-10 h-12 bg-white text-base placeholder:text-fg-faint shadow-[var(--shadow-sm)]"
-                        />
-                        <DiscordLogo weight="fill" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5865F2]" />
-                      </div>
-                    </Field>
-                  </div>
-                </Step>
-              )}
-
               {step === 6 && (
                 <Step icon={Check} title="Activate your bot" desc="It will watch the next session and trade your account automatically, inside its risk guardrails.">
                   <div className="rounded-2xl border border-line bg-white p-5 text-sm shadow-[var(--shadow-sm)] mt-6">
                     <Summary k="Found via" v={referral === "other" ? customReferral : labelOf(REFERRAL, referral ?? "")} />
                     <Summary k="Experience" v={labelOf(EXPERIENCE, experience ?? "")} />
                     <Summary k="Goal" v={labelOf(GOALS, goal ?? "")} />
+                    <Summary k="Assets" v={labelOf(ASSETS, asset ?? "")} />
                     <Summary k="Plan" v={PLANS[planSelection].name} />
-                    <Summary k="Account" v={`${nickname || "Main"} · ${isPaid ? "Live" : "Paper"}`} />
-                    <Summary k="Discord" v={discord ? "Connected" : "Skipped"} last />
+                    <Summary k="Account" v={`${nickname || "Main"} · ${isPaid ? "Live" : "Paper"}`} last />
                   </div>
                 </Step>
               )}
@@ -404,8 +401,8 @@ function OnboardingFlow() {
           
           {step < last ? (
             <Button size="lg" disabled={!canContinue || pending} onClick={advance} className="bg-fg text-sm h-12 px-8 rounded-full shadow-md">
-              {pending ? "Loading..." : step === 3 && isPaid ? "Continue to Payment" : "Continue"}
-              {step !== 3 || !isPaid ? <ArrowRight size={16} weight="bold" className="ml-2" /> : null}
+              {pending ? "Loading..." : step === 4 && isPaid ? "Continue to Payment" : "Continue"}
+              {step !== 4 || !isPaid ? <ArrowRight size={16} weight="bold" className="ml-2" /> : null}
             </Button>
           ) : (
             <Button size="lg" disabled={pending} onClick={activate} className="bg-accent text-on-accent hover:bg-accent-hover shadow-lg shadow-accent/20 h-12 px-8 rounded-full">
