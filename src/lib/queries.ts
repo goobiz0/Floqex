@@ -224,7 +224,8 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
       agentEvents,
       error: false,
     };
-  } catch {
+  } catch (err) {
+    console.error("Error in getOverviewData:", err);
     return { ...EMPTY_OVERVIEW, error: true };
   }
 }
@@ -385,7 +386,8 @@ export async function getStrategyData(accountId?: string): Promise<StrategyData>
       plan: (user.plan as Plan) || "FREE",
       error: false,
     };
-  } catch {
+  } catch (err) {
+    console.error("Error in getStrategyData:", err);
     return { ...EMPTY_STRATEGY, error: true };
   }
 }
