@@ -14,7 +14,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatUSD } from "@/lib/utils";
+
 import { DisplayValue } from "@/components/ui/display-value";
 import { DashboardEmpty, DashboardError } from "@/components/dashboard/states";
 import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";

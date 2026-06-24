@@ -348,6 +348,7 @@ export function SettingsView({
                 />
               </div>
               <div className="flex items-center justify-between py-4">
+                <div>
                   <p className="text-sm font-medium text-fg flex items-center gap-2">
                     Privacy Mode {isPrivacyMode ? <EyeSlash size={14} className="text-fg-subtle" /> : <Eye size={14} className="text-fg-subtle" />}
                   </p>
