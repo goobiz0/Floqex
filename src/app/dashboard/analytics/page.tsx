@@ -21,7 +21,7 @@ const usd0 = (n: number) => formatUSD(n).replace(".00", "");
 
 export default async function AnalyticsPage(props: { searchParams: Promise<{ account?: string }> }) {
   const searchParams = await props.searchParams;
-  const { hasAccount, trades, error } = await getTradeData(searchParams.account);
+  const { hasAccount, trades, summaries, error } = await getTradeData(searchParams.account);
   const m = summaryMetrics(trades);
 
   const header = (

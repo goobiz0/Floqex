@@ -92,9 +92,23 @@ type NotificationSettings = {
 import { generateMcpKey } from "@/app/dashboard/settings/actions";
 import { usePrivacy } from "@/components/privacy-provider";
 import { useDisplayMode } from "@/components/display-provider";
-import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown } from "@phosphor-icons/react";
+import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown, Question } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import { Dropdown } from "@/components/ui/dropdown";
+
+function InfoTooltip({ text }: { text: React.ReactNode }) {
+  if (!text) return null;
+  return (
+    <span className="group relative inline-flex items-center justify-center cursor-help ml-1.5 align-middle">
+      <Question size={14} className="text-fg-subtle hover:text-fg transition-colors" />
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-[var(--radius-card)] bg-elevated border border-line p-2.5 text-xs font-medium text-fg opacity-0 transition-all duration-200 group-hover:opacity-100 shadow-[var(--shadow-md)] whitespace-normal text-left leading-relaxed translate-y-1 group-hover:translate-y-0">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-line" />
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-[4px] border-transparent border-t-elevated -mt-[2px]" />
+      </span>
+    </span>
+  );
+}
 
 export function SettingsView({
   trades,
@@ -260,10 +274,10 @@ export function SettingsView({
           <Card className="p-5">
             <CardTitle>Global Risk Controls</CardTitle>
             <div className="mt-4 space-y-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center">
                   <p className="text-sm font-medium text-fg">Global Kill Switch</p>
-                  <p className="mt-1 text-xs text-fg-subtle">Immediately halt all trading across all connected broker accounts.</p>
+                  <InfoTooltip text="Immediately halt all trading across all connected broker accounts." />
                 </div>
                 <Switch checked={globalKillSwitch} onChange={setGlobalKillSwitch} label="Global Kill Switch" />
               </div>
@@ -321,16 +335,16 @@ export function SettingsView({
             <CardTitle>Theme & Display</CardTitle>
             <div className="mt-4 divide-y divide-line border-t border-line">
               <div className="flex items-center justify-between py-4">
-                <div>
+                <div className="flex items-center">
                   <p className="text-sm font-medium text-fg">Application Theme</p>
-                  <p className="text-xs text-fg-subtle">Floqex is designed for dark mode, but you can toggle light mode here.</p>
+                  <InfoTooltip text="Floqex is designed for dark mode, but you can toggle light mode here." />
                 </div>
                 <ThemeToggle />
               </div>
               <div className="flex items-center justify-between py-4">
-                <div>
+                <div className="flex items-center">
                   <p className="text-sm font-medium text-fg">P&L Display Mode</p>
-                  <p className="text-xs text-fg-subtle">Choose how P&L values are shown across the platform.</p>
+                  <InfoTooltip text="Choose how P&L values are shown across the platform." />
                 </div>
                 <Dropdown
                   align="right"
@@ -348,11 +362,11 @@ export function SettingsView({
                 />
               </div>
               <div className="flex items-center justify-between py-4">
-                <div>
+                <div className="flex items-center">
                   <p className="text-sm font-medium text-fg flex items-center gap-2">
                     Privacy Mode {isPrivacyMode ? <EyeSlash size={14} className="text-fg-subtle" /> : <Eye size={14} className="text-fg-subtle" />}
                   </p>
-                  <p className="text-xs text-fg-subtle">Blur sensitive financial data and personal info.</p>
+                  <InfoTooltip text="Blur sensitive financial data and personal info." />
                 </div>
                 <Switch checked={isPrivacyMode} onChange={togglePrivacyMode} label="Privacy Mode" />
               </div>
@@ -428,10 +442,10 @@ export function SettingsView({
             <div className="mt-5 space-y-5 border-t border-line pt-5">
               <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" value={dailyLoss} onChange={setDailyLoss} />
               <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" value={drawdown} onChange={setDrawdown} />
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center">
                   <p className="text-sm font-medium text-fg">Notify on every trade</p>
-                  <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
+                  <InfoTooltip text="Off by default to avoid noise." />
                 </div>
                 <Switch checked={notifyEveryTrade} onChange={setNotifyEveryTrade} label="Notify on every trade" />
               </div>
@@ -559,9 +573,9 @@ function Channel({
 }) {
   return (
     <div className="flex items-center justify-between py-3">
-      <div>
+      <div className="flex items-center">
         <p className="text-sm font-medium text-fg">{label}</p>
-        <p className="text-xs text-fg-subtle">{desc}</p>
+        <InfoTooltip text={desc} />
       </div>
       <Switch checked={checked} onChange={onChange} label={label} />
     </div>
@@ -584,8 +598,13 @@ function Threshold({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between py-2">
+      <div>
+        <Label htmlFor={id} className="flex items-center text-sm font-medium text-fg">
+          {label}
+          <InfoTooltip text={help} />
+        </Label>
+      </div>
       <Input
         id={id}
         type="number"
@@ -595,7 +614,6 @@ function Threshold({
         trailing={suffix}
         className="tnum w-32"
       />
-      <p className="text-xs text-fg-subtle">{help}</p>
     </div>
   );
 }
