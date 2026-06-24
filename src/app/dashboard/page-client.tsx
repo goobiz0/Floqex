@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { DisplayValue } from "@/components/ui/display-value";
-import { DashboardEmpty, DashboardError } from "@/components/dashboard/states";
+import { DashboardError } from "@/components/dashboard/states";
 import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 
 import { WidgetGrid, WidgetItem } from "@/components/dashboard/widget-grid";
