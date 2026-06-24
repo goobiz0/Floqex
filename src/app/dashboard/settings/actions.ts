@@ -11,9 +11,15 @@ export type NotificationPrefs = {
   notifyDiscord: boolean;
   notifyEmail: boolean;
   notifyPush: boolean;
+  notifySms: boolean;
+  smsNumber: string;
+  notifyCustomWebhook: boolean;
+  customWebhookUrl: string;
   notifyEveryTrade: boolean;
   dailyLossAlertPct: number;
   drawdownAlertPct: number;
+  globalKillSwitch: boolean;
+  maxGlobalDrawdown: number;
 };
 
 const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
@@ -43,9 +49,15 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
         notifyDiscord: prefs.notifyDiscord,
         notifyEmail: prefs.notifyEmail,
         notifyPush: prefs.notifyPush,
+        notifySms: prefs.notifySms,
+        smsNumber: prefs.smsNumber,
+        notifyCustomWebhook: prefs.notifyCustomWebhook,
+        customWebhookUrl: prefs.customWebhookUrl,
         notifyEveryTrade: prefs.notifyEveryTrade,
         dailyLossAlertPct: clampPct(prefs.dailyLossAlertPct, 0, 100),
         drawdownAlertPct: clampPct(prefs.drawdownAlertPct, 0, 100),
+        globalKillSwitch: prefs.globalKillSwitch,
+        maxGlobalDrawdown: clampPct(prefs.maxGlobalDrawdown, 0, 100),
       },
     });
     return { ok: true };

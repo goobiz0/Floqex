@@ -19,8 +19,8 @@ export function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 ease-in-out border border-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        checked ? "bg-accent" : "bg-line-strong",
+        "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 ease-in-out border border-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-profit",
+        checked ? "bg-profit" : "bg-line-strong",
       )}
     >
       <span

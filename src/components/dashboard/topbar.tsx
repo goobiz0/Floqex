@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gear, Star, HandPalm } from "@phosphor-icons/react/dist/ssr";
+import { Gear, Star, HandPalm, Question } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getRecentNotifications } from "@/lib/queries";
@@ -67,6 +67,8 @@ export async function Topbar() {
     }
   }
 
+  const hasRunningBots = user?.accounts?.some(a => a.bot?.status === "RUNNING") ?? false;
+
   return (
     <header className="fixed inset-x-0 top-0 z-40 h-16 bg-base/80 backdrop-blur-md border-b border-line/50">
       <div className="flex h-full items-center justify-between px-4 lg:px-8">
@@ -111,7 +113,7 @@ export async function Topbar() {
 
         {/* Right cluster */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <EStopWidget />
+          <EStopWidget hasRunningBots={hasRunningBots} />
 
           <NotificationsBell items={notifications} />
           
@@ -119,9 +121,10 @@ export async function Topbar() {
             href="/docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-fg-muted hover:text-fg hover:bg-surface px-3 py-1.5 rounded-full transition-colors"
+            aria-label="Documentation"
+            className="hidden h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg sm:inline-flex"
           >
-            Docs
+            <Question size={18} />
           </Link>
 
           <Link

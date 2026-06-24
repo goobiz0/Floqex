@@ -1,4 +1,3 @@
-"use client";
 
 import { Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";

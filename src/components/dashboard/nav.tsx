@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -73,23 +74,29 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       rel={isDocs ? "noopener noreferrer" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-[13px] font-medium transition-colors",
-        active
-          ? "bg-surface text-fg"
-          : "text-fg-subtle hover:bg-surface/50 hover:text-fg",
+        "group relative flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-[13px] font-medium transition-colors hover:text-fg",
+        active ? "text-fg" : "text-fg-subtle",
+        !active && "hover:bg-surface/50"
       )}
     >
+      {active && (
+        <motion.div
+          layoutId="sidebar-active-pill"
+          className="absolute inset-0 rounded-[var(--radius-pill)] bg-surface"
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        />
+      )}
       <span
         className={cn(
-          "flex items-center justify-center transition-colors",
+          "relative z-10 flex items-center justify-center transition-colors",
           active ? "text-fg" : "text-fg-subtle group-hover:text-fg-muted",
         )}
       >
         <Icon size={18} weight={active ? "fill" : "regular"} />
       </span>
-      <span className="flex-1 truncate">{item.label}</span>
+      <span className="relative z-10 flex-1 truncate">{item.label}</span>
       {active ? (
-        <CaretRight size={14} weight="bold" className="shrink-0 text-fg-subtle" />
+        <CaretRight size={14} weight="bold" className="relative z-10 shrink-0 text-fg-subtle" />
       ) : null}
     </Link>
   );
@@ -150,11 +157,19 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
     <Link
       href={href}
       className={cn(
-        "group flex items-center justify-between rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors",
-        isActive ? "bg-surface text-fg" : "hover:bg-surface/50 text-fg-subtle hover:text-fg"
+        "group relative flex items-center justify-between rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:text-fg",
+        isActive ? "text-fg" : "text-fg-subtle",
+        !isActive && "hover:bg-surface/50"
       )}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      {isActive && (
+        <motion.div
+          layoutId="account-active-pill"
+          className="absolute inset-0 rounded-[var(--radius-pill)] bg-surface"
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        />
+      )}
+      <div className="relative z-10 flex items-center gap-3 min-w-0">
         <span className={cn("flex items-center justify-center transition-colors", isActive ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")}>
           <Wallet size={18} weight={isActive ? "fill" : "regular"} />
         </span>
@@ -162,7 +177,7 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
           {account.nickname}
         </span>
       </div>
-      <span className={cn("tnum shrink-0 text-[12px] font-medium", isActive ? "text-accent font-bold" : "text-accent/70")}>
+      <span className={cn("relative z-10 tnum shrink-0 text-[12px] font-medium", isActive ? "text-accent font-bold" : "text-accent/70")}>
         {formatUSD(account.balance)}
       </span>
     </Link>
@@ -239,7 +254,7 @@ function UserProfileBlock() {
     <div className="rounded-[var(--radius-card)] bg-surface p-3">
       <div className="flex items-center gap-3">
         {user.imageUrl ? (
-          <Image src={user.imageUrl} alt={name} width={40} height={40} className="rounded-full object-cover shadow-sm" />
+          <Image src={user.imageUrl} alt={name} width={40} height={40} className="rounded-full object-cover shadow-[var(--shadow-sm)]" />
         ) : (
           <div className="h-10 w-10 rounded-full bg-accent-soft flex items-center justify-center text-accent font-medium text-sm">
             {name.charAt(0).toUpperCase()}

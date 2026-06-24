@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
 import { dailyPnl, type TradeRow, type DailyRow } from "@/lib/metrics";
 import { cn, formatUSD } from "@/lib/utils";
+import { TradeReplay } from "./trade-replay";
 
 type TradeFilter = "all" | "wins" | "losses";
 
@@ -32,6 +33,7 @@ export function JournalView({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [active, setActive] = useState<TradeRow | null>(null);
   const [filter, setFilter] = useState<TradeFilter>("all");
+  const [density, setDensity] = useState<"compact" | "comfortable">("comfortable");
   const pnlByDay = useMemo(() => dailyPnl(summaries), [summaries]);
 
   // Show the most recent month that has data (or the current month if empty).
@@ -142,7 +144,7 @@ export function JournalView({
               {rows.length}
             </Badge>
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex items-center justify-between">
             <Segmented
               size="sm"
               options={[
@@ -153,6 +155,13 @@ export function JournalView({
               value={filter}
               onChange={setFilter}
             />
+            <button
+              type="button"
+              onClick={() => setDensity(d => d === "compact" ? "comfortable" : "compact")}
+              className="text-[11px] font-medium text-fg-subtle hover:text-fg transition-colors rounded-[var(--radius-pill)] bg-surface px-2 py-1"
+            >
+              {density === "compact" ? "Comfortable View" : "Compact View"}
+            </button>
           </div>
         </div>
         <ul className="max-h-[520px] divide-y divide-line overflow-y-auto">
@@ -164,7 +173,10 @@ export function JournalView({
                 <button
                   type="button"
                   onClick={() => setActive(t)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface/60"
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 text-left transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:bg-surface/80 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset rounded-sm",
+                    density === "compact" ? "py-1.5" : "py-2.5"
+                  )}
                 >
                   <span
                     className={cn(
@@ -287,6 +299,15 @@ function TradeDetail({ trade, onClose }: { trade: TradeRow | null; onClose: () =
                 className="mt-5 w-full rounded-[var(--radius-control)] border border-line"
               />
             )}
+
+            <div className="mt-5">
+              <p className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">
+                Trade Replay Tape
+              </p>
+              <div className="mt-2">
+                <TradeReplay trade={trade} />
+              </div>
+            </div>
 
             <div className="mt-5">
               <p className="text-xs font-medium uppercase tracking-[0.1em] text-fg-subtle">

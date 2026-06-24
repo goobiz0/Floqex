@@ -50,12 +50,12 @@ export function BillingPlans({
             <div
               key={id}
               className={cn(
-                "relative flex flex-col rounded-[var(--radius-card)] border p-6 overflow-hidden",
+                "relative flex flex-col rounded-[var(--radius-card)] border p-6 overflow-visible mt-3 lg:mt-0",
                 isCurrent ? "border-accent/60 bg-base" : "border-line bg-elevated",
               )}
             >
-              {isCurrent && (
-                <div className="absolute inset-0 z-0 bg-gradient-to-l from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
+              {isCurrent && plan.name !== 'Free' && (
+                <div className="absolute inset-0 z-0 bg-gradient-to-l from-profit/10 via-transparent to-transparent pointer-events-none rounded-[var(--radius-card)]" />
               )}
               {isCurrent && (
                 <span className="absolute -top-3 left-6 rounded-[var(--radius-pill)] bg-accent px-2.5 py-0.5 text-xs font-medium text-[var(--color-on-accent)] z-10">
@@ -71,21 +71,36 @@ export function BillingPlans({
 
               <div className="mt-5">
                 {isCurrent ? (
-                  hasCustomer && plan.price > 0 ? (
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      className="w-full"
-                      disabled={pending}
-                      onClick={() => go(openBillingPortal)}
-                    >
-                      Manage billing
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" size="md" className="w-full" disabled>
-                      Current plan
-                    </Button>
-                  )
+                  <div className="space-y-4">
+                    {hasCustomer && plan.price > 0 ? (
+                      <Button
+                        variant="secondary"
+                        size="md"
+                        className="w-full relative z-10"
+                        disabled={pending}
+                        onClick={() => go(openBillingPortal)}
+                      >
+                        Manage billing
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" size="md" className="w-full relative z-10" disabled>
+                        Current plan
+                      </Button>
+                    )}
+                    
+                    <div className="relative z-10 rounded-[var(--radius-control)] border border-line bg-base/40 p-3">
+                      <p className="mb-2 flex items-center justify-between text-xs font-medium text-fg">
+                        <span>API Usage</span>
+                        <span className="tnum">14,230 / {plan.name === 'Free' ? '50,000' : plan.name === 'Pro' ? '250,000' : 'Unlimited'}</span>
+                      </p>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+                        <div 
+                          className="h-full rounded-full bg-accent" 
+                          style={{ width: plan.name === 'Unlimited' ? '5%' : plan.name === 'Pro' ? '5.6%' : '28.4%' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ) : isUpgrade ? (
                   <Button
                     size="md"

@@ -13,7 +13,7 @@ export function AnimatedOrbs() {
   if (!mounted) {
     return (
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-multiply">
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-300 blur-[100px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-300 blur-[100px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-emerald-300 blur-[120px]" />
       </div>
     );
@@ -33,7 +33,7 @@ export function AnimatedOrbs() {
             ease: "easeInOut",
             repeat: Infinity,
           }}
-          className="absolute top-[-5%] left-[-5%] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-indigo-400/70 to-purple-400/70 blur-[80px]"
+          className="absolute top-[-5%] left-[-5%] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-blue-400/70 to-blue-300/70 blur-[80px]"
         />
         <motion.div
           animate={{

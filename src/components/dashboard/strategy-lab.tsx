@@ -2,13 +2,14 @@
 
 import { useId, useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, X } from "@phosphor-icons/react";
+import { Check, X, Plus } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { EquityCurve } from "./equity-curve";
 import {
   PARAM_BOUNDS,
   PARAM_LABELS,
@@ -76,6 +77,26 @@ export function StrategyLab({
     [params, saved],
   );
 
+  const customKeys = useMemo(
+    () => Object.keys(params).filter((k) => !(k in PARAM_LABELS)),
+    [params]
+  );
+
+  const simulatedSeries = useMemo(() => {
+    let equity = 10000;
+    const series = [{ date: "Start", equity }];
+    const trades = 30;
+    // Basic simulation logic based on strategy params
+    const winRate = Math.max(0.2, 0.8 - (params.rrTarget * 0.1)); 
+    for(let i=0; i<trades; i++) {
+       const win = Math.random() < winRate;
+       if (win) equity += equity * (params.riskPct / 100) * params.rrTarget;
+       else equity -= equity * (params.riskPct / 100);
+       series.push({ date: `Trade ${i+1}`, equity });
+    }
+    return series;
+  }, [params]);
+
   const activePaidFeatures = useMemo(() => {
     const features = [];
     if (params.trendFilter) features.push("Trend Filter (AI SMA)");
@@ -107,9 +128,9 @@ export function StrategyLab({
         .filter((k) => prev[k] !== snapshot[k])
         .map((k) => ({
           id: `local-${k}-${now}`,
-          param: PARAM_LABELS[k],
-          old: formatParamValue(k, prev[k]),
-          next: formatParamValue(k, snapshot[k]),
+          param: PARAM_LABELS[k as keyof typeof PARAM_LABELS] || k,
+          old: formatParamValue(k as keyof StrategyParams, prev[k]),
+          next: formatParamValue(k as keyof StrategyParams, snapshot[k]),
           source: "USER" as const,
           time: fmtDate(now),
         }));
@@ -184,10 +205,58 @@ export function StrategyLab({
           <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Log whether each trade agreed with the 20-period trend." />
           <ToggleField label={PARAM_LABELS.reEntry} value={params.reEntry} onChange={(v) => set("reEntry", v)} help="Wait for a pullback inside the range before re-entering." />
         </Group>
+
+        <Group title="Custom parameters">
+          <div className="space-y-4">
+            {customKeys.map((k) => (
+              <div key={k} className="flex items-end gap-3">
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor={`custom-${k}`}>{k}</Label>
+                  <Input
+                    id={`custom-${k}`}
+                    type="number"
+                    value={params[k] as number}
+                    onChange={(e) => set(k as any, Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="mb-0.5 shrink-0" 
+                  onClick={() => {
+                    const p = { ...params };
+                    delete p[k];
+                    setParams(p);
+                  }}
+                >
+                  <X size={16} />
+                </Button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const newKey = `customParam${customKeys.length + 1}`;
+                set(newKey as any, 0);
+              }}
+            >
+              <Plus size={14} className="mr-1" /> Add Parameter
+            </Button>
+          </div>
+        </Group>
       </div>
 
       {/* Side: change log + learning */}
       <div className="space-y-4">
+        <Card className="p-5">
+          <CardTitle>Sandbox Preview</CardTitle>
+          <div className="mt-4">
+            <EquityCurve series={simulatedSeries} />
+          </div>
+        </Card>
+
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <CardTitle>Change log</CardTitle>

@@ -19,6 +19,7 @@ export type StrategyParams = {
   maxTrades: number;
   trendFilter: boolean;
   reEntry: boolean;
+  [key: string]: any;
 };
 
 export type NumericParam =
@@ -154,6 +155,14 @@ export function parseStrategyParams(
 
   out.trendFilter = Boolean(o.trendFilter);
   out.reEntry = Boolean(o.reEntry);
+  
+  // Custom parameters
+  for (const key of Object.keys(o)) {
+    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry") {
+      out[key] = o[key];
+    }
+  }
+
   return { ok: true, params: out };
 }
 
@@ -173,6 +182,13 @@ export function coerceStrategyParams(input: unknown): StrategyParams {
   }
   if (typeof o.trendFilter === "boolean") out.trendFilter = o.trendFilter;
   if (typeof o.reEntry === "boolean") out.reEntry = o.reEntry;
+
+  for (const key of Object.keys(o)) {
+    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry") {
+      out[key] = o[key];
+    }
+  }
+
   return out;
 }
 
@@ -206,8 +222,8 @@ export function applyRawParam(
   key: string | null,
   raw: string,
 ): { ok: true; params: StrategyParams } | { ok: false; error: string } {
-  if (!key || !(key in PARAM_LABELS)) {
-    return { ok: false, error: "This suggestion can't be applied automatically." };
+  if (!key) {
+    return { ok: false, error: "Missing parameter key." };
   }
   const k = key as keyof StrategyParams;
   return parseStrategyParams({ ...current, [k]: parseRawParamValue(k, raw) });

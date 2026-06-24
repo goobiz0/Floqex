@@ -1,45 +1,55 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
-import { Children, ReactNode, isValidElement } from "react";
+import { useEffect, useRef, Children, isValidElement, ReactNode } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 
 export function AboutClientMotion({ children, className }: { children: ReactNode; className?: string }) {
-  const reduceMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  if (reduceMotion) {
-    return <div className={className}>{children}</div>;
-  }
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const el = containerRef.current;
+
+    if (!el) return;
+
+    if (reduce) {
+      gsap.set(el.children, { opacity: 1, y: 0 });
+      return;
+    }
+
+    // Initial state for children
+    gsap.set(el.children, { opacity: 0, y: 30 });
+
+    const ctx = gsap.context(() => {
+      gsap.to(el.children, {
+        opacity: 1,
+        y: 0,
+        duration: 0.7,
+        stagger: 0.15,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: el,
+          start: "top 85%",
+          toggleActions: "play none none none",
+          once: true,
+        },
+      });
+    }, el);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
-      variants={{
-        hidden: {},
-        visible: {
-          transition: {
-            staggerChildren: 0.15,
-          },
-        },
-      }}
-    >
+    <div ref={containerRef} className={className}>
       {Children.map(children, (child) => {
         if (isValidElement(child)) {
-          return (
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 30 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } },
-              }}
-            >
-              {child}
-            </motion.div>
-          );
+          return <div>{child}</div>;
         }
         return child;
       })}
-    </motion.div>
+    </div>
   );
 }

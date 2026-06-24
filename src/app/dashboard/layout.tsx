@@ -6,6 +6,7 @@ import { getNavAccounts } from "@/lib/queries";
 import { Sidebar, BottomNav } from "@/components/dashboard/nav";
 import { Topbar } from "@/components/dashboard/topbar";
 import { MochiChat } from "@/components/dashboard/mochi-chat";
+import { IdleTimeout } from "@/components/auth/idle-timeout";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Force onboarding until the user has provisioned an account. A brand-new user
@@ -34,6 +35,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <div className="min-h-[100dvh] bg-base">
+      <IdleTimeout />
       <div aria-hidden className="aurora pointer-events-none fixed inset-0 -z-10 opacity-70" />
       <Topbar />
       <Sidebar accounts={navAccounts} />

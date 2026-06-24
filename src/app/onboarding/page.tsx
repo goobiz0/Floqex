@@ -173,7 +173,7 @@ function OnboardingFlow() {
   }
 
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#FAFAFA] text-slate-900 font-sans selection:bg-emerald-500/20 selection:text-emerald-900">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-base text-fg font-sans selection:bg-accent/20 selection:text-accent-foreground">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-100/40 via-purple-100/20 to-transparent" />
       <div aria-hidden className="grid-faint pointer-events-none absolute inset-0 -z-10 opacity-20" />
 
@@ -250,23 +250,23 @@ function OnboardingFlow() {
                           className={cn(
                             "group relative flex flex-col items-start rounded-2xl border-2 p-4 text-left transition-all duration-300",
                             selected 
-                              ? "border-accent bg-emerald-50/50 shadow-sm" 
+                              ? "border-accent bg-accent/5 shadow-[var(--shadow-sm)]" 
                               : "border-line bg-white hover:border-line-strong"
                           )}
                         >
                           <div className="flex w-full items-center justify-between">
-                            <h3 className={cn("font-bold text-sm", selected ? "text-emerald-700" : "text-fg")}>{plan.name}</h3>
+                            <h3 className={cn("font-bold text-sm", selected ? "text-accent" : "text-fg")}>{plan.name}</h3>
                             {plan.popular && <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Popular</span>}
                           </div>
                           <div className="mt-2 flex items-baseline gap-0.5">
-                            <span className={cn("text-xl font-black tracking-tight", selected ? "text-emerald-700" : "text-fg")}>${plan.price}</span>
+                            <span className={cn("text-xl font-black tracking-tight", selected ? "text-accent" : "text-fg")}>${plan.price}</span>
                             <span className="text-[10px] font-medium text-fg-subtle">/mo</span>
                           </div>
                           <ul className="mt-3 flex flex-col gap-1.5 text-[11px] text-fg-subtle">
                             {plan.features.slice(0, 3).map((f, i) => (
                               <li key={i} className="flex items-start gap-1.5 leading-tight">
                                 <Check size={12} className={cn("mt-[1px] shrink-0", selected ? "text-accent" : "text-fg-faint")} weight="bold" />
-                                <span className={selected ? "text-emerald-900" : "text-fg-subtle"}>{f}</span>
+                                <span className={selected ? "text-fg" : "text-fg-subtle"}>{f}</span>
                               </li>
                             ))}
                           </ul>
@@ -299,7 +299,7 @@ function OnboardingFlow() {
                           value={nickname}
                           onChange={(e) => setNickname(e.target.value)}
                           maxLength={40}
-                          className="pl-10 h-12 bg-white text-base shadow-sm"
+                          className="pl-10 h-12 bg-white text-base shadow-[var(--shadow-sm)]"
                         />
                         <TextAa size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
                       </div>
@@ -336,7 +336,7 @@ function OnboardingFlow() {
                           id="ob-timezone"
                           value={tz}
                           onChange={(e) => setTz(e.target.value)}
-                          className="w-full appearance-none rounded-xl border border-line bg-white h-12 pl-10 pr-4 text-base text-fg focus-visible:border-accent focus-visible:outline-none transition-colors shadow-sm"
+                          className="w-full appearance-none rounded-xl border border-line bg-white h-12 pl-10 pr-4 text-base text-fg focus-visible:border-accent focus-visible:outline-none transition-colors shadow-[var(--shadow-sm)]"
                         >
                           {TIMEZONES.map((t) => (
                             <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
@@ -359,7 +359,7 @@ function OnboardingFlow() {
                           value={discord}
                           onChange={(e) => setDiscord(e.target.value)}
                           placeholder="https://discord.com/api/webhooks/..."
-                          className="pl-10 h-12 bg-white text-base placeholder:text-fg-faint shadow-sm"
+                          className="pl-10 h-12 bg-white text-base placeholder:text-fg-faint shadow-[var(--shadow-sm)]"
                         />
                         <DiscordLogo weight="fill" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5865F2]" />
                       </div>
@@ -370,7 +370,7 @@ function OnboardingFlow() {
 
               {step === 6 && (
                 <Step icon={Check} title="Activate your bot" desc="It will watch the next session and trade your account automatically, inside its risk guardrails.">
-                  <div className="rounded-2xl border border-line bg-white p-5 text-sm shadow-sm mt-6">
+                  <div className="rounded-2xl border border-line bg-white p-5 text-sm shadow-[var(--shadow-sm)] mt-6">
                     <Summary k="Found via" v={referral === "other" ? customReferral : labelOf(REFERRAL, referral ?? "")} />
                     <Summary k="Experience" v={labelOf(EXPERIENCE, experience ?? "")} />
                     <Summary k="Goal" v={labelOf(GOALS, goal ?? "")} />
@@ -474,13 +474,13 @@ function SelectGrid({
             className={cn(
               "group flex items-center justify-between gap-4 rounded-2xl border-2 px-4 py-3.5 text-left transition-all duration-200",
               selected
-                ? "border-accent bg-emerald-50/50 shadow-sm"
+                ? "border-accent bg-accent/5 shadow-[var(--shadow-sm)]"
                 : "border-line hover:border-line-strong bg-white hover:bg-surface/50"
             )}
           >
             <span className="min-w-0">
-              <span className={cn("block text-[15px] font-semibold transition-colors", selected ? "text-emerald-800" : "text-fg")}>{o.label}</span>
-              {o.sub && <span className={cn("mt-0.5 block text-[13px] transition-colors", selected ? "text-emerald-700/80" : "text-fg-subtle")}>{o.sub}</span>}
+              <span className={cn("block text-[15px] font-semibold transition-colors", selected ? "text-accent" : "text-fg")}>{o.label}</span>
+              {o.sub && <span className={cn("mt-0.5 block text-[13px] transition-colors", selected ? "text-accent/80" : "text-fg-subtle")}>{o.sub}</span>}
             </span>
             <span
               className={cn(

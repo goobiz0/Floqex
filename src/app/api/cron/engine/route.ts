@@ -8,6 +8,8 @@ import { evaluateOrbStrategy, evaluateExit } from "@/lib/engine/signal-generator
 import { validateRisk } from "@/lib/engine/risk-engine";
 import { executeTrade, closeTrade } from "@/lib/engine/execution-router";
 import { runLearningEngine } from "@/lib/engine/learning-engine";
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
 
 export const runtime = "nodejs";
 
@@ -53,7 +55,28 @@ export async function GET(req: Request) {
           
           if (riskCheck.passed) {
             await executeTrade(bot.id, bot.account.id, signal, riskCheck, "ES");
-            executionLogs.push({ botId: bot.id, action: "TRADE_OPENED", direction: signal.direction });
+            
+            let narrativeText = "";
+            try {
+              const { text } = await generateText({
+                model: google("gemini-1.5-flash"),
+                prompt: `Generate a short, professional trading desk narrative for opening a new ${signal.direction} trade on ES. Strategy parameters allowed this entry. Keep it to one sentence, like an expert bot updating the feed.`,
+              });
+              narrativeText = text.trim();
+            } catch(e) {
+              narrativeText = `Opened ${signal.direction} trade on ES.`;
+            }
+
+            executionLogs.push({ botId: bot.id, action: "TRADE_OPENED", direction: signal.direction, narrative: narrativeText });
+
+            await prisma.agentEvent.create({
+              data: {
+                botId: bot.id,
+                accountId: bot.account.id,
+                kind: "SIGNAL",
+                message: narrativeText,
+              }
+            });
           } else {
             // If circuit breaker tripped, stop the bot
             if (riskCheck.reason === "CIRCUIT_BREAKER_TRIPPED") {
@@ -71,7 +94,34 @@ export async function GET(req: Request) {
         
         if (exitSignal) {
           const pnl = await closeTrade(openTrade.id, bot.account.id, exitSignal.reason, exitSignal.exitPrice);
-          executionLogs.push({ botId: bot.id, action: "TRADE_CLOSED", pnl });
+          
+          let narrativeText = "";
+          try {
+            const { text } = await generateText({
+              model: google("gemini-1.5-flash"),
+              prompt: `Generate a short, professional trading desk narrative for closing a ${openTrade.direction} trade on ${openTrade.instrument}. Exit reason: ${exitSignal.reason}. Net PnL: ${pnl}. Keep it to one sentence, like an expert bot updating the feed.`,
+            });
+            narrativeText = text.trim();
+          } catch(e) {
+            narrativeText = `Closed ${openTrade.direction} trade on ${exitSignal.reason} with ${pnl} PnL.`;
+          }
+
+          executionLogs.push({ botId: bot.id, action: "TRADE_CLOSED", pnl, narrative: narrativeText });
+          
+          await prisma.agentEvent.create({
+            data: {
+              botId: bot.id,
+              accountId: bot.account.id,
+              kind: "TRADE",
+              message: narrativeText,
+              tradeId: openTrade.id,
+            }
+          });
+          
+          await prisma.trade.update({
+            where: { id: openTrade.id },
+            data: { narrative: narrativeText }
+          });
           
           // Self-Optimizing Learning Engine
           // After a trade closes, if the user is on the PRO plan, run the learning engine

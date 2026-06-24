@@ -56,13 +56,19 @@ export function BotsView({ bots, plan }: { bots: BotRow[]; plan: Plan }) {
 
 function BotCard({ bot }: { bot: BotRow }) {
   const [pending, startTransition] = useTransition();
-  const status = STATUS[bot.status];
-  const isRunning = bot.status === "RUNNING";
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic(
+    bot.status,
+    (state, newStatus: BotRow["status"]) => newStatus
+  );
+
+  const status = STATUS[optimisticStatus];
+  const isRunning = optimisticStatus === "RUNNING";
   const pnlTone =
     bot.todayPnl > 0 ? "text-profit" : bot.todayPnl < 0 ? "text-negative" : "text-fg-muted";
 
   function toggle() {
     startTransition(async () => {
+      setOptimisticStatus(isRunning ? "STOPPED" : "RUNNING");
       const res = await toggleBotStatus(bot.accountId);
       if (!res.ok) alert(res.error);
     });

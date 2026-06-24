@@ -1,35 +1,65 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 
 /**
  * Scroll-reveal: fade + rise as the element enters the viewport.
- * Motivated by hierarchy (content arrives in reading order). Reduced-motion safe.
+ * Uses GSAP ScrollTrigger for strict physics and scroll integration.
  */
 export function Reveal({
   children,
   delay = 0,
   className,
-  as = "div",
+  as: Tag = "div",
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
   delay?: number;
   className?: string;
-  as?: "div" | "li" | "section";
+  as?: React.ElementType;
 }) {
-  const reduce = useReducedMotion();
-  const MotionTag = motion[as];
+  const elementRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const el = elementRef.current;
+    
+    if (!el) return;
+
+    if (reduce) {
+      gsap.set(el, { opacity: 1, y: 0 });
+      return;
+    }
+
+    // Set initial state
+    gsap.set(el, { opacity: 0, y: 18 });
+
+    // Create ScrollTrigger animation
+    const ctx = gsap.context(() => {
+      gsap.to(el, {
+        opacity: 1,
+        y: 0,
+        duration: 0.5,
+        delay,
+        ease: "power2.out",
+        scrollTrigger: {
+          trigger: el,
+          start: "top 85%", // Trigger when top of element is 85% down the viewport
+          toggleActions: "play none none none",
+          once: true,
+        },
+      });
+    }, el);
+
+    return () => ctx.revert(); // Cleanup
+  }, [delay]);
 
   return (
-    <MotionTag
-      className={className}
-      initial={reduce ? false : { opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.5, delay, ease: [0.23, 1, 0.32, 1] }}
-    >
+    <Tag ref={elementRef} className={className}>
       {children}
-    </MotionTag>
+    </Tag>
   );
 }

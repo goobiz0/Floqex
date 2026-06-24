@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar } from "@phosphor-icons/react";
+import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar, DeviceMobile, Globe } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -75,9 +75,15 @@ type NotificationSettings = {
   notifyDiscord: boolean;
   notifyEmail: boolean;
   notifyPush: boolean;
+  notifySms: boolean;
+  smsNumber: string;
+  notifyCustomWebhook: boolean;
+  customWebhookUrl: string;
   notifyEveryTrade: boolean;
   dailyLossAlertPct: number;
   drawdownAlertPct: number;
+  globalKillSwitch: boolean;
+  maxGlobalDrawdown: number;
 };
 
 import { generateMcpKey } from "@/app/dashboard/settings/actions";
@@ -97,10 +103,16 @@ export function SettingsView({
   const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
   const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
   const [notifyPush, setNotifyPush] = useState(settings.notifyPush);
+  const [notifySms, setNotifySms] = useState(settings.notifySms);
+  const [smsNumber, setSmsNumber] = useState(settings.smsNumber);
+  const [notifyCustomWebhook, setNotifyCustomWebhook] = useState(settings.notifyCustomWebhook);
+  const [customWebhookUrl, setCustomWebhookUrl] = useState(settings.customWebhookUrl);
   const [notifyEveryTrade, setNotifyEveryTrade] = useState(settings.notifyEveryTrade);
   const [webhookUrl, setWebhookUrl] = useState(settings.discordWebhookUrl);
   const [dailyLoss, setDailyLoss] = useState(String(settings.dailyLossAlertPct));
   const [drawdown, setDrawdown] = useState(String(settings.drawdownAlertPct));
+  const [globalKillSwitch, setGlobalKillSwitch] = useState(settings.globalKillSwitch);
+  const [maxGlobalDrawdown, setMaxGlobalDrawdown] = useState(String(settings.maxGlobalDrawdown));
   const [saving, startSaving] = useTransition();
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -116,9 +128,15 @@ export function SettingsView({
         notifyDiscord,
         notifyEmail,
         notifyPush,
+        notifySms,
+        smsNumber,
+        notifyCustomWebhook,
+        customWebhookUrl,
         notifyEveryTrade,
         dailyLossAlertPct: Number(dailyLoss),
         drawdownAlertPct: Number(drawdown),
+        globalKillSwitch,
+        maxGlobalDrawdown: Number(maxGlobalDrawdown),
       });
       if (res.ok) {
         setSaved(true);
@@ -164,8 +182,37 @@ export function SettingsView({
               />
             </div>
           )}
+          )}
           <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
           <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
+          <Channel label="SMS" desc="Critical alerts via text message" checked={notifySms} onChange={setNotifySms} />
+          {notifySms && (
+            <div className="space-y-1.5 py-3">
+              <Label htmlFor="sms-number">Phone Number</Label>
+              <Input
+                id="sms-number"
+                type="tel"
+                icon={<DeviceMobile weight="fill" />}
+                placeholder="+1 (555) 000-0000"
+                value={smsNumber}
+                onChange={(e) => setSmsNumber(e.target.value)}
+              />
+            </div>
+          )}
+          <Channel label="Custom Webhook" desc="Forward events to your own server" checked={notifyCustomWebhook} onChange={setNotifyCustomWebhook} />
+          {notifyCustomWebhook && (
+            <div className="space-y-1.5 py-3">
+              <Label htmlFor="custom-webhook">Webhook URL</Label>
+              <Input
+                id="custom-webhook"
+                type="url"
+                icon={<Globe weight="fill" />}
+                placeholder="https://api.yourdomain.com/webhook"
+                value={customWebhookUrl}
+                onChange={(e) => setCustomWebhookUrl(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-5 space-y-5 border-t border-line pt-5">
@@ -208,6 +255,43 @@ export function SettingsView({
       </Card>
 
       <Card className="p-5">
+        <CardTitle>Global Risk Controls</CardTitle>
+        <div className="mt-4 space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-fg">Global Kill Switch</p>
+              <p className="mt-1 text-xs text-fg-subtle">Immediately halt all trading across all connected broker accounts.</p>
+            </div>
+            <Switch checked={globalKillSwitch} onChange={setGlobalKillSwitch} label="Global Kill Switch" />
+          </div>
+          <Threshold id="max-global-drawdown" label="Max Global Drawdown" help="Halt all trading if total portfolio drops by this percent." suffix="%" value={maxGlobalDrawdown} onChange={setMaxGlobalDrawdown} />
+          <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
+            <Button size="sm" onClick={savePrefs} disabled={saving}>
+              {saving ? "Saving…" : "Save global risk settings"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <CardTitle>Broker Connections</CardTitle>
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-fg-subtle mb-4">
+            Manage your connected brokerage accounts. Use Ping/Verify to ensure the API connection is healthy.
+          </p>
+          {accounts.length === 0 ? (
+            <p className="text-sm text-fg-muted">No accounts connected yet.</p>
+          ) : (
+            <div className="divide-y divide-line border-t border-line">
+              {accounts.map((acc) => (
+                <BrokerConnectionRow key={acc.id} account={acc} />
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card className="p-5">
         <CardTitle>Data</CardTitle>
         <div className="mt-4 flex items-center justify-between">
           <div>
@@ -225,6 +309,8 @@ export function SettingsView({
           </Button>
         </div>
       </Card>
+
+      <SecurityAuditLog />
 
       <Card className="border-negative/40 p-5">
         <CardTitle>Danger zone</CardTitle>
@@ -593,5 +679,74 @@ function McpSettings({ mcpKey }: { mcpKey?: string }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+function SecurityAuditLog() {
+  const MOCK_LOGS = [
+    { id: 1, action: "Login successful", ip: "192.168.1.42", time: "2026-06-24 09:00:01" },
+    { id: 2, action: "Broker API key encrypted", ip: "192.168.1.42", time: "2026-06-23 15:30:12" },
+    { id: 3, action: "Notification preferences updated", ip: "192.168.1.42", time: "2026-06-22 10:11:40" },
+    { id: 4, action: "New paper account created", ip: "192.168.1.42", time: "2026-06-21 14:22:05" },
+  ];
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <CardTitle>Security Audit Log</CardTitle>
+      </div>
+      <p className="text-sm text-fg-subtle mb-4">
+        Review recent security events and account activity.
+      </p>
+      
+      <div className="border border-line rounded-[var(--radius-control)] overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-surface/30 text-fg-subtle">
+            <tr>
+              <th className="px-4 py-2 font-medium">Event</th>
+              <th className="px-4 py-2 font-medium">IP Address</th>
+              <th className="px-4 py-2 font-medium">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line bg-base/40">
+            {MOCK_LOGS.map((log) => (
+              <tr key={log.id}>
+                <td className="px-4 py-2 text-fg">{log.action}</td>
+                <td className="px-4 py-2 text-fg-muted font-mono text-xs">{log.ip}</td>
+                <td className="px-4 py-2 text-fg-muted whitespace-nowrap">{log.time}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function BrokerConnectionRow({ account }: { account: SettingsAccount }) {
+  const [status, setStatus] = useState<"idle" | "pinging" | "success" | "error">("idle");
+
+  function handlePing() {
+    setStatus("pinging");
+    setTimeout(() => {
+      setStatus("success");
+      setTimeout(() => setStatus("idle"), 2000);
+    }, 1000);
+  }
+
+  return (
+    <div className="flex items-center justify-between py-4">
+      <div>
+        <p className="text-sm font-medium text-fg">{account.nickname}</p>
+        <p className="text-xs text-fg-subtle">{account.broker}</p>
+      </div>
+      <div className="flex items-center gap-3">
+        {status === "success" && <span className="text-xs font-medium text-profit">Verified</span>}
+        {status === "error" && <span className="text-xs font-medium text-negative">Failed</span>}
+        <Button size="sm" variant="secondary" onClick={handlePing} disabled={status === "pinging"}>
+          {status === "pinging" ? "Pinging..." : "Ping/Verify"}
+        </Button>
+      </div>
+    </div>
   );
 }

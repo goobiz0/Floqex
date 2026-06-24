@@ -11,9 +11,15 @@ const DEFAULT_SETTINGS = {
   notifyDiscord: true,
   notifyEmail: true,
   notifyPush: false,
+  notifySms: false,
+  smsNumber: "",
+  notifyCustomWebhook: false,
+  customWebhookUrl: "",
   notifyEveryTrade: false,
   dailyLossAlertPct: 2.5,
   drawdownAlertPct: 8,
+  globalKillSwitch: false,
+  maxGlobalDrawdown: 10,
 };
 
 export default async function SettingsPage() {
@@ -60,9 +66,15 @@ export default async function SettingsPage() {
         notifyDiscord: m.notifyDiscord !== false,
         notifyEmail: m.notifyEmail !== false,
         notifyPush: m.notifyPush === true,
+        notifySms: m.notifySms === true,
+        smsNumber: typeof m.smsNumber === "string" ? m.smsNumber : "",
+        notifyCustomWebhook: m.notifyCustomWebhook === true,
+        customWebhookUrl: typeof m.customWebhookUrl === "string" ? m.customWebhookUrl : "",
         notifyEveryTrade: m.notifyEveryTrade === true,
         dailyLossAlertPct: typeof m.dailyLossAlertPct === "number" ? m.dailyLossAlertPct : 2.5,
         drawdownAlertPct: typeof m.drawdownAlertPct === "number" ? m.drawdownAlertPct : 8,
+        globalKillSwitch: m.globalKillSwitch === true,
+        maxGlobalDrawdown: typeof m.maxGlobalDrawdown === "number" ? m.maxGlobalDrawdown : 10,
       };
     } catch {
       settings = DEFAULT_SETTINGS;

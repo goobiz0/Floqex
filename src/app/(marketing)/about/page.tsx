@@ -18,7 +18,7 @@ export default function AboutPage() {
             </div>
             <h1 className="text-balance text-5xl font-semibold tracking-tight text-fg md:text-7xl leading-[1.05]">
               Systematic trading, <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-blue-600">
+              <span className="text-accent">
                 democratized.
               </span>
             </h1>

@@ -197,6 +197,8 @@ model Trade {
 
   @@index([accountId, openedAt])
   @@index([botId])
+  @@index([accountId, status])
+  @@index([botId, status])
   @@map("trades")
 }
 

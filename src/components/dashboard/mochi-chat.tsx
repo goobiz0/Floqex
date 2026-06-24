@@ -18,9 +18,9 @@ function ThinkingDots() {
   return (
     <div className="flex items-center gap-3 rounded-[18px] rounded-bl-[6px] border border-line bg-surface px-4 py-3">
       <div className="flex items-center gap-1">
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0.15s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0.3s]" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:0.15s]" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:0.3s]" />
       </div>
       <span className="text-xs font-medium text-fg-subtle">Thinking</span>
     </div>

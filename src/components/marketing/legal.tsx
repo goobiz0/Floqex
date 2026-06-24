@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Reveal } from "@/components/marketing/reveal";
 
 /** Shared shell for legal/policy pages: centered editorial column, dark-locked. */
 export function LegalShell({
@@ -30,11 +31,11 @@ export function LegalShell({
 /** A titled section inside a legal page. */
 export function LegalSection({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <section>
+    <Reveal as="section">
       <h2 className="text-lg font-semibold tracking-tight text-fg">{heading}</h2>
       <div className="mt-3 space-y-4 text-[0.95rem] leading-relaxed text-fg-muted [&_a]:text-accent [&_a:hover]:text-accent-hover">
         {children}
       </div>
-    </section>
+    </Reveal>
   );
 }

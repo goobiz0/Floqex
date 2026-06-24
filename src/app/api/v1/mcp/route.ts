@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam } from "@/lib/strategy-schema";
 
+// import { Ratelimit } from "@upstash/ratelimit";
+// import { Redis } from "@upstash/redis";
+// const ratelimit = new Ratelimit({
+//   redis: Redis.fromEnv(),
+//   limiter: Ratelimit.slidingWindow(20, "1 m"),
+// });
+
 // Middleware to check mcpKey
 async function getMcpUser(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
@@ -32,6 +39,10 @@ async function getMcpUser(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
+  // const { success } = await ratelimit.limit(`mcp_get_${ip}`);
+  // if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
   const user = await getMcpUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -68,6 +79,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
+  // const { success } = await ratelimit.limit(`mcp_post_${ip}`);
+  // if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
   const user = await getMcpUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

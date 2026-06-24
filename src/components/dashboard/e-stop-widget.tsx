@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { HandPalm, WarningCircle, CheckCircle } from "@phosphor-icons/react";
 import { emergencyStop } from "@/app/dashboard/accounts/actions";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-export function EStopWidget() {
+export function EStopWidget({ hasRunningBots = false }: { hasRunningBots?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isStopped, setIsStopped] = useState(false);
@@ -27,19 +28,25 @@ export function EStopWidget() {
     <div className="relative flex items-center">
       <button 
         type="button"
-        title="Emergency Stop" 
+        title={hasRunningBots ? "Emergency Stop" : "No bots currently running"} 
+        disabled={!hasRunningBots}
         onClick={() => setIsOpen(!isOpen)}
-        className="hidden sm:flex items-center justify-center h-8 w-8 text-negative bg-negative/5 hover:bg-negative/15 rounded-full transition-all group border border-negative/10 hover:border-negative/30"
+        className={cn(
+          "hidden sm:flex items-center justify-center h-8 w-8 rounded-full transition-all group border",
+          hasRunningBots 
+            ? "text-negative bg-negative/5 hover:bg-negative/15 border-negative/10 hover:border-negative/30" 
+            : "text-fg-faint bg-surface border-line cursor-not-allowed opacity-50"
+        )}
       >
-        <HandPalm size={14} weight="fill" className="group-active:scale-90 transition-transform" />
+        <HandPalm size={14} weight="fill" className={cn(hasRunningBots && "group-active:scale-90 transition-transform")} />
       </button>
 
-      {isOpen && (
+      {isOpen && hasRunningBots && (
         <div className="absolute top-12 right-0 w-[280px] rounded-[var(--radius-card)] border border-line bg-elevated shadow-xl shadow-black/5 p-4 z-50 animate-in fade-in slide-in-from-top-2">
           {isStopped ? (
             <div className="flex flex-col items-center justify-center py-4 text-center">
               <CheckCircle size={32} weight="fill" className="text-negative mb-2" />
-              <p className="text-sm font-semibold text-fg">BOT STOPPED</p>
+              <p className="text-sm font-semibold text-fg">BOTS STOPPED</p>
               <p className="text-xs text-fg-subtle mt-1">All algorithms halted.</p>
             </div>
           ) : (
@@ -50,7 +57,7 @@ export function EStopWidget() {
                 </div>
                 <div className="pt-0.5 text-left">
                   <h4 className="text-sm font-semibold text-fg">Emergency Stop</h4>
-                  <p className="text-[13px] text-fg-subtle mt-1 leading-relaxed">Halt all automated trading immediately?</p>
+                  <p className="text-[13px] text-fg-subtle mt-1 leading-relaxed">Halt <strong className="text-fg font-semibold">ALL</strong> automated bots across all accounts immediately?</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -68,7 +75,7 @@ export function EStopWidget() {
                 >
                   {isPending ? (
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  ) : "Halt Bot"}
+                  ) : "Halt All Bots"}
                 </button>
               </div>
             </>
