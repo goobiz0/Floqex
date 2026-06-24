@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
 
 /* ============================================================
    Floqex Design System — Bright Light Theme, highly rounded,
@@ -81,45 +83,7 @@
 @utility delay-700 { animation-delay: 700ms; }
 @utility delay-1000 { animation-delay: 1000ms; }
 
-:root {
-  color-scheme: light;
-  
-  --base: #f7f9fa;
-  --surface: #ffffff;
-  --elevated: #ffffff;
-  --overlay: rgba(255, 255, 255, 0.8);
-
-  --fg: #111827;
-  --fg-muted: #4b5563;
-  --fg-subtle: #6b7280;
-  --fg-faint: #9ca3af;
-
-  --brand: 27 96% 61%;
-  --brand-foreground: 31 97% 72%;
-
-  --accent: #111827;
-  --accent-hover: #374151;
-  --accent-soft: rgba(17, 24, 39, 0.05);
-  --accent-ring: rgba(17, 24, 39, 0.2);
-  --on-accent: #ffffff;
-
-  --positive: #10b981;
-  --profit: #10b981;
-  --negative: #ef4444;
-  --negative-soft: rgba(239, 68, 68, 0.1);
-  --warning: #f59e0b;
-  --info: #3b82f6;
-
-  --line: #e5e7eb;
-  --line-strong: #d1d5db;
-
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02);
-  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.06);
-  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
-}
-
-.dark {
+:root, .dark {
   color-scheme: dark;
   
   --base: #09090b; /* Extremely deep gray/black */
@@ -155,6 +119,44 @@
   --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.6);
   --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.7);
+}
+
+.light {
+  color-scheme: light;
+  
+  --base: #f7f9fa;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --overlay: rgba(255, 255, 255, 0.8);
+
+  --fg: #111827;
+  --fg-muted: #4b5563;
+  --fg-subtle: #6b7280;
+  --fg-faint: #9ca3af;
+
+  --brand: 27 96% 61%;
+  --brand-foreground: 31 97% 72%;
+
+  --accent: #111827;
+  --accent-hover: #374151;
+  --accent-soft: rgba(17, 24, 39, 0.05);
+  --accent-ring: rgba(17, 24, 39, 0.2);
+  --on-accent: #ffffff;
+
+  --positive: #10b981;
+  --profit: #10b981;
+  --negative: #ef4444;
+  --negative-soft: rgba(239, 68, 68, 0.1);
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
 }
 
 @layer base {

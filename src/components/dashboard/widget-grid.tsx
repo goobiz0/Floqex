@@ -83,7 +83,7 @@ export function WidgetGrid({
   });
 
   return (
-    <div className={cn("relative min-h-[400px]", isEditMode && "p-2 bg-surface/10 rounded-lg border border-line border-dashed")}>
+    <div className={cn("relative min-h-[400px] w-full", isEditMode && "p-2 bg-surface/10 rounded-lg border border-line border-dashed")}>
       
       {items.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-12">
@@ -116,15 +116,21 @@ export function WidgetGrid({
         useCSSTransforms={true}
         draggableHandle=".drag-handle"
       >
-        {items.map(item => (
-          <div key={item.i} className={cn(
-            "relative group rounded-[var(--radius-card)] bg-elevated border border-line overflow-hidden flex flex-col",
-            isEditMode && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow",
-            isEditMode && "cursor-move drag-handle"
-          )}>
-            <div className="flex-1 overflow-hidden pointer-events-auto">
-              {renderWidget(item)}
-            </div>
+        {items.map(item => {
+          const constraints = WIDGET_DIMENSIONS[item.type] || { minW: 2, minH: 2, maxW: 12, maxH: 12 };
+          const gridData = {
+            x: item.x, y: item.y, w: item.w, h: item.h,
+            minW: constraints.minW, minH: constraints.minH, maxW: constraints.maxW, maxH: constraints.maxH
+          };
+          return (
+            <div key={item.i} data-grid={gridData} className={cn(
+              "relative group rounded-[var(--radius-card)] bg-elevated border border-line overflow-hidden flex flex-col",
+              isEditMode && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow",
+              isEditMode && "cursor-move drag-handle"
+            )}>
+              <div className="flex-1 overflow-hidden pointer-events-auto">
+                {renderWidget(item)}
+              </div>
 
             {/* Edit Mode Overlays */}
             <AnimatePresence>
@@ -153,7 +159,8 @@ export function WidgetGrid({
               )}
             </AnimatePresence>
           </div>
-        ))}
+          );
+        })}
       </ResponsiveGridLayout>
     </div>
   );

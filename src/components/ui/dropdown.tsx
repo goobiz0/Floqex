@@ -48,19 +48,24 @@ export function Dropdown({
             className={`absolute z-40 mt-2 w-48 rounded-[var(--radius-card)] border border-line bg-elevated shadow-lg ${align === "right" ? "right-0" : "left-0"}`}
           >
             <div className="py-1">
-              {items.map((item, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    item.onClick();
-                    setIsOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-fg transition-colors hover:bg-surface hover:text-fg focus:bg-surface focus:outline-none"
-                >
-                  {item.icon && <span className="text-fg-subtle">{item.icon}</span>}
-                  {item.label}
-                </button>
-              ))}
+              {items.map((item, i) => {
+                if (item.label === "divider") {
+                  return <div key={i} className="my-1 border-t border-line" />;
+                }
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      item.onClick();
+                      setIsOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-fg transition-colors hover:bg-surface-hover hover:text-fg focus:bg-surface-hover focus:outline-none"
+                  >
+                    {item.icon && <span className="text-fg-subtle">{item.icon}</span>}
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
           </motion.div>
         )}
