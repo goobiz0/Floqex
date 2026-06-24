@@ -1,5 +1,5 @@
 
-import { Check } from "@phosphor-icons/react";
+import { Check } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
 import { authUrl } from "@/lib/urls";
 

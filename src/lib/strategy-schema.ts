@@ -19,6 +19,9 @@ export type StrategyParams = {
   maxTrades: number;
   trendFilter: boolean;
   reEntry: boolean;
+  trailingStopPct: number;
+  minVolume: number;
+  newsPause: boolean;
   [key: string]: any;
 };
 
@@ -29,7 +32,9 @@ export type NumericParam =
   | "maxRange"
   | "riskPct"
   | "dailyLoss"
-  | "maxTrades";
+  | "maxTrades"
+  | "trailingStopPct"
+  | "minVolume";
 
 export type Bound = {
   min: number;
@@ -96,6 +101,22 @@ export const PARAM_BOUNDS: Record<NumericParam, Bound> = {
     label: "Max trades per day",
     help: "Across both sessions. Caps overtrading.",
   },
+  trailingStopPct: {
+    min: 0,
+    max: 5,
+    step: 0.1,
+    label: "Trailing Stop Loss",
+    suffix: "%",
+    help: "Trails the price by this percentage to lock in profits. 0 disables.",
+  },
+  minVolume: {
+    min: 1000,
+    max: 10000000,
+    step: 1000,
+    label: "Min Pre-Market Volume",
+    suffix: " shares",
+    help: "Minimum volume required before considering a setup.",
+  },
 };
 
 export const PARAM_LABELS: Record<keyof StrategyParams, string> = {
@@ -106,8 +127,11 @@ export const PARAM_LABELS: Record<keyof StrategyParams, string> = {
   riskPct: PARAM_BOUNDS.riskPct.label,
   dailyLoss: PARAM_BOUNDS.dailyLoss.label,
   maxTrades: PARAM_BOUNDS.maxTrades.label,
+  trailingStopPct: PARAM_BOUNDS.trailingStopPct.label,
+  minVolume: PARAM_BOUNDS.minVolume.label,
   trendFilter: "Trend filter",
   reEntry: "Re-entry rule",
+  newsPause: "News event pause",
 };
 
 export const DEFAULT_PARAMS: StrategyParams = {
@@ -118,8 +142,11 @@ export const DEFAULT_PARAMS: StrategyParams = {
   riskPct: 1,
   dailyLoss: 3,
   maxTrades: 8,
+  trailingStopPct: 0.5,
+  minVolume: 100000,
   trendFilter: true,
   reEntry: true,
+  newsPause: true,
 };
 
 const NUMERIC_KEYS = Object.keys(PARAM_BOUNDS) as NumericParam[];
@@ -155,10 +182,11 @@ export function parseStrategyParams(
 
   out.trendFilter = Boolean(o.trendFilter);
   out.reEntry = Boolean(o.reEntry);
+  out.newsPause = Boolean(o.newsPause);
   
   // Custom parameters
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry") {
+    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
       out[key] = o[key];
     }
   }
@@ -182,9 +210,10 @@ export function coerceStrategyParams(input: unknown): StrategyParams {
   }
   if (typeof o.trendFilter === "boolean") out.trendFilter = o.trendFilter;
   if (typeof o.reEntry === "boolean") out.reEntry = o.reEntry;
+  if (typeof o.newsPause === "boolean") out.newsPause = o.newsPause;
 
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry") {
+    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
       out[key] = o[key];
     }
   }
@@ -199,7 +228,7 @@ export function formatParamValue(key: keyof StrategyParams, value: number | bool
   return `${value}${suffix}`;
 }
 
-const BOOLEAN_KEYS = new Set<keyof StrategyParams>(["trendFilter", "reEntry"]);
+const BOOLEAN_KEYS = new Set<keyof StrategyParams>(["trendFilter", "reEntry", "newsPause"]);
 
 /** Serialize a param value to a raw, round-trippable string for storage. */
 export function rawParamValue(key: keyof StrategyParams, value: number | boolean): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { RocketLaunch, ShieldCheck, Cpu, ChartLineUp, Key, Bank, Info, Clock, CheckCircle, Warning } from "@phosphor-icons/react";
+import { RocketLaunch, ShieldCheck, Cpu, ChartLineUp, Key, Bank, Info, Clock, CheckCircle, Warning } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { motion } from "motion/react";
 

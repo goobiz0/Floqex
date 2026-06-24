@@ -1,10 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "./db";
-import { summaryMetrics, equitySeries, maxDrawdown, type TradeRow, type DailyRow } from "./metrics";
+import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow } from "./metrics";
+export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
-
-export type { TradeRow };
 
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.

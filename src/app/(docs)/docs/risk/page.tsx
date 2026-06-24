@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, WarningCircle, Calculator, Info, LockKey, Target } from "@phosphor-icons/react";
+import { ShieldCheck, WarningCircle, Calculator, Info, LockKey, Target } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 
 export default function RiskPage() {

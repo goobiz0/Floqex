@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Info, Key, CheckCircle, Warning, LockKey, TerminalWindow, Bank } from "@phosphor-icons/react";
+import { ShieldCheck, Info, Key, CheckCircle, Warning, LockKey, TerminalWindow, Bank } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 
 export default function BrokersPage() {

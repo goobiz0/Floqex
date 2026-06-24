@@ -14,20 +14,23 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "worker": "tsx src/worker/engine.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.83",
+    "@ai-sdk/google": "^1.0.0",
     "@ai-sdk/openai": "^0.0.66",
+    "@ai-sdk/react": "^1.0.0",
     "@clerk/nextjs": "^7.5.7",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@notionhq/client": "^5.22.0",
     "@phosphor-icons/react": "^2.1.10",
     "@prisma/client": "^6.19.3",
-    "ai": "^3.4.16",
+    "@upstash/qstash": "^2.11.1",
+    "ai": "^4.0.0",
     "gsap": "^3.15.0",
     "motion": "^12.40.0",
     "next": "16.2.9",

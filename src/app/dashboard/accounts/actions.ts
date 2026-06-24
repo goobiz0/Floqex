@@ -104,12 +104,6 @@ export async function connectAccount({
         balance: mode === "PAPER" ? 10000 : 0,
         currency: "USD",
         isActive: true,
-        bot: {
-          create: {
-            strategyId: strategy.id,
-            status: "STOPPED",
-          },
-        },
         connection,
       },
     });

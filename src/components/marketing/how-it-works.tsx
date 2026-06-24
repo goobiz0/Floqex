@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { FlowArrow, TerminalWindow, WebhooksLogo } from "@phosphor-icons/react";
+import { FlowArrow, TerminalWindow, WebhooksLogo } from "@phosphor-icons/react/dist/ssr";
 
 const steps = [
   {

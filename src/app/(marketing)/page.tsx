@@ -46,7 +46,6 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <ChartLineUp size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Infrastructure</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
                 <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
@@ -64,7 +63,6 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <Flask size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Strategy Lab</span>
               </div>
               <div className="mt-auto relative z-10">
                 <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
@@ -82,7 +80,6 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <Notebook size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Journal</span>
               </div>
               <div className="mt-auto relative z-10">
                 <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
@@ -100,7 +97,6 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
                   <ShieldCheck size={24} className="text-fg" weight="duotone" />
                 </div>
-                <span className="font-bold text-xs uppercase tracking-[0.15em] text-fg-subtle">Risk Control</span>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
                 <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">

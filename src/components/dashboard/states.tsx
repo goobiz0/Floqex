@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Warning, CircleDashed } from "@phosphor-icons/react";
+import { Warning, CircleDashed } from "@phosphor-icons/react/dist/ssr";
 
 /** Shown when a dashboard data query fails (backend/transient error), so a real
  *  outage is never mistaken for a brand-new "no account yet" empty state. */

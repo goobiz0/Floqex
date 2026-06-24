@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookBookmark, MagnifyingGlass } from "@phosphor-icons/react";
+import { BookBookmark, MagnifyingGlass } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 
 const GLOSSARY_TERMS = [

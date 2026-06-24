@@ -1,24 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
-import { Plus, MagnifyingGlass, DotsThree, TrendUp, TrendDown, Robot, Activity, ClockCounterClockwise, Plug, ArrowUpRight, WarningCircle, CheckCircle } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, DotsThree, TrendUp, TrendDown, Robot, Heartbeat, ClockCounterClockwise, Plug, ArrowUpRight, WarningCircle, CheckCircle, Wallet, ChartLineUp, Info, Lightning, WarningOctagon, Target } from "@phosphor-icons/react/dist/ssr";
 import { formatUSD, cn } from "@/lib/utils";
 import { motion } from "motion/react";
-import { type TradeRow } from "@/lib/queries";
+import { type TradeRow, type DailyRow, type AgentEventRow } from "@/lib/queries";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
+import Link from "next/link";
 
-function HeroCard1({ balance }: { balance: number }) {
+function HeroCard1({ balance, hasAccount, todayPnl }: { balance: number; hasAccount: boolean, todayPnl: number }) {
+  const isProfit = todayPnl >= 0;
+  
   return (
     <motion.div
       whileHover={{ y: -4 }}
       className="relative flex h-[220px] w-full flex-col justify-between overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated p-6"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-profit/5 via-transparent to-transparent opacity-60 pointer-events-none" />
+      <div className={cn("absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-60 pointer-events-none", isProfit ? "from-profit/5" : "from-negative/5")} />
       <div className="relative z-10 flex items-start justify-between">
         <span className="text-[28px] font-medium tracking-tight text-fg tnum">
-          {formatUSD(balance)}
+          {hasAccount ? formatUSD(balance) : "$0.00"}
         </span>
         <span className="text-sm font-medium text-fg-subtle">Active Capital</span>
       </div>
@@ -26,54 +28,76 @@ function HeroCard1({ balance }: { balance: number }) {
       <div className="relative z-10 mt-auto">
         <p className="text-sm font-medium text-fg-subtle mb-1">24h PnL</p>
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold text-profit tnum">+ $1,245.50</span>
-          <span className="text-[11px] font-semibold bg-profit/10 px-2 py-0.5 rounded-[var(--radius-pill)] text-profit tnum">+2.4%</span>
+          {!hasAccount ? (
+            <span className="text-sm font-semibold text-fg-subtle">No Account</span>
+          ) : todayPnl === 0 ? (
+            <span className="text-sm font-semibold text-fg-subtle">Awaiting Trades</span>
+          ) : (
+            <span className={cn("text-sm font-semibold tnum", isProfit ? "text-profit" : "text-negative")}>
+              {formatUSD(todayPnl, { sign: true })}
+            </span>
+          )}
         </div>
       </div>
     </motion.div>
   );
 }
 
-function HeroCard2() {
+function EventIcon({ kind }: { kind: string }) {
+  switch (kind) {
+    case "INFO": return <Info size={14} className="text-fg-subtle" weight="bold" />;
+    case "SIGNAL": return <Lightning size={14} className="text-accent" weight="bold" />;
+    case "TRADE": return <Target size={14} className="text-profit" weight="bold" />;
+    case "RISK": return <WarningOctagon size={14} className="text-warning" weight="bold" />;
+    default: return <Heartbeat size={14} className="text-fg-muted" weight="bold" />;
+  }
+}
+
+function HeroCard2({ hasBot, agentEvents }: { hasBot: boolean, agentEvents: AgentEventRow[] }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
       className="relative flex h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-card)] p-6 border border-line bg-elevated"
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <h3 className="text-sm font-medium text-fg">Live Execution Feed</h3>
-        <span className="flex h-2 w-2 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-        </span>
+        {hasBot && (
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+          </span>
+        )}
       </div>
-      <div className="space-y-3 font-mono text-[11px] mt-1">
-        <div className="flex justify-between items-center text-fg">
-          <span className="text-profit">BUY</span>
-          <span>1.45 BTC</span>
-          <span className="text-fg-subtle">@ 64,230</span>
-        </div>
-        <div className="flex justify-between items-center text-fg">
-          <span className="text-negative">SELL</span>
-          <span>50.0 AAPL</span>
-          <span className="text-fg-subtle">@ 175.40</span>
-        </div>
-        <div className="flex justify-between items-center text-fg">
-          <span className="text-profit">BUY</span>
-          <span>100.0 MSFT</span>
-          <span className="text-fg-subtle">@ 420.69</span>
-        </div>
-        <div className="flex justify-between items-center text-fg opacity-50">
-          <span className="text-negative">SELL</span>
-          <span>10.0 TSLA</span>
-          <span className="text-fg-subtle">@ 180.20</span>
-        </div>
+      <div className="flex-1 overflow-hidden">
+        {!hasBot ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-xs text-fg-subtle px-4 text-center">Your live execution feed will appear here once you create a bot.</p>
+          </div>
+        ) : agentEvents.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-xs text-fg-subtle px-4 text-center">Listening for agent events...</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 h-full justify-end pb-1">
+            {agentEvents.slice(0, 3).reverse().map(event => (
+              <div key={event.id} className="flex gap-2 items-start opacity-80 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-bottom-2">
+                <div className="mt-0.5 shrink-0">
+                  <EventIcon kind={event.kind} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-mono text-fg-faint">{event.t}</p>
+                  <p className="text-[11px] text-fg-subtle leading-tight line-clamp-2">{event.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   );
 }
 
-function HeroCard3() {
+function HeroCard3({ hasBot }: { hasBot: boolean }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -84,30 +108,18 @@ function HeroCard3() {
         <p className="text-xs text-fg-subtle">Daily Drawdown Status</p>
       </div>
       
-      <div className="flex items-end gap-2 mt-auto h-24">
-        <div className="flex-1 bg-surface rounded-[4px] h-[30%] relative group transition-colors hover:bg-surface-hover">
-           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Mon</div>
-        </div>
-        <div className="flex-1 bg-surface rounded-[4px] h-[40%] relative group transition-colors hover:bg-surface-hover">
-           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Tue</div>
-        </div>
-        <div className="flex-1 bg-surface rounded-[4px] h-[15%] relative group transition-colors hover:bg-surface-hover">
-           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Wed</div>
-        </div>
-        <div className="flex-1 bg-negative rounded-[4px] h-[85%] relative group transition-colors hover:bg-negative/80">
-           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-negative transition-opacity">Thu</div>
-        </div>
-        <div className="flex-1 bg-surface rounded-[4px] h-[20%] relative group transition-colors hover:bg-surface-hover">
-           <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-mono text-fg transition-opacity">Fri</div>
-        </div>
+      <div className="flex flex-col items-center justify-center h-full text-center mt-2">
+        <p className="text-xs text-fg-subtle px-4">Insufficient data to build heatmap. Awaiting bot execution.</p>
       </div>
-      <div className="absolute top-[60%] left-0 w-full border-t border-dashed border-negative/30"></div>
-      <span className="absolute top-[60%] -mt-4 right-4 text-[10px] text-negative font-mono bg-base px-1">LIMIT</span>
     </motion.div>
   );
 }
 
-function HeroCard4() {
+function HeroCard4({ hasBot, winRate }: { hasBot: boolean, winRate: number | null }) {
+  const dashOffset = winRate ? 251 - (251 * winRate) / 100 : 251;
+  const isProfit = winRate && winRate > 50;
+  const strokeColor = winRate === null ? "var(--color-surface)" : isProfit ? "var(--color-profit)" : "var(--color-negative)";
+
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -117,20 +129,23 @@ function HeroCard4() {
       <div className="relative flex h-24 w-24 items-center justify-center mt-6">
         <svg className="h-full w-full rotate-[-90deg]" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-surface)" strokeWidth="8" />
-          <motion.circle
-            cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-profit)" strokeWidth="8"
-            strokeDasharray="251.2"
-            initial={{ strokeDashoffset: 251.2 }}
-            animate={{ strokeDashoffset: 251.2 * 0.32 }} 
-            transition={{ duration: 1.5, ease: "easeOut" }}
-            strokeLinecap="round"
-          />
+          {winRate !== null && (
+            <circle 
+              cx="50" cy="50" r="40" fill="transparent" stroke={strokeColor} strokeWidth="8"
+              strokeDasharray="251" strokeDashoffset={dashOffset}
+              className="transition-all duration-1000 ease-out"
+            />
+          )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-fg tnum">68%</span>
+          <span className="text-xl font-bold text-fg-subtle tnum">
+            {winRate !== null ? `${winRate.toFixed(1)}%` : "N/A"}
+          </span>
         </div>
       </div>
-      <p className="mt-4 text-[11px] text-fg-subtle font-medium">Past 7 days across 45 trades</p>
+      <p className="mt-4 text-[11px] text-fg-subtle font-medium">
+        {winRate !== null ? "Based on recent operations" : "No recent trades"}
+      </p>
     </motion.div>
   );
 }
@@ -139,13 +154,47 @@ export function DashboardPageClient({
   balance, 
   nickname, 
   avatarUrl,
-  recent 
+  recent,
+  hasAccount,
+  hasBot,
+  summaries = [],
+  trades = [],
+  agentEvents = [],
+  botStatus = "NONE"
 }: { 
   balance: number;
   nickname: string;
   avatarUrl: string;
   recent: TradeRow[];
+  hasAccount: boolean;
+  hasBot: boolean;
+  summaries?: DailyRow[];
+  trades?: TradeRow[];
+  agentEvents?: AgentEventRow[];
+  botStatus?: string;
 }) {
+
+  // Compute metrics
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const todaySummary = summaries.find(s => s.date === todayDateStr);
+  const todayPnl = todaySummary?.netPnl ?? 0;
+
+  let totalWins = 0;
+  let totalTrades = 0;
+  for (const s of summaries) {
+    totalWins += s.winCount;
+    totalTrades += s.tradeCount;
+  }
+  const winRate = totalTrades > 0 ? (totalWins / totalTrades) * 100 : null;
+
+  // Group PnL by instrument
+  const assetPnl = trades.reduce((acc, t) => {
+    if (!acc[t.instrument]) acc[t.instrument] = 0;
+    if (t.netPnl) acc[t.instrument] += t.netPnl;
+    return acc;
+  }, {} as Record<string, number>);
+  const assetEntries: [string, number][] = Object.entries(assetPnl).sort((a, b) => (b[1] as number) - (a[1] as number)) as [string, number][];
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       
@@ -176,19 +225,50 @@ export function DashboardPageClient({
               ⌘K
             </div>
           </div>
-          <button onClick={() => toast.info("Bot creation coming in Phase 6")} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] active:scale-[0.98]">
-            <Plus size={16} weight="bold" />
-            New Bot
-          </button>
+          {hasAccount && (
+            <Link href="/dashboard/bots/new" className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] active:scale-[0.98]">
+              <Plus size={16} weight="bold" />
+              New Bot
+            </Link>
+          )}
         </div>
       </div>
 
+      {!hasAccount ? (
+        <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-12 text-center mt-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-surface mb-6 border border-line">
+            <Wallet size={32} className="text-fg-subtle" weight="duotone" />
+          </div>
+          <h2 className="text-xl font-semibold tracking-tight text-fg mb-2">Connect a Broker</h2>
+          <p className="text-fg-subtle mb-8 max-w-md mx-auto">
+            Your dashboard is empty because you haven't connected a broker yet. Connect a live brokerage account or start with a Paper Trading simulator.
+          </p>
+          <Link href="/dashboard/accounts/new" className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-6 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] active:scale-[0.98]">
+            Add Account
+          </Link>
+        </div>
+      ) : !hasBot ? (
+        <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-12 text-center mt-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-surface mb-6 border border-line">
+            <Robot size={32} className="text-fg-subtle" weight="duotone" />
+          </div>
+          <h2 className="text-xl font-semibold tracking-tight text-fg mb-2">Create your first Bot</h2>
+          <p className="text-fg-subtle mb-8 max-w-md mx-auto">
+            You have an active account, but no bots are managing it yet. Create a bot and configure its strategy to begin automated trading.
+          </p>
+          <Link href="/dashboard/bots/new" className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-6 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] active:scale-[0.98]">
+            <Plus size={16} weight="bold" />
+            Create Bot
+          </Link>
+        </div>
+      ) : null}
+
       {/* Hero Cards Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <HeroCard1 balance={balance} />
-        <HeroCard2 />
-        <HeroCard3 />
-        <HeroCard4 />
+        <HeroCard1 balance={balance} hasAccount={hasAccount} todayPnl={todayPnl} />
+        <HeroCard2 hasBot={hasBot} agentEvents={agentEvents} />
+        <HeroCard3 hasBot={hasBot} />
+        <HeroCard4 hasBot={hasBot} winRate={winRate} />
       </div>
 
       {/* Middle Split */}
@@ -200,9 +280,6 @@ export function DashboardPageClient({
             <div className="flex items-center gap-1 rounded-[var(--radius-pill)] border border-line p-1 bg-base">
               <button onClick={() => toast.info("Filter applied: Recent")} className="rounded-[var(--radius-pill)] bg-surface px-4 py-1.5 text-[12px] font-medium text-fg">
                 Recent Operations
-              </button>
-              <button onClick={() => toast.info("Income filter coming soon")} className="rounded-[var(--radius-pill)] px-4 py-1.5 text-[12px] font-medium text-fg-subtle transition-colors hover:text-fg hover:bg-surface/50">
-                Income
               </button>
             </div>
             <button onClick={() => toast.info("More options coming soon")} className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg">
@@ -225,7 +302,7 @@ export function DashboardPageClient({
                       {isProfit ? <TrendUp size={18} weight="bold" /> : <TrendDown size={18} weight="bold" />}
                     </div>
                     <div>
-                      <p className="text-[13px] font-medium text-fg">Trade {trade.instrument}</p>
+                      <p className="text-[13px] font-medium text-fg">{trade.direction} {trade.instrument}</p>
                       <p className="text-[11px] text-fg-subtle mt-0.5">{trade.status}</p>
                     </div>
                   </div>
@@ -241,8 +318,8 @@ export function DashboardPageClient({
               <div className="pt-6 pb-2">
                 <EmptyState 
                   title="No recent operations" 
-                  description="When your bots execute trades, they will appear here in real-time."
-                  icon={<TrendUp size={32} weight="duotone" />}
+                  description="When your bots execute trades, they will appear here."
+                  icon={<ChartLineUp size={32} weight="duotone" />}
                 />
               </div>
             )}
@@ -258,56 +335,25 @@ export function DashboardPageClient({
             </button>
           </div>
 
-          <div className="flex-1 space-y-6">
-            <div>
-              <div className="flex items-center justify-between text-[13px] mb-2">
-                <span className="font-medium text-fg">Equities (NQ, ES)</span>
-                <span className="font-semibold text-profit tnum">+$3,240.50</span>
+          <div className="flex-1 flex flex-col justify-center">
+            {assetEntries.length === 0 ? (
+              <EmptyState 
+                title="Insufficient Data" 
+                description="Your bots must execute trades across different asset classes for the breakdown to populate."
+                icon={<ChartLineUp size={32} weight="duotone" />}
+              />
+            ) : (
+              <div className="space-y-4">
+                {assetEntries.map(([instrument, pnl]) => (
+                  <div key={instrument} className="flex items-center justify-between">
+                    <span className="text-[13px] font-medium text-fg">{instrument}</span>
+                    <span className={cn("font-semibold text-[13px] tnum", pnl >= 0 ? "text-profit" : "text-negative")}>
+                      {formatUSD(pnl, { sign: true })}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-line">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: "65%" }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full bg-profit rounded-full"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-[13px] mb-2">
-                <span className="font-medium text-fg">Commodities (Gold)</span>
-                <span className="font-semibold text-profit tnum">+$845.20</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-line">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: "25%" }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.1 }}
-                  className="h-full bg-profit/60 rounded-full"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-[13px] mb-2">
-                <span className="font-medium text-fg">Forex</span>
-                <span className="font-semibold text-negative tnum">-$120.00</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-line">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: "10%" }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                  className="h-full bg-negative rounded-full"
-                />
-              </div>
-            </div>
-            
-            <div className="pt-4 border-t border-line mt-4 flex items-center justify-between">
-              <span className="text-[12px] font-medium text-fg-subtle">Total Gross PnL</span>
-              <span className="text-[14px] font-bold text-fg tnum">$3,965.70</span>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -320,25 +366,27 @@ export function DashboardPageClient({
           className="relative flex h-[200px] flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated p-6"
         >
           <div className="flex items-center gap-2 mb-4">
-            <Activity size={18} className="text-accent" />
+            <Heartbeat size={18} className="text-accent" />
             <h3 className="text-sm font-medium text-fg">Engine Health</h3>
           </div>
           
           <div className="mt-auto space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[12px] text-fg-subtle">Core Latency</span>
-              <span className="text-[12px] font-mono font-medium text-profit">12ms</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] text-fg-subtle">Broker API</span>
-              <span className="flex items-center gap-1.5 text-[12px] font-medium text-profit">
-                <CheckCircle size={14} weight="fill" />
-                Connected
+              <span className="text-[12px] text-fg-subtle">Bot Status</span>
+              <span className={cn("text-[12px] font-medium", botStatus === "RUNNING" ? "text-profit" : "text-fg-subtle")}>
+                {botStatus}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[12px] text-fg-subtle">Uptime</span>
-              <span className="text-[12px] font-mono font-medium text-fg">99.99%</span>
+              <span className="text-[12px] text-fg-subtle">Broker API</span>
+              <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg-subtle">
+                <CheckCircle size={14} weight="fill" className={hasAccount ? "text-profit" : ""} />
+                {hasAccount ? "Connected" : "Disconnected"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-fg-subtle">Core Latency</span>
+              <span className="text-[12px] font-mono font-medium text-profit">12ms</span>
             </div>
           </div>
         </motion.div>
@@ -382,20 +430,20 @@ export function DashboardPageClient({
           </div>
           
           <div className="mt-auto grid grid-cols-2 gap-2">
-            <button className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
+            <Link href="/dashboard/bots/new" className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
               <Robot size={20} />
               New Bot
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
+            </Link>
+            <Link href="/dashboard/accounts/new" className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
               <Plug size={20} />
               Broker
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
+            </Link>
+            <button onClick={() => toast.info("Risk Limits coming soon")} className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
               <WarningCircle size={20} />
               Risk Limits
             </button>
-            <button className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
-              <Activity size={20} />
+            <button onClick={() => toast.info("Audit Log coming soon")} className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface py-3 text-[11px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg border border-line">
+              <Heartbeat size={20} />
               Audit Log
             </button>
           </div>

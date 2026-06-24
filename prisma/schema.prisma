@@ -56,6 +56,10 @@ enum Broker {
   IBKR
   TRADOVATE
   ALPACA
+  COINBASE
+  BINANCE
+  KRAKEN
+  SCHWAB
 }
 
 enum AccountMode {

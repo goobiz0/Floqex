@@ -128,7 +128,7 @@ export function StrategyLab({
         .filter((k) => prev[k] !== snapshot[k])
         .map((k) => ({
           id: `local-${k}-${now}`,
-          param: PARAM_LABELS[k as keyof typeof PARAM_LABELS] || k,
+          param: String(PARAM_LABELS[k as keyof typeof PARAM_LABELS] || k),
           old: formatParamValue(k as keyof StrategyParams, prev[k]),
           next: formatParamValue(k as keyof StrategyParams, snapshot[k]),
           source: "USER" as const,
@@ -222,8 +222,8 @@ export function StrategyLab({
                 </div>
                 <Button 
                   variant="ghost" 
-                  size="icon" 
-                  className="mb-0.5 shrink-0" 
+                  size="sm" 
+                  className="px-2 mb-0.5 shrink-0" 
                   onClick={() => {
                     const p = { ...params };
                     delete p[k];

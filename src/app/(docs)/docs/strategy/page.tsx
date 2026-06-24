@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Info, Target, Strategy, ShieldCheck, Crosshair, TrendUp, Clock, WarningCircle } from "@phosphor-icons/react";
+import { Info, Target, Strategy, ShieldCheck, Crosshair, TrendUp, Clock, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 
 export default function StrategyPage() {

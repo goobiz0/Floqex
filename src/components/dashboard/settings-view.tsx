@@ -182,7 +182,6 @@ export function SettingsView({
               />
             </div>
           )}
-          )}
           <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
           <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
           <Channel label="SMS" desc="Critical alerts via text message" checked={notifySms} onChange={setNotifySms} />

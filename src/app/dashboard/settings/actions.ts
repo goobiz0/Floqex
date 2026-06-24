@@ -170,7 +170,7 @@ export async function applyStrategyChanges(changes: Record<string, unknown>): Pr
             botId: bot.id,
             strategyId: strategy.id,
             parameter: PARAM_LABELS[k],
-            paramKey: k,
+            paramKey: String(k),
             oldValue: rawParamValue(k, params[k]),
             newValue: rawParamValue(k, parsed.params[k]),
             source: "USER",

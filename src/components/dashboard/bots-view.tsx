@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useOptimistic } from "react";
 import Link from "next/link";
 import { Plus, Flask } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
@@ -29,19 +29,37 @@ export function BotsView({ bots, plan }: { bots: BotRow[]; plan: Plan }) {
           <span className="tnum font-medium text-fg">{bots.length}</span> of{" "}
           {formatAccountLimit(cfg.accountLimit)} bot{bots.length === 1 ? "" : "s"}
         </p>
-        <Button href={dashboardUrl("/accounts")} size="sm">
-          <Plus size={16} weight="bold" />
-          New bot
-        </Button>
+        {bots.length >= (cfg.accountLimit ?? 999) ? (
+          <Button size="sm" disabled>
+            <Plus weight="bold" />
+            New Bot
+          </Button>
+        ) : (
+          <Button href={dashboardUrl("/bots/new")} size="sm">
+            <Plus weight="bold" />
+            New Bot
+          </Button>
+        )}
       </div>
 
       {bots.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center p-12 text-center">
-          <Flask size={32} className="text-fg-faint" />
-          <p className="mt-4 text-sm font-medium text-fg">No bots yet</p>
-          <p className="mt-1 text-xs text-fg-subtle">
-            Each account runs one bot. Connect an account to create your first.
+        <Card className="flex flex-col items-center justify-center p-12 text-center border-dashed">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface mb-4">
+            <Flask className="text-fg-subtle" size={24} />
+          </div>
+          <h3 className="text-lg font-medium text-fg">No bots active</h3>
+          <p className="mt-1 text-sm text-fg-subtle max-w-[250px]">
+            Deploy your first strategy to start automating your trades.
           </p>
+          {bots.length >= (cfg.accountLimit ?? 999) ? (
+            <Button className="mt-6" disabled>
+              Create Bot
+            </Button>
+          ) : (
+            <Button href={dashboardUrl("/bots/new")} className="mt-6">
+              Create Bot
+            </Button>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -56,9 +74,9 @@ export function BotsView({ bots, plan }: { bots: BotRow[]; plan: Plan }) {
 
 function BotCard({ bot }: { bot: BotRow }) {
   const [pending, startTransition] = useTransition();
-  const [optimisticStatus, setOptimisticStatus] = useOptimistic(
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic<BotRow["status"], BotRow["status"]>(
     bot.status,
-    (state, newStatus: BotRow["status"]) => newStatus
+    (_state, newStatus) => newStatus
   );
 
   const status = STATUS[optimisticStatus];

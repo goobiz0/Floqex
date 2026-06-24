@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { X, Robot, Check, Microphone, ArrowUp } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";

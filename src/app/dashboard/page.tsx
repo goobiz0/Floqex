@@ -30,9 +30,22 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
 
   if (data.error) return <DashboardError title="Dashboard unavailable" message="We couldn't load your active bots or recent activity." />;
 
-  // Default metrics/balance fallback
-  const balance = data.account?.balance ?? 4560;
+  const balance = data.account?.balance ?? 0;
   const recent = data.trades.slice(0, 6);
+  const hasAccount = !!data.account;
+  const hasBot = !!data.bot;
 
-  return <DashboardPageClient balance={balance} nickname={userNickname} avatarUrl={userAvatarUrl} recent={recent} />;
+  return <DashboardPageClient 
+    balance={balance} 
+    nickname={userNickname} 
+    avatarUrl={userAvatarUrl} 
+    recent={recent} 
+    hasAccount={hasAccount}
+    hasBot={hasBot}
+    summaries={data.summaries}
+    trades={data.trades}
+    agentEvents={data.agentEvents}
+    botStatus={data.bot?.status ?? "NONE"}
+  />;
 }
+

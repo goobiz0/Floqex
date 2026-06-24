@@ -37,37 +37,51 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new Response("Unauthorized", { status: 401 });
 
-  const lastMessage = messages[messages.length - 1];
-  
-  // Simulated Local AI Engine
-  const stream = new ReadableStream({
-    start(controller) {
-      const encoder = new TextEncoder();
-      const enqueue = (chunk: string) => controller.enqueue(encoder.encode(chunk));
+  const systemPrompt = `You are Mochi, an expert trading copilot.
+You help the user manage their trading bots and analyze performance.
+Use the tools provided to fetch performance data, check bot status, or propose strategy updates.
+Always be professional and concise.
 
-      if (lastMessage.role === "tool") {
-        enqueue(`0:"I've processed that for you. Anything else?"\\n`);
-      } else {
-        const content = lastMessage.content.toLowerCase();
-        
-        if (content.includes("performance") || content.includes("doing so far")) {
-          enqueue(`9:{"toolCallId":"call_perf","toolName":"getPerformance","args":{}}\\n`);
-        } else if (content.includes("bot running") || content.includes("status")) {
-          enqueue(`9:{"toolCallId":"call_status","toolName":"getBotStatus","args":{}}\\n`);
-        } else if (content.includes("lower my risk")) {
-          enqueue(`0:"I can help with that. Here is a proposal to lower your risk to 0.5%:"\\n`);
-          enqueue(`9:{"toolCallId":"call_risk","toolName":"updateStrategyParams","args":{"riskPct":0.5}}\\n`);
-        } else if (content.includes("explain the orb")) {
-          enqueue(`0:"The Opening Range Breakout (ORB) strategy marks the high and low of the first 15 minutes of the trading session. If price breaks above the high, it buys. If it breaks below the low, it shorts. It sets strict stop losses on the opposite side of the breakout."\\n`);
-        } else {
-          enqueue(`0:"I'm Mochi, running in local free mode! I don't need a Gemini key right now. You can ask me to check your performance, bot status, or adjust your risk."\\n`);
-        }
-      }
-      controller.close();
-    }
+Available parameters for the updateStrategyParams tool:
+${boundsHelp}`;
+
+  const result = await streamText({
+    model: chatModel(),
+    messages,
+    system: systemPrompt,
+    tools: {
+      getPerformance: tool({
+        description: "Get the user's trading performance over the last 7 days.",
+        parameters: z.object({}),
+        execute: async (_args) => {
+          // In a real app, query the database. Mocking for now.
+          return { winRate: "68%", pnl: "+$1,240.50", trades: 45 };
+        },
+      }),
+      getBotStatus: tool({
+        description: "Check if the bot engine is running and its current status.",
+        parameters: z.object({}),
+        execute: async (_args) => {
+          // In a real app, query the bot state. Mocking for now.
+          return { status: "running", activePositions: 2, strategy: "ORB" };
+        },
+      }),
+      updateStrategyParams: tool({
+        description: "Propose an update to the user's trading strategy parameters. The user must accept or decline.",
+        parameters: z.object({
+          riskPct: z.number().optional().describe("Risk percentage per trade"),
+          takeProfit: z.number().optional().describe("Take profit multiplier"),
+          stopLoss: z.number().optional().describe("Stop loss multiplier"),
+          maxDrawdown: z.number().optional().describe("Maximum drawdown allowed"),
+        }),
+        execute: async (args) => {
+          // This tool execution handles the *proposal*, 
+          // the client handles acceptance and calls the server action.
+          return { proposed: args, status: "pending_user_approval" };
+        },
+      }),
+    },
   });
 
-  return new Response(stream, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" }
-  });
+  return result.toDataStreamResponse();
 }
