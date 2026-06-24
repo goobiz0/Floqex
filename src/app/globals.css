@@ -119,7 +119,43 @@
   --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.08);
 }
 
-/* Removed .dark block as the theme is light-locked */
+.dark {
+  color-scheme: dark;
+  
+  --base: #09090b; /* Extremely deep gray/black */
+  --surface: #121214;
+  --elevated: #18181b;
+  --overlay: rgba(9, 9, 11, 0.8);
+
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --fg-faint: #3f3f46;
+
+  --brand: 27 96% 61%;
+  --brand-foreground: 31 97% 72%;
+
+  --accent: #10b981; /* Emerald accent */
+  --accent-hover: #059669;
+  --accent-soft: rgba(16, 185, 129, 0.15);
+  --accent-ring: rgba(16, 185, 129, 0.3);
+  --on-accent: #022c22; /* Dark text on emerald */
+
+  --positive: #10b981;
+  --profit: #10b981;
+  --negative: #ef4444;
+  --negative-soft: rgba(239, 68, 68, 0.15);
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  --line: #27272a;
+  --line-strong: #3f3f46;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.7);
+}
 
 @layer base {
   *,

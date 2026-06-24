@@ -1,11 +1,11 @@
-# Floqex Design System — "Soft Instrument, Light"
+# Floqex Design System — "Soft Instrument, Dark"
 
 The single source of truth for how Floqex looks and feels. Read this before
 building or changing any UI, and keep every surface consistent with it. It adapts
 the soft, rounded, grouped fintech-dashboard references (pill tabs, grouped
 sidebar with chevrons, icon-prefixed floating panels, transaction rows, an
 account top bar with search / notifications / settings / upgrade / avatar) into a
-**light, single-accent** product.
+**premium dark-themed, single-accent** product.
 
 ## Workflow — do this every time you touch UI
 
@@ -14,12 +14,12 @@ account top bar with search / notifications / settings / upgrade / avatar) into 
    any design work. No exceptions. It is the anti-slop discipline this product is
    held to.
 2. State the one-line design read and set the dials (below) for the surface.
-3. Build to the patterns in this document; keep it light and on the single accent.
+3. Build to the patterns in this document; keep it dark, sleek, and on the single accent.
 4. Run the taste **Pre-Flight Check** and the checklist at the bottom of this file.
    If a box can't be ticked honestly, it is not done.
 
 The goal bar: it must not look like AI slop, and it must feel good — match the
-reference style exactly, in light.
+reference style exactly, in dark mode.
 
 ## Taste dials (per the taste skill)
 
@@ -37,10 +37,10 @@ Marketing pages (`(marketing)/*`) may run hotter (VARIANCE 6-7, MOTION 5-6).
 
 ## Non-negotiable rules
 
-1. **Light Theme Primary**: The primary aesthetic is a light-gray page with white cards and dark text. `color-scheme: light`. A dark mode toggle exists for user preference, but the brand identity is anchored in the light theme.
+1. **Dark Theme Primary**: The product is strictly **dark-locked**. The primary aesthetic is a deep, rich dark background with subtle elevated surfaces. `color-scheme: dark`. Light mode exists as a user preference in settings, but the default brand identity is dark.
 2. **Gradient Accents**: The brand is anchored by a vibrant gradient blending light emerald, light blue, and light purple. Use the `@utility vibrant-mesh` and `aurora-breathe` utilities for structural background elements.
-3. **One accent: emerald** `--color-accent` (deep emerald, legible on white).
-   Text on the accent uses `--color-on-accent` (white). Profit-green
+3. **One accent: emerald** `--color-accent` (deep emerald, legible on dark surfaces).
+   Text on the accent uses `--color-on-accent` (black/white depending on contrast). Profit-green
    `--color-profit` is a *separate* token from the brand accent. Brand accent is
    for interactive/brand emphasis; profit/loss P&L uses `--color-profit` /
    `--color-negative`. Never color P&L with the brand accent.
@@ -62,11 +62,11 @@ Marketing pages (`(marketing)/*`) may run hotter (VARIANCE 6-7, MOTION 5-6).
 Use the CSS variables / Tailwind tokens; never hardcode `oklch(...)` in components
 (including SVG charts — use `var(--color-profit)` etc.).
 
-**Surfaces (light, cool-gray):** `base` (page) → `elevated` (cards/rails) →
+**Surfaces (dark, cool-gray):** `base` (page) → `elevated` (cards/rails) →
 `surface` (insets/controls) → `overlay` (popovers). Depth comes from elevation,
 not shadow spam.
 
-**Text:** `fg` → `fg-muted` → `fg-subtle` → `fg-faint`.
+**Text:** `fg` (white/off-white) → `fg-muted` → `fg-subtle` → `fg-faint`.
 
 **Accent:** `accent`, `accent-hover`, `accent-soft` (tint), `accent-ring`.
 **Semantic:** `profit`/`positive` (P&L up), `negative`(+`-soft`), `warning`, `info`.
@@ -93,7 +93,7 @@ durations: control 100-160ms, popover/menu 125-200ms, dialog 180-260ms.
 auth/shell backdrops; `grid-faint` dotted graph-paper behind data; `film-grain`
 once at the shell. All honor `prefers-reduced-transparency`.
 
-## Component patterns (the reference look, in light)
+## Component patterns (the reference look, in dark mode)
 
 - **App shell.** Fixed 240px sidebar (`bg-elevated`, `border-line`) at lg+, icon
   rail/bottom-nav below. Sticky topbar `h-14`, `bg-base/80 backdrop-blur`.
@@ -142,7 +142,7 @@ once at the shell. All honor `prefers-reduced-transparency`.
 
 ## Pre-ship checklist
 
-- [ ] Light Theme primary; emerald accent; vibrant light-emerald/blue/purple gradients applied appropriately.
+- [ ] Dark Theme primary; emerald accent; vibrant light-emerald/blue/purple gradients applied appropriately.
 - [ ] One radius system via tokens; no raw `rounded-*`/`shadow-*`.
 - [ ] Zero em-dashes anywhere visible.
 - [ ] Real data; empty/loading/error states present.
