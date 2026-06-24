@@ -18,6 +18,7 @@ enum Plan {
   FREE
   TRADER
   PRO
+  ELITE
 }
 
 model User {
@@ -39,13 +40,37 @@ model User {
   // Developer & MCP API Access
   // mcpKey stored in Clerk privateMetadata instead of DB to avoid schema migrations
 
+  // Alerting Preferences
+  webhookUrl           String?
+  alertOnTrade         Boolean   @default(false)
+  alertOnRisk          Boolean   @default(true)
+  alertOnError         Boolean   @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts   Account[]
-  strategies Strategy[]
+  accounts           Account[]
+  strategies         Strategy[]
+  dashboardTemplates DashboardTemplate[]
 
   @@map("users")
+}
+
+// ─────────────────────── Dashboards ───────────────────────────
+
+model DashboardTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  isDefault Boolean  @default(false)
+  layout    Json     // Array of widget definitions: { id, type, x, y, w, h, config }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("dashboard_templates")
 }
 
 // ─────────────────────── Accounts & Bots ────────────────────────

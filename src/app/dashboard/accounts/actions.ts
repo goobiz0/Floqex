@@ -220,3 +220,31 @@ export async function updateCircuitBreaker(accountId: string, amount: number | n
     return { ok: false, error: "Could not update circuit breaker" };
   }
 }
+
+export async function disconnectAccount(accountId: string) {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Not signed in" };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    if (!account || account.userId !== user.id) {
+      return { ok: false, error: "Account not found" };
+    }
+
+    // Prisma Cascade delete handles related bots, trades, etc.
+    await prisma.account.delete({
+      where: { id: accountId }
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/accounts");
+    return { ok: true };
+  } catch (err) {
+    console.error("disconnectAccount error", err);
+    return { ok: false, error: "Could not disconnect account" };
+  }
+}

@@ -16,6 +16,9 @@ export type NotificationPrefs = {
   notifyCustomWebhook: boolean;
   customWebhookUrl: string;
   notifyEveryTrade: boolean;
+  notifyCustomTrade: boolean;
+  notifyCustomRisk: boolean;
+  notifyCustomError: boolean;
   dailyLossAlertPct: number;
   drawdownAlertPct: number;
   globalKillSwitch: boolean;
@@ -53,6 +56,9 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
         smsNumber: prefs.smsNumber,
         notifyCustomWebhook: prefs.notifyCustomWebhook,
         customWebhookUrl: prefs.customWebhookUrl,
+        notifyCustomTrade: prefs.notifyCustomTrade,
+        notifyCustomRisk: prefs.notifyCustomRisk,
+        notifyCustomError: prefs.notifyCustomError,
         notifyEveryTrade: prefs.notifyEveryTrade,
         dailyLossAlertPct: clampPct(prefs.dailyLossAlertPct, 0, 100),
         drawdownAlertPct: clampPct(prefs.drawdownAlertPct, 0, 100),

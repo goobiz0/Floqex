@@ -8,6 +8,7 @@ import { DashboardError } from "@/components/dashboard/states";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { DashboardPageClient } from "./page-client";
+import { getDashboardTemplates } from "./template-actions";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -20,13 +21,18 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
   let userNickname = "User";
   let userAvatarUrl = "https://github.com/shadcn.png"; // Default
 
+  let userPlan = "FREE";
   if (userId) {
     try {
       const clerkUser = await client.users.getUser(userId);
       userNickname = clerkUser.firstName || clerkUser.emailAddresses[0]?.emailAddress.split('@')[0] || "User";
       userAvatarUrl = clerkUser.imageUrl || userAvatarUrl;
+      const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { plan: true } });
+      if (dbUser) userPlan = dbUser.plan;
     } catch {}
   }
+
+  const templates = await getDashboardTemplates();
 
   if (data.error) return <DashboardError title="Dashboard unavailable" message="We couldn't load your active bots or recent activity." />;
 
@@ -47,6 +53,9 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
     agentEvents={data.agentEvents}
     botStatus={data.bot?.status ?? "NONE"}
     lastHeartbeat={data.bot?.lastHeartbeat ?? null}
+    accountId={data.account?.id ?? null}
+    initialTemplates={templates}
+    userPlan={userPlan}
   />;
 }
 

@@ -72,5 +72,4 @@ class PaperBroker:
         trade.closed_at = ts
         trade.exit_reason = reason
         trade.net_pnl = round(pnl, 2)
-        trade.r_multiple = round(trade.excursion_r(fill), 3)
-        trade.status = TradeStatus.CLOSED
+

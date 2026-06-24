@@ -78,15 +78,14 @@ export default async function ProfilePage() {
         </div>
       </Card>
 
-      {/* Funding is a later phase; shown disabled rather than faked. */}
+      {/* Funding */}
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
           <CardTitle>Funding</CardTitle>
-          <Badge tone="neutral">Coming soon</Badge>
+          <Badge tone="neutral">Disabled</Badge>
         </div>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-fg-muted">
-          Deposits and withdrawals arrive with funded accounts. Until then, paper accounts run on
-          simulated balances and live accounts are funded through your own broker.
+          Platform-native deposits are disabled while in beta. All paper accounts run on simulated balances, and live accounts are funded through your connected brokerage.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button variant="secondary" size="sm" disabled>

@@ -80,6 +80,9 @@ type NotificationSettings = {
   notifyCustomWebhook: boolean;
   customWebhookUrl: string;
   notifyEveryTrade: boolean;
+  notifyCustomTrade: boolean;
+  notifyCustomRisk: boolean;
+  notifyCustomError: boolean;
   dailyLossAlertPct: number;
   drawdownAlertPct: number;
   globalKillSwitch: boolean;
@@ -108,6 +111,9 @@ export function SettingsView({
   const [notifyCustomWebhook, setNotifyCustomWebhook] = useState(settings.notifyCustomWebhook);
   const [customWebhookUrl, setCustomWebhookUrl] = useState(settings.customWebhookUrl);
   const [notifyEveryTrade, setNotifyEveryTrade] = useState(settings.notifyEveryTrade);
+  const [notifyCustomTrade, setNotifyCustomTrade] = useState(settings.notifyCustomTrade);
+  const [notifyCustomRisk, setNotifyCustomRisk] = useState(settings.notifyCustomRisk);
+  const [notifyCustomError, setNotifyCustomError] = useState(settings.notifyCustomError);
   const [webhookUrl, setWebhookUrl] = useState(settings.discordWebhookUrl);
   const [dailyLoss, setDailyLoss] = useState(String(settings.dailyLossAlertPct));
   const [drawdown, setDrawdown] = useState(String(settings.drawdownAlertPct));
@@ -132,6 +138,9 @@ export function SettingsView({
         smsNumber,
         notifyCustomWebhook,
         customWebhookUrl,
+        notifyCustomTrade,
+        notifyCustomRisk,
+        notifyCustomError,
         notifyEveryTrade,
         dailyLossAlertPct: Number(dailyLoss),
         drawdownAlertPct: Number(drawdown),
@@ -200,16 +209,33 @@ export function SettingsView({
           )}
           <Channel label="Custom Webhook" desc="Forward events to your own server" checked={notifyCustomWebhook} onChange={setNotifyCustomWebhook} />
           {notifyCustomWebhook && (
-            <div className="space-y-1.5 py-3">
-              <Label htmlFor="custom-webhook">Webhook URL</Label>
-              <Input
-                id="custom-webhook"
-                type="url"
-                icon={<Globe weight="fill" />}
-                placeholder="https://api.yourdomain.com/webhook"
-                value={customWebhookUrl}
-                onChange={(e) => setCustomWebhookUrl(e.target.value)}
-              />
+            <div className="space-y-4 py-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="custom-webhook">Webhook URL</Label>
+                <Input
+                  id="custom-webhook"
+                  type="url"
+                  icon={<Globe weight="fill" />}
+                  placeholder="https://api.yourdomain.com/webhook"
+                  value={customWebhookUrl}
+                  onChange={(e) => setCustomWebhookUrl(e.target.value)}
+                />
+              </div>
+              <div className="space-y-3 rounded-md bg-surface/50 p-4 border border-line">
+                <p className="text-sm font-medium text-fg mb-2">Events to send</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-normal text-fg-subtle">Risk & Circuit Breakers</Label>
+                  <Switch checked={notifyCustomRisk} onChange={setNotifyCustomRisk} label="Risk" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-normal text-fg-subtle">System Errors</Label>
+                  <Switch checked={notifyCustomError} onChange={setNotifyCustomError} label="Errors" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-normal text-fg-subtle">Trade Executions</Label>
+                  <Switch checked={notifyCustomTrade} onChange={setNotifyCustomTrade} label="Trades" />
+                </div>
+              </div>
             </div>
           )}
         </div>

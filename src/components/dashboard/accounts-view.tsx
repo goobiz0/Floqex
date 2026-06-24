@@ -13,14 +13,16 @@ import {
   Key,
   Lock,
   TextAa,
+  DotsThree,
 } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dropdown } from "@/components/ui/dropdown";
 import { cn, formatUSD } from "@/lib/utils";
-import { connectAccount, toggleBotStatus } from "@/app/dashboard/accounts/actions";
+import { connectAccount, toggleBotStatus, disconnectAccount } from "@/app/dashboard/accounts/actions";
 import { PLANS, type Plan, type PlanConfig } from "@/lib/plans";
 import type { Broker } from "@prisma/client";
 import Link from "next/link";
@@ -63,6 +65,17 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
   function handleCopy(url: string) {
     navigator.clipboard.writeText(url);
     alert("Webhook URL copied to clipboard!");
+  }
+
+  function handleDisconnect(id: string) {
+    if (confirm("Are you sure you want to disconnect this account? All associated bots and trading history will be permanently deleted.")) {
+      startTransition(async () => {
+        const res = await disconnectAccount(id);
+        if (!res.ok) {
+          alert(res.error);
+        }
+      });
+    }
   }
 
   return (
@@ -113,9 +126,22 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                           <p className="text-xs text-fg-subtle">{a.broker}</p>
                         </div>
                       </div>
-                      <Badge tone={a.mode === "LIVE" ? "warning" : "neutral"}>
-                        {a.mode === "LIVE" ? "Live" : "Paper"}
-                      </Badge>
+                      <div className="flex items-center gap-3">
+                        <Badge tone={a.mode === "LIVE" ? "warning" : "neutral"}>
+                          {a.mode === "LIVE" ? "Live" : "Paper"}
+                        </Badge>
+                        <Dropdown 
+                          align="right"
+                          trigger={
+                            <button className="flex h-6 w-6 items-center justify-center rounded-full text-fg-subtle hover:bg-surface hover:text-fg">
+                              <DotsThree size={20} weight="bold" />
+                            </button>
+                          }
+                          items={[
+                            { label: "Disconnect", onClick: () => handleDisconnect(a.id) }
+                          ]}
+                        />
+                      </div>
                     </div>
                     <div className="mt-5 flex items-end justify-between">
                       <div>

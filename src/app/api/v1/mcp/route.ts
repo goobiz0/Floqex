@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam } from "@/lib/strategy-schema";
 
-// import { Ratelimit } from "@upstash/ratelimit";
-// import { Redis } from "@upstash/redis";
-// const ratelimit = new Ratelimit({
-//   redis: Redis.fromEnv(),
-//   limiter: Ratelimit.slidingWindow(20, "1 m"),
-// });
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(20, "1 m"),
+});
 
 // Middleware to check mcpKey
 async function getMcpUser(request: NextRequest) {
@@ -39,10 +39,9 @@ async function getMcpUser(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
-  // const { success } = await ratelimit.limit(`mcp_get_${ip}`);
-  // if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
-
+  const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
+  const { success } = await ratelimit.limit(`mcp_get_${ip}`);
+  if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   const user = await getMcpUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -75,14 +74,61 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ accounts: data });
   }
 
+  if (action === "trades") {
+    const accountId = url.searchParams.get("accountId");
+    const limit = Number(url.searchParams.get("limit") || 50);
+    const trades = await prisma.trade.findMany({
+      where: {
+        accountId: accountId ? accountId : { in: user.accounts.map(a => a.id) }
+      },
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json({ trades });
+  }
+
+  if (action === "performance") {
+    const summaries = await prisma.dailySummary.findMany({
+      where: { accountId: { in: user.accounts.map(a => a.id) } },
+      orderBy: { date: "desc" },
+      take: 30
+    });
+    
+    let totalPnl = 0;
+    let wins = 0;
+    let totalTrades = 0;
+    for (const s of summaries) {
+      totalPnl += Number(s.netPnl);
+      wins += s.winCount;
+      totalTrades += s.tradeCount;
+    }
+    
+    return NextResponse.json({ 
+      aggregate: {
+        totalPnl,
+        winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
+        totalTrades
+      },
+      summaries 
+    });
+  }
+
+  if (action === "logs") {
+    const events = await prisma.agentEvent.findMany({
+      where: { accountId: { in: user.accounts.map(a => a.id) } },
+      take: 100,
+      orderBy: { ts: "desc" }
+    });
+    return NextResponse.json({ events });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
 
 export async function POST(request: NextRequest) {
-  // const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
-  // const { success } = await ratelimit.limit(`mcp_post_${ip}`);
-  // if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
-
+  const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
+  const { success } = await ratelimit.limit(`mcp_post_${ip}`);
+  if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   const user = await getMcpUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -111,6 +157,44 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, newParams: result.params });
+  }
+
+  if (action === "bot_toggle") {
+    const body = await request.json();
+    const { accountId, status } = body; // status: "RUNNING" | "STOPPED"
+    
+    const account = user.accounts.find(a => a.id === accountId);
+    if (!account || !account.bot) return NextResponse.json({ error: "Bot not found" }, { status: 404 });
+
+    await prisma.bot.update({
+      where: { id: account.bot.id },
+      data: { status }
+    });
+    
+    return NextResponse.json({ success: true, status });
+  }
+
+  if (action === "emergency_stop") {
+    const botIds = user.accounts.filter(a => a.bot).map(a => a.bot!.id);
+    await prisma.bot.updateMany({
+      where: { id: { in: botIds } },
+      data: { status: "STOPPED" }
+    });
+    return NextResponse.json({ success: true, message: "All bots stopped" });
+  }
+
+  if (action === "update_risk") {
+    const body = await request.json();
+    const { accountId, maxDailyDrawdown } = body;
+    
+    const account = user.accounts.find(a => a.id === accountId);
+    if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });
+
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { maxDailyDrawdown }
+    });
+    return NextResponse.json({ success: true });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
