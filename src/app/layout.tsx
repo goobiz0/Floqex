@@ -40,6 +40,7 @@ export const viewport: Viewport = {
 };
 
 import { Toaster } from "sonner";
+import { PrivacyProvider } from "@/components/privacy-provider";
 
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
 // src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
@@ -65,19 +66,21 @@ export default async function RootLayout({
       <body className="min-h-[100dvh] bg-base text-fg">
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
-          <ClerkProvider
-            signInUrl="/sign-in"
-            signUpUrl="/sign-up"
-            signInFallbackRedirectUrl="/dashboard"
-            signUpFallbackRedirectUrl="/onboarding"
-          >
-            {children}
-          </ClerkProvider>
-          <Toaster position="bottom-right" />
+          <PrivacyProvider>
+            <ClerkProvider
+              signInUrl="/sign-in"
+              signUpUrl="/sign-up"
+              signInFallbackRedirectUrl="/dashboard"
+              signUpFallbackRedirectUrl="/onboarding"
+            >
+              {children}
+            </ClerkProvider>
+            <Toaster position="bottom-right" />
+          </PrivacyProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -90,7 +90,9 @@ type NotificationSettings = {
 };
 
 import { generateMcpKey } from "@/app/dashboard/settings/actions";
-import { TerminalWindow, Copy, Check } from "@phosphor-icons/react";
+import { usePrivacy } from "@/components/privacy-provider";
+import { TerminalWindow, Copy, Check, Eye, EyeSlash } from "@phosphor-icons/react";
+import { motion } from "motion/react";
 
 export function SettingsView({
   trades,
@@ -103,6 +105,7 @@ export function SettingsView({
   settings: NotificationSettings;
   mcpKey?: string;
 }) {
+  const { isPrivacyMode, togglePrivacyMode } = usePrivacy();
   const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
   const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
   const [notifyPush, setNotifyPush] = useState(settings.notifyPush);
@@ -124,6 +127,7 @@ export function SettingsView({
   const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
   const { signOut } = useClerk();
+  const [activeTab, setActiveTab] = useState<"GENERAL" | "SECURITY" | "AFFILIATE" | "CUSTOMISATION">("GENERAL");
 
   function savePrefs() {
     setSaved(false);
@@ -157,207 +161,269 @@ export function SettingsView({
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <ProfileSettings />
-
-      <Card className="p-5">
-        <CardTitle>Appearance</CardTitle>
-        <div className="mt-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-fg">Theme</p>
-            <p className="text-xs text-fg-subtle">Toggle between light and dark mode.</p>
-          </div>
-          <ThemeToggle />
-        </div>
-      </Card>
-
-      <McpSettings mcpKey={mcpKey} />
-
-
-      <Card className="p-5">
-        <CardTitle>Notifications</CardTitle>
-        <div className="mt-4 divide-y divide-line">
-          <Channel label="Discord" desc="Decision feed and milestone alerts" checked={notifyDiscord} onChange={setNotifyDiscord} />
-          {notifyDiscord && (
-            <div className="space-y-1.5 py-3">
-              <Label htmlFor="discord-webhook">Webhook URL</Label>
-              <Input
-                id="discord-webhook"
-                type="url"
-                icon={<DiscordLogo weight="fill" />}
-                placeholder="https://discord.com/api/webhooks/..."
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-              />
-            </div>
-          )}
-          <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
-          <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
-          <Channel label="SMS" desc="Critical alerts via text message" checked={notifySms} onChange={setNotifySms} />
-          {notifySms && (
-            <div className="space-y-1.5 py-3">
-              <Label htmlFor="sms-number">Phone Number</Label>
-              <Input
-                id="sms-number"
-                type="tel"
-                icon={<DeviceMobile weight="fill" />}
-                placeholder="+1 (555) 000-0000"
-                value={smsNumber}
-                onChange={(e) => setSmsNumber(e.target.value)}
-              />
-            </div>
-          )}
-          <Channel label="Custom Webhook" desc="Forward events to your own server" checked={notifyCustomWebhook} onChange={setNotifyCustomWebhook} />
-          {notifyCustomWebhook && (
-            <div className="space-y-4 py-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-webhook">Webhook URL</Label>
-                <Input
-                  id="custom-webhook"
-                  type="url"
-                  icon={<Globe weight="fill" />}
-                  placeholder="https://api.yourdomain.com/webhook"
-                  value={customWebhookUrl}
-                  onChange={(e) => setCustomWebhookUrl(e.target.value)}
-                />
-              </div>
-              <div className="space-y-3 rounded-md bg-surface/50 p-4 border border-line">
-                <p className="text-sm font-medium text-fg mb-2">Events to send</p>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-normal text-fg-subtle">Risk & Circuit Breakers</Label>
-                  <Switch checked={notifyCustomRisk} onChange={setNotifyCustomRisk} label="Risk" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-normal text-fg-subtle">System Errors</Label>
-                  <Switch checked={notifyCustomError} onChange={setNotifyCustomError} label="Errors" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-normal text-fg-subtle">Trade Executions</Label>
-                  <Switch checked={notifyCustomTrade} onChange={setNotifyCustomTrade} label="Trades" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-5 space-y-5 border-t border-line pt-5">
-          <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" value={dailyLoss} onChange={setDailyLoss} />
-          <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" value={drawdown} onChange={setDrawdown} />
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-fg">Notify on every trade</p>
-              <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
-            </div>
-            <Switch checked={notifyEveryTrade} onChange={setNotifyEveryTrade} label="Notify on every trade" />
-          </div>
-        </div>
-
-        <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
-          {saved ? <span className="text-xs font-medium text-profit">Saved</span> : null}
-          {saveError ? <span className="text-xs text-negative">{saveError}</span> : null}
-          <Button size="sm" onClick={savePrefs} disabled={saving}>
-            {saving ? "Saving…" : "Save preferences"}
-          </Button>
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <CardTitle>Circuit Breakers (Max Daily Drawdown)</CardTitle>
-        <div className="mt-4 space-y-4">
-          <p className="text-sm text-fg-subtle mb-4">
-            If an account hits its daily loss limit, Mochi will automatically stop the bot for 24 hours to prevent revenge trading.
-          </p>
-          {accounts.length === 0 ? (
-            <p className="text-sm text-fg-muted">No accounts connected yet.</p>
-          ) : (
-            <div className="divide-y divide-line border-t border-line">
-              {accounts.map((acc) => (
-                <CircuitBreakerRow key={acc.id} account={acc} />
-              ))}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <CardTitle>Global Risk Controls</CardTitle>
-        <div className="mt-4 space-y-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-fg">Global Kill Switch</p>
-              <p className="mt-1 text-xs text-fg-subtle">Immediately halt all trading across all connected broker accounts.</p>
-            </div>
-            <Switch checked={globalKillSwitch} onChange={setGlobalKillSwitch} label="Global Kill Switch" />
-          </div>
-          <Threshold id="max-global-drawdown" label="Max Global Drawdown" help="Halt all trading if total portfolio drops by this percent." suffix="%" value={maxGlobalDrawdown} onChange={setMaxGlobalDrawdown} />
-          <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
-            <Button size="sm" onClick={savePrefs} disabled={saving}>
-              {saving ? "Saving…" : "Save global risk settings"}
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <CardTitle>Broker Connections</CardTitle>
-        <div className="mt-4 space-y-4">
-          <p className="text-sm text-fg-subtle mb-4">
-            Manage your connected brokerage accounts. Use Ping/Verify to ensure the API connection is healthy.
-          </p>
-          {accounts.length === 0 ? (
-            <p className="text-sm text-fg-muted">No accounts connected yet.</p>
-          ) : (
-            <div className="divide-y divide-line border-t border-line">
-              {accounts.map((acc) => (
-                <BrokerConnectionRow key={acc.id} account={acc} />
-              ))}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <CardTitle>Data</CardTitle>
-        <div className="mt-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-fg">Export trades</p>
-            <p className="text-xs text-fg-subtle">Download your full trade history as CSV.</p>
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => exportCsv(trades)}
-            disabled={trades.length === 0}
+    <div className="max-w-3xl space-y-6">
+      <div className="flex items-center gap-2 border-b border-line pb-4 overflow-x-auto relative">
+        {(["GENERAL", "SECURITY", "AFFILIATE", "CUSTOMISATION"] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`relative px-4 py-2 text-sm font-semibold rounded-[var(--radius-pill)] transition-colors whitespace-nowrap ${
+              activeTab === tab 
+                ? "text-fg" 
+                : "text-fg-subtle hover:text-fg"
+            }`}
           >
-            <DownloadSimple size={16} />
-            Download CSV
-          </Button>
-        </div>
-      </Card>
+            {activeTab === tab && (
+              <motion.div
+                layoutId="settings-tab-pill"
+                className="absolute inset-0 rounded-[var(--radius-pill)] bg-surface shadow-[var(--shadow-sm)] border border-line"
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10">{tab.charAt(0) + tab.slice(1).toLowerCase()}</span>
+          </button>
+        ))}
+      </div>
 
-      <SecurityAuditLog />
+      {activeTab === "GENERAL" && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <ProfileSettings />
+          
+          <Card className="p-5">
+            <CardTitle>Broker Connections</CardTitle>
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-fg-subtle mb-4">
+                Manage your connected brokerage accounts. Use Ping/Verify to ensure the API connection is healthy.
+              </p>
+              {accounts.length === 0 ? (
+                <p className="text-sm text-fg-muted">No accounts connected yet.</p>
+              ) : (
+                <div className="divide-y divide-line border-t border-line">
+                  {accounts.map((acc) => (
+                    <BrokerConnectionRow key={acc.id} account={acc} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
 
-      <Card className="border-negative/40 p-5">
-        <CardTitle>Danger zone</CardTitle>
-        <div className="mt-4 space-y-3">
-          <DangerAction
-            title="Reset paper account"
-            desc="Clear all paper trades and reset the balance to $10,000."
-            label="Reset"
-            run={resetPaperAccount}
-            onSuccess={() => router.refresh()}
-            verifyWord="RESET"
-          />
-          <DangerAction
-            title="Delete account"
-            desc="Permanently remove your account and all data."
-            label="Delete"
-            run={deleteUserAccount}
-            onSuccess={() => signOut({ redirectUrl: marketingUrl() })}
-            verifyWord="DELETE"
-          />
+          <Card className="p-5">
+            <CardTitle>Data Export</CardTitle>
+            <div className="mt-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-fg">Export trades</p>
+                <p className="text-xs text-fg-subtle">Download your full trade history as CSV.</p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => exportCsv(trades)}
+                disabled={trades.length === 0}
+              >
+                <DownloadSimple size={16} />
+                Download CSV
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="border-negative/40 p-5">
+            <CardTitle>Danger zone</CardTitle>
+            <div className="mt-4 space-y-3">
+              <DangerAction
+                title="Reset paper account"
+                desc="Clear all paper trades and reset the balance to $10,000."
+                label="Reset"
+                run={resetPaperAccount}
+                onSuccess={() => router.refresh()}
+                verifyWord="RESET"
+              />
+              <DangerAction
+                title="Delete account"
+                desc="Permanently remove your account and all data."
+                label="Delete"
+                run={deleteUserAccount}
+                onSuccess={() => signOut({ redirectUrl: marketingUrl() })}
+                verifyWord="DELETE"
+              />
+            </div>
+          </Card>
         </div>
-      </Card>
+      )}
+
+      {activeTab === "SECURITY" && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <McpSettings mcpKey={mcpKey} />
+          
+          <Card className="p-5">
+            <CardTitle>Global Risk Controls</CardTitle>
+            <div className="mt-4 space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-fg">Global Kill Switch</p>
+                  <p className="mt-1 text-xs text-fg-subtle">Immediately halt all trading across all connected broker accounts.</p>
+                </div>
+                <Switch checked={globalKillSwitch} onChange={setGlobalKillSwitch} label="Global Kill Switch" />
+              </div>
+              <Threshold id="max-global-drawdown" label="Max Global Drawdown" help="Halt all trading if total portfolio drops by this percent." suffix="%" value={maxGlobalDrawdown} onChange={setMaxGlobalDrawdown} />
+              <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
+                <Button size="sm" onClick={savePrefs} disabled={saving}>
+                  {saving ? "Saving…" : "Save global risk settings"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardTitle>Circuit Breakers (Max Daily Drawdown)</CardTitle>
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-fg-subtle mb-4">
+                If an account hits its daily loss limit, Floqex will automatically stop the bot for 24 hours.
+              </p>
+              {accounts.length === 0 ? (
+                <p className="text-sm text-fg-muted">No accounts connected yet.</p>
+              ) : (
+                <div className="divide-y divide-line border-t border-line">
+                  {accounts.map((acc) => (
+                    <CircuitBreakerRow key={acc.id} account={acc} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <SecurityAuditLog />
+        </div>
+      )}
+
+      {activeTab === "AFFILIATE" && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <Card className="p-10 text-center flex flex-col items-center justify-center border-dashed border-line">
+            <div className="h-16 w-16 bg-surface border border-line rounded-full flex items-center justify-center text-fg-subtle mb-4">
+              <CurrencyDollar size={32} weight="duotone" />
+            </div>
+            <h3 className="text-xl font-bold text-fg mb-2">Partner Program</h3>
+            <p className="text-fg-subtle mb-6 max-w-sm">
+              Earn a percentage of subscription revenue for every trader you refer to Floqex.
+            </p>
+            <Button onClick={() => alert("The Floqex Partner Program is coming soon!")} className="bg-accent text-black hover:bg-accent/90">
+              Apply to Partner Program
+            </Button>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "CUSTOMISATION" && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <Card className="p-5">
+            <CardTitle>Theme & Display</CardTitle>
+            <div className="mt-4 divide-y divide-line border-t border-line">
+              <div className="flex items-center justify-between py-4">
+                <div>
+                  <p className="text-sm font-medium text-fg">Application Theme</p>
+                  <p className="text-xs text-fg-subtle">Floqex is designed for dark mode, but you can toggle light mode here.</p>
+                </div>
+                <ThemeToggle />
+              </div>
+              <div className="flex items-center justify-between py-4">
+                <div>
+                  <p className="text-sm font-medium text-fg flex items-center gap-2">
+                    Privacy Mode {isPrivacyMode ? <EyeSlash size={14} className="text-fg-subtle" /> : <Eye size={14} className="text-fg-subtle" />}
+                  </p>
+                  <p className="text-xs text-fg-subtle">Blur sensitive financial data and personal info.</p>
+                </div>
+                <Switch checked={isPrivacyMode} onChange={togglePrivacyMode} label="Privacy Mode" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardTitle>Notifications</CardTitle>
+            <div className="mt-4 divide-y divide-line">
+              <Channel label="Discord" desc="Decision feed and milestone alerts" checked={notifyDiscord} onChange={setNotifyDiscord} />
+              {notifyDiscord && (
+                <div className="space-y-1.5 py-3">
+                  <Label htmlFor="discord-webhook">Webhook URL</Label>
+                  <Input
+                    id="discord-webhook"
+                    type="url"
+                    icon={<DiscordLogo weight="fill" />}
+                    placeholder="https://discord.com/api/webhooks/..."
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                  />
+                </div>
+              )}
+              <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
+              <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
+              <Channel label="SMS" desc="Critical alerts via text message" checked={notifySms} onChange={setNotifySms} />
+              {notifySms && (
+                <div className="space-y-1.5 py-3">
+                  <Label htmlFor="sms-number">Phone Number</Label>
+                  <Input
+                    id="sms-number"
+                    type="tel"
+                    icon={<DeviceMobile weight="fill" />}
+                    placeholder="+1 (555) 000-0000"
+                    value={smsNumber}
+                    onChange={(e) => setSmsNumber(e.target.value)}
+                  />
+                </div>
+              )}
+              <Channel label="Custom Webhook" desc="Forward events to your own server" checked={notifyCustomWebhook} onChange={setNotifyCustomWebhook} />
+              {notifyCustomWebhook && (
+                <div className="space-y-4 py-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="custom-webhook">Webhook URL</Label>
+                    <Input
+                      id="custom-webhook"
+                      type="url"
+                      icon={<Globe weight="fill" />}
+                      placeholder="https://api.yourdomain.com/webhook"
+                      value={customWebhookUrl}
+                      onChange={(e) => setCustomWebhookUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-3 rounded-md bg-surface/50 p-4 border border-line">
+                    <p className="text-sm font-medium text-fg mb-2">Events to send</p>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-normal text-fg-subtle">Risk & Circuit Breakers</Label>
+                      <Switch checked={notifyCustomRisk} onChange={setNotifyCustomRisk} label="Risk" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-normal text-fg-subtle">System Errors</Label>
+                      <Switch checked={notifyCustomError} onChange={setNotifyCustomError} label="Errors" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-normal text-fg-subtle">Trade Executions</Label>
+                      <Switch checked={notifyCustomTrade} onChange={setNotifyCustomTrade} label="Trades" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 space-y-5 border-t border-line pt-5">
+              <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" value={dailyLoss} onChange={setDailyLoss} />
+              <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" value={drawdown} onChange={setDrawdown} />
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-fg">Notify on every trade</p>
+                  <p className="mt-1 text-xs text-fg-subtle">Off by default to avoid noise.</p>
+                </div>
+                <Switch checked={notifyEveryTrade} onChange={setNotifyEveryTrade} label="Notify on every trade" />
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
+              {saved ? <span className="text-xs font-medium text-profit">Saved</span> : null}
+              {saveError ? <span className="text-xs text-negative">{saveError}</span> : null}
+              <Button size="sm" onClick={savePrefs} disabled={saving}>
+                {saving ? "Saving…" : "Save preferences"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

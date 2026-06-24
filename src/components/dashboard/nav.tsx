@@ -27,6 +27,8 @@ import {
   Info,
   ShieldCheck,
   Code,
+  ChartLineUp,
+  CalendarBlank,
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -38,9 +40,10 @@ type NavItem = { href: string; label: string; icon: Icon };
 const NAVIGATE: NavItem[] = [
   { href: "/dashboard", label: "Main Dashboard", icon: SquaresFour },
   { href: "/dashboard/bots", label: "Bots & Automations", icon: Robot },
+  { href: "/dashboard/trades", label: "Trades", icon: ChartLineUp },
+  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarBlank },
   { href: "/dashboard/analytics/playbook", label: "God Mode Playbook", icon: Notebook },
   { href: "/dashboard/strategy", label: "Strategy Lab", icon: Flask },
-  { href: "/dashboard/strategy/builder", label: "AI Strategy Builder", icon: ChartBar },
 ];
 
 const MORE: NavItem[] = [
@@ -89,10 +92,10 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       <span
         className={cn(
           "relative z-10 flex items-center justify-center transition-colors",
-          active ? "text-fg" : "text-fg-subtle group-hover:text-fg-muted",
+          active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted",
         )}
       >
-        <Icon size={18} weight={active ? "fill" : "regular"} />
+        <Icon size={18} weight={active ? "duotone" : "regular"} />
       </span>
       <span className="relative z-10 flex-1 truncate">{item.label}</span>
       {active ? (
@@ -290,7 +293,7 @@ export function BottomNav() {
               active ? "text-fg" : "text-fg-subtle",
             )}
           >
-            <Icon size={22} weight={active ? "fill" : "regular"} className={active ? "text-fg" : "text-fg-subtle"} />
+            <Icon size={22} weight={active ? "duotone" : "regular"} className={active ? "text-accent" : "text-fg-subtle"} />
             {item.label}
           </Link>
         );
