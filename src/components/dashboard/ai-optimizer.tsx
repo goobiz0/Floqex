@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkle, MagicWand } from "@phosphor-icons/react";
 import { runAiOptimization } from "@/app/dashboard/strategy/actions";
-import { useSearchParams } from "next/navigation";
 
 export function AIOptimizer({ activeAccountId }: { activeAccountId: string }) {
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -19,6 +18,7 @@ export function AIOptimizer({ activeAccountId }: { activeAccountId: string }) {
         setError(res.error || "Failed to run optimization");
       }
     } catch (e) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       setError("An unexpected error occurred.");
     } finally {
       setIsOptimizing(false);

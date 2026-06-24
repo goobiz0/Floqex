@@ -8,7 +8,7 @@ import { type TradeRow, type DailyRow, type AgentEventRow } from "@/lib/queries"
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import Link from "next/link";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Button } from "@/components/ui/button";
@@ -351,7 +351,7 @@ export function DashboardPageClient({
         if (filter === "WINS") return p;
         if (filter === "LOSSES") return !p;
         return true;
-      }).slice(0, limit);
+      }).slice(0, Number(limit));
 
       return (
         <div className="relative flex h-full w-full flex-col p-6">

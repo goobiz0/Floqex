@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+
 import { Card } from "@/components/ui/card";
 import { ReactNode } from "react";
 

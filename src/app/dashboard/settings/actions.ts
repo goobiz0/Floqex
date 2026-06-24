@@ -177,8 +177,8 @@ export async function applyStrategyChanges(changes: Record<string, unknown>): Pr
             strategyId: strategy.id,
             parameter: PARAM_LABELS[k],
             paramKey: String(k),
-            oldValue: rawParamValue(k, params[k]),
-            newValue: rawParamValue(k, parsed.params[k]),
+            oldValue: rawParamValue(k, params[k] as number | boolean),
+            newValue: rawParamValue(k, parsed.params[k] as number | boolean),
             source: "USER",
             status: "APPLIED",
           },
@@ -192,7 +192,7 @@ export async function applyStrategyChanges(changes: Record<string, unknown>): Pr
     ok: true,
     updated: changedKeys.map((k) => ({
       param: PARAM_LABELS[k],
-      value: formatParamValue(k, parsed.params[k]),
+      value: formatParamValue(k, parsed.params[k] as number | boolean),
     })),
   };
 }

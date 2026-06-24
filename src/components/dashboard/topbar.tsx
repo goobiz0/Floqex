@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gear, Star, HandPalm, Question } from "@phosphor-icons/react/dist/ssr";
+import { Gear, Star, Question } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getRecentNotifications } from "@/lib/queries";
@@ -7,19 +7,11 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { TopbarUser } from "@/components/dashboard/topbar-user";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { EStopWidget } from "@/components/dashboard/e-stop-widget";
 import { dashboardUrl } from "@/lib/urls";
 import { PLAN_ORDER, type Plan } from "@/lib/plans";
 
 const TOP_PLAN = PLAN_ORDER[PLAN_ORDER.length - 1];
-
-const NAV_LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/journal", label: "News" },
-  { href: "/help", label: "Support" },
-  { href: "/dashboard/settings", label: "More" },
-];
 
 /** Full-width top bar: brand at the left, centered links, right cluster. */
 export async function Topbar() {

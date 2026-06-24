@@ -8,7 +8,7 @@ export async function sendUrgentAlert(
   eventType: "TRADE" | "RISK" | "ERROR",
   title: string, 
   message: string, 
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) {
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -44,7 +44,7 @@ export async function sendUrgentAlert(
   }
 }
 
-async function fetchWebhook(url: string, title: string, message: string, context: Record<string, any>, eventType: string) {
+async function fetchWebhook(url: string, title: string, message: string, context: Record<string, unknown>, eventType: string) {
   const payload = {
     embeds: [
       {

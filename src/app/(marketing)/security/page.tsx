@@ -22,14 +22,13 @@ export const metadata: Metadata = {
 export default function SecurityPage() {
   return (
     <div className="relative">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-x-0 top-0 h-[55vh] opacity-50" />
 
-      <section className="relative mx-auto max-w-[1100px] px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pt-28">
+      <section className="relative mx-auto max-w-[1100px] px-4 pb-16 pt-32 sm:px-6 lg:px-8 lg:pt-40">
         <Reveal className="max-w-2xl">
-          <h1 className="text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-6xl">
+          <h1 className="text-balance text-5xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl lg:text-7xl">
             Built so the risky parts cannot break.
           </h1>
-          <p className="mt-5 text-pretty text-lg leading-relaxed text-fg-muted">
+          <p className="mt-6 text-pretty text-lg leading-relaxed text-fg-muted max-w-xl">
             Your money and your credentials deserve more than a promise. Here is how Floqex is put
             together, and the lines it will not cross.
           </p>
@@ -89,9 +88,9 @@ export default function SecurityPage() {
               ready.
             </p>
             <div className="mt-8 flex justify-center">
-              <Button href={authUrl("/sign-up")} size="lg">
+              <Button href={authUrl("/sign-up")} size="lg" className="rounded-[var(--radius-control)] h-12 px-6 text-[15px] font-semibold">
                 Get started
-                <ArrowRight size={18} weight="bold" />
+                <ArrowRight size={18} weight="bold" className="ml-2" />
               </Button>
             </div>
           </Reveal>

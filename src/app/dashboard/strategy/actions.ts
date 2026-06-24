@@ -5,6 +5,9 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { summaryMetrics } from "@/lib/metrics";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam, type StrategyParams } from "@/lib/strategy-schema";
+import { generateObject } from 'ai';
+import { google } from '@ai-sdk/google';
+import { z } from 'zod';
 
 export async function runAiOptimization(accountId: string) {
   const { userId } = await auth();
@@ -20,46 +23,52 @@ export async function runAiOptimization(accountId: string) {
   }
 
   // 1. Analyze recent trades
-  const m = summaryMetrics(account.trades.map((t: any) => ({
-    ...t, entryPrice: Number(t.entryPrice), exitPrice: Number(t.exitPrice), stopPrice: Number(t.stopPrice), targetPrice: Number(t.targetPrice), netPnl: Number(t.netPnl), rMultiple: Number(t.rMultiple)
-  })));
+  const tradeData = account.trades.map((t: any) => ({
+    direction: t.direction,
+    entryPrice: Number(t.entryPrice),
+    exitPrice: Number(t.exitPrice),
+    netPnl: Number(t.netPnl),
+    rMultiple: Number(t.rMultiple)
+  }));
 
-  // 2. Determine an adjustment based on metrics
-  let parameter = "Risk per Trade";
-  let paramKey = "riskPct"; // Corrected from riskPerTrade to match schema
-  let oldValue = "1";
-  let newValue = "0.75";
-  let reasoning = "Recent volatility has increased the average true range (ATR). Reducing risk to preserve capital during chop.";
-  let winRateDelta = -2.1;
-  let confidence = 89;
+  // 2. Determine an adjustment based on metrics using Gemini
+  try {
+    const { object } = await generateObject({
+      model: google('gemini-1.5-pro'),
+      system: 'You are an expert quantitative trading bot optimizer. Analyze the provided recent trades. Identify inefficiencies (e.g., getting stopped out too early, taking profits too soon). Suggest exactly ONE parameter adjustment to improve the win rate or R-multiple. The parameter key must be one of: "riskPct", "rrTarget", "trailingStopPct". Give a plain-English reasoning, a projected win rate delta (e.g. +4.5), and your confidence level out of 100.',
+      prompt: `Recent trades: ${JSON.stringify(tradeData)}`,
+      schema: z.object({
+        parameterLabel: z.string().describe("Human readable parameter name (e.g. 'Reward to risk target')"),
+        paramKey: z.enum(["riskPct", "rrTarget", "trailingStopPct"]).describe("The exact schema key to change"),
+        oldValue: z.string().describe("The estimated current value based on trades"),
+        newValue: z.string().describe("The recommended new value as a string"),
+        reasoning: z.string().describe("Plain English explanation of why this change is needed based on the trades"),
+        winRateDelta: z.number().describe("Projected change in win rate (e.g., 2.5 for +2.5%)"),
+        confidence: z.number().describe("Confidence level from 0 to 100")
+      })
+    });
 
-  if (m.winRate > 60) {
-    parameter = "Reward to risk target";
-    paramKey = "rrTarget";
-    oldValue = "2";
-    newValue = "2.5";
-    reasoning = "Win rate is exceptionally high. Pushing take profit target up to capture more alpha per trade.";
-    winRateDelta = +4.5;
-    confidence = 94;
+    // 3. Create a pending adjustment
+    await prisma.botAdjustment.create({
+      data: {
+        botId: account.bot.id,
+        strategyId: account.bot.strategyId,
+        parameter: object.parameterLabel,
+        paramKey: object.paramKey,
+        oldValue: object.oldValue,
+        newValue: object.newValue,
+        source: "BOT",
+        status: "PENDING",
+        reasoning: object.reasoning,
+        sampleSize: account.trades.length,
+        winRateDelta: object.winRateDelta,
+        confidence: object.confidence
+      }
+    });
+  } catch (e) {
+    console.error("Failed to generate AI optimization:", e);
+    return { ok: false, error: "Failed to generate AI optimization." };
   }
-
-  // 3. Create a pending adjustment
-  await prisma.botAdjustment.create({
-    data: {
-      botId: account.bot.id,
-      strategyId: account.bot.strategyId,
-      parameter,
-      paramKey,
-      oldValue,
-      newValue,
-      source: "BOT",
-      status: "PENDING",
-      reasoning,
-      sampleSize: account.trades.length,
-      winRateDelta,
-      confidence
-    }
-  });
 
   revalidatePath("/dashboard/strategy");
   return { ok: true };

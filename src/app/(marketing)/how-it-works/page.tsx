@@ -20,15 +20,13 @@ export const metadata: Metadata = {
 export default function HowItWorksPage() {
   return (
     <div className="relative">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-x-0 top-0 h-[55vh] opacity-50" />
-
       {/* Intro */}
-      <section className="relative mx-auto max-w-[1100px] px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pt-28">
+      <section className="relative mx-auto max-w-[1100px] px-4 pb-16 pt-32 sm:px-6 lg:px-8 lg:pt-40">
         <Reveal className="max-w-2xl">
-          <h1 className="text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-6xl">
+          <h1 className="text-balance text-5xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-6xl lg:text-7xl">
             How the bot actually trades.
           </h1>
-          <p className="mt-5 text-pretty text-lg leading-relaxed text-fg-muted">
+          <p className="mt-6 text-pretty text-lg leading-relaxed text-fg-muted max-w-xl">
             Floqex runs one well-understood strategy with hard rules you can read in full. Here is
             the whole thing, start to finish.
           </p>
@@ -152,17 +150,14 @@ export default function HowItWorksPage() {
                 proposal waits for your approval.
               </p>
             </Reveal>
-            <Reveal delay={0.05}>
-              <Card className="h-full p-6">
-                <ul className="space-y-4">
-                  {GATES.map((g, i) => (
-                    <li key={g} className="flex gap-3">
-                      <span className="font-mono text-sm text-accent">{`0${i + 1}`}</span>
-                      <span className="text-sm leading-relaxed text-fg-muted">{g}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
+            <Reveal delay={0.05} className="flex h-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full w-full">
+                {GATES.map((g, i) => (
+                  <Card key={g} className="p-5 flex items-center justify-center text-center">
+                    <span className="text-[13px] leading-relaxed text-fg-muted font-medium">{g}</span>
+                  </Card>
+                ))}
+              </div>
             </Reveal>
           </div>
         </div>
@@ -179,9 +174,9 @@ export default function HowItWorksPage() {
               Spin up a simulated account and see every decision narrated in real time.
             </p>
             <div className="mt-8 flex justify-center">
-              <Button href={authUrl("/sign-up")} size="lg">
+              <Button href={authUrl("/sign-up")} size="lg" className="rounded-[var(--radius-control)] h-12 px-6 text-[15px] font-semibold">
                 Get started
-                <ArrowRight size={18} weight="bold" />
+                <ArrowRight size={18} weight="bold" className="ml-2" />
               </Button>
             </div>
           </Reveal>

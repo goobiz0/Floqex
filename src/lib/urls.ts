@@ -24,7 +24,7 @@ function getRoot(): string {
   return "";
 }
 
-function useSubdomains(root: string): boolean {
+function hasSubdomains(root: string): boolean {
   return root.length > 0;
 }
 
@@ -36,13 +36,13 @@ function withLeadingSlash(path: string): string {
 export function marketingUrl(path = "/"): string {
   const p = withLeadingSlash(path);
   const r = getRoot();
-  return useSubdomains(r) ? `https://${r}${p === "/" ? "/" : p}` : p;
+  return hasSubdomains(r) ? `https://${r}${p === "/" ? "/" : p}` : p;
 }
 
 export function authUrl(path = "/sign-in"): string {
   const p = withLeadingSlash(path);
   const r = getRoot();
-  return useSubdomains(r) ? `https://app.${r}${p}` : p;
+  return hasSubdomains(r) ? `https://app.${r}${p}` : p;
 }
 
 /**
@@ -53,7 +53,7 @@ export function authUrl(path = "/sign-in"): string {
 export function dashboardUrl(path = "/"): string {
   const p = withLeadingSlash(path);
   const r = getRoot();
-  if (useSubdomains(r)) {
+  if (hasSubdomains(r)) {
     return `https://app.${r}${p === "/" ? "/" : p}`;
   }
   if (p === "/") return "/dashboard";
@@ -62,5 +62,5 @@ export function dashboardUrl(path = "/"): string {
 
 export function onboardingUrl(): string {
   const r = getRoot();
-  return useSubdomains(r) ? `https://app.${r}/onboarding` : "/onboarding";
+  return hasSubdomains(r) ? `https://app.${r}/onboarding` : "/onboarding";
 }

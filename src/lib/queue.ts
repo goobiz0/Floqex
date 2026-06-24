@@ -6,7 +6,7 @@ export const queue = new Client({
   token: process.env.QSTASH_TOKEN || "placeholder_token",
 });
 
-export async function publishBackgroundJob(destinationUrl: string, payload: any, delaySeconds: number = 0) {
+export async function publishBackgroundJob(destinationUrl: string, payload: Record<string, unknown>, delaySeconds: number = 0) {
   if (!process.env.QSTASH_TOKEN) {
     console.warn("QSTASH_TOKEN not set, background job simulated for:", destinationUrl);
     return null;

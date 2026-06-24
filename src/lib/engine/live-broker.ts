@@ -1,12 +1,12 @@
 import ccxt from "ccxt";
 
-export async function executeLiveOrder(broker: string, creds: any, instrument: string, direction: string, sizeUnits: number) {
+export async function executeLiveOrder(broker: string, creds: Record<string, any>, instrument: string, direction: string, sizeUnits: number) {
   // Translate internal terminology to broker terminology
   const side = direction === 'LONG' ? 'buy' : 'sell';
 
   // Handling Crypto via CCXT
   if (['binance', 'coinbase', 'kraken', 'bybit'].includes(broker.toLowerCase())) {
-    const exchangeClass = (ccxt as any)[broker.toLowerCase()];
+    const exchangeClass = (ccxt as Record<string, any>)[broker.toLowerCase()];
     if (!exchangeClass) throw new Error(`Unsupported CCXT broker: ${broker}`);
     
     const exchange = new exchangeClass({
@@ -22,9 +22,10 @@ export async function executeLiveOrder(broker: string, creds: any, instrument: s
         filledPrice: order.price || order.average,
         status: 'FILLED'
       };
-    } catch (e: any) {
-      console.error("CCXT Execution Error:", e.message);
-      throw new Error(`Execution failed on ${broker}: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error("CCXT Execution Error:", err.message);
+      throw new Error(`Execution failed on ${broker}: ${err.message}`);
     }
   }
 
@@ -66,9 +67,10 @@ export async function executeLiveOrder(broker: string, creds: any, instrument: s
         filledPrice: Number(order.filled_avg_price) || 0,
         status: order.status === "filled" ? "FILLED" : "OPEN"
       };
-    } catch (e: any) {
-      console.error("Alpaca Execution Error:", e.message);
-      throw new Error(`Execution failed on Alpaca: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error("Alpaca Execution Error:", err.message);
+      throw new Error(`Execution failed on Alpaca: ${err.message}`);
     }
   }
 
@@ -93,7 +95,7 @@ export async function executeLiveOrder(broker: string, creds: any, instrument: s
   throw new Error(`Unsupported broker: ${broker}`);
 }
 
-export async function closeLivePosition(broker: string, creds: any, instrument: string, currentDirection: string, sizeUnits: number) {
+export async function closeLivePosition(broker: string, creds: Record<string, any>, instrument: string, currentDirection: string, sizeUnits: number) {
   // To close a LONG, we sell. To close a SHORT, we buy.
   const side = currentDirection === 'LONG' ? 'sell' : 'buy';
   return executeLiveOrder(broker, creds, instrument, side, sizeUnits);

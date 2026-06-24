@@ -8,16 +8,20 @@ type WidgetConfigDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   widgetType: string | null;
-  config: Record<string, any>;
-  onSave: (newConfig: Record<string, any>) => void;
+  config: Record<string, unknown>;
+  onSave: (newConfig: Record<string, unknown>) => void;
 };
 
 export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave }: WidgetConfigDialogProps) {
-  const [localConfig, setLocalConfig] = React.useState<Record<string, any>>(config);
+  const [localConfig, setLocalConfig] = React.useState<Record<string, unknown>>(config);
 
   React.useEffect(() => {
-    setLocalConfig(config);
-  }, [config, isOpen]);
+    if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocalConfig(config);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Only sync when opening
 
   const handleSave = () => {
     onSave(localConfig);
@@ -34,7 +38,7 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
             <Label>Timeframe</Label>
             <select 
               className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
-              value={localConfig.timeframe || "1M"}
+              value={String(localConfig.timeframe) || "1M"}
               onChange={e => setLocalConfig({ ...localConfig, timeframe: e.target.value })}
             >
               <option value="1W">1 Week</option>
@@ -52,14 +56,14 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
               type="number" 
               min={3} 
               max={15} 
-              value={localConfig.limit || 6}
+              value={String(localConfig.limit) || "6"}
               onChange={e => setLocalConfig({ ...localConfig, limit: Number(e.target.value) })}
             />
             
             <Label className="mt-4 block">Filter</Label>
             <select 
               className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
-              value={localConfig.filter || "ALL"}
+              value={String(localConfig.filter) || "ALL"}
               onChange={e => setLocalConfig({ ...localConfig, filter: e.target.value })}
             >
               <option value="ALL">All Trades</option>

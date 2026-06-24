@@ -12,7 +12,6 @@ import {
   Wallet,
   CreditCard,
   UserCircle,
-  Gear,
   Bell,
   type Icon,
 } from "@phosphor-icons/react";

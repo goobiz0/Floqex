@@ -259,7 +259,7 @@ export function MochiChat() {
                                 </div>
                               );
                             } else if (isResult) {
-                              const res = (inv as any).result;
+                              const res = inv.result as { ok?: boolean };
                               const ok = res?.ok;
                               return (
                                 <div key={inv.toolCallId} className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">

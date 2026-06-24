@@ -20,5 +20,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ error: "Session not found" });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await transport.handlePostMessage(req as any, res as any);
 }

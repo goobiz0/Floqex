@@ -89,6 +89,7 @@ mcpServer.tool(
 
     await prisma.strategy.update({
       where: { id: strategyId },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { params: result.params as any },
     });
 

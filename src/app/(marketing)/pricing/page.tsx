@@ -12,14 +12,12 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
-    <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10 opacity-70" />
-
+    <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
       <div className="mx-auto max-w-2xl text-center">
-        <h1 className="text-balance text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
+        <h1 className="text-balance text-4xl font-extrabold tracking-tight text-fg sm:text-5xl lg:text-6xl">
           Start free. Go live when you are ready.
         </h1>
-        <p className="mt-4 text-pretty text-fg-muted">
+        <p className="mt-6 text-pretty text-lg text-fg-muted">
           Paper trade on the free plan for as long as you like. Upgrade for live trading, more
           bots, and pro tooling. Cancel anytime.
         </p>
@@ -32,28 +30,28 @@ export default function PricingPage() {
             <div
               key={id}
               className={cn(
-                "relative flex flex-col rounded-[var(--radius-card)] border bg-elevated p-6",
-                plan.popular ? "border-accent/60" : "border-line",
+                "relative flex flex-col rounded-[var(--radius-card)] border bg-elevated p-8 transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:-translate-y-1",
+                plan.popular ? "border-accent/40 shadow-sm" : "border-line",
               )}
             >
               {plan.popular && (
-                <span className="absolute -top-3 left-6 rounded-[var(--radius-pill)] bg-accent px-2.5 py-0.5 text-xs font-medium text-[var(--color-on-accent)]">
+                <span className="absolute -top-3 left-8 rounded-[var(--radius-pill)] bg-accent px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--color-on-accent)]">
                   Most popular
                 </span>
               )}
-              <h2 className="text-lg font-semibold text-fg">{plan.name}</h2>
-              <p className="mt-1 text-sm text-fg-subtle">{plan.tagline}</p>
-              <div className="mt-5 flex items-baseline gap-1">
-                <span className="tnum text-4xl font-semibold tracking-tight text-fg">
+              <h2 className="text-xl font-semibold text-fg">{plan.name}</h2>
+              <p className="mt-2 text-sm text-fg-subtle leading-relaxed">{plan.tagline}</p>
+              <div className="mt-6 flex items-baseline gap-1">
+                <span className="tnum text-5xl font-semibold tracking-tight text-fg">
                   ${plan.price}
                 </span>
-                <span className="text-sm text-fg-subtle">/mo</span>
+                <span className="text-sm font-medium text-fg-subtle">/mo</span>
               </div>
               <Button
                 href={authUrl("/sign-up")}
                 variant={plan.popular ? "primary" : "secondary"}
                 size="lg"
-                className="mt-6"
+                className="mt-8 rounded-[var(--radius-control)] h-12 font-semibold active:scale-[0.98]"
               >
                 {plan.price === 0 ? "Get started" : `Choose ${plan.name}`}
               </Button>

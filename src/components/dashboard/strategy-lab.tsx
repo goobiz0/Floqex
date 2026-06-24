@@ -86,10 +86,11 @@ export function StrategyLab({
     let equity = 10000;
     const series = [{ date: "Start", equity }];
     const trades = 30;
-    // Basic simulation logic based on strategy params
+    // Basic deterministic simulation logic based on strategy params
     const winRate = Math.max(0.2, 0.8 - (params.rrTarget * 0.1)); 
     for(let i=0; i<trades; i++) {
-       const win = Math.random() < winRate;
+       // deterministic mock based on index and winRate
+       const win = (i % 10) < (winRate * 10);
        if (win) equity += equity * (params.riskPct / 100) * params.rrTarget;
        else equity -= equity * (params.riskPct / 100);
        series.push({ date: `Trade ${i+1}`, equity });
@@ -129,8 +130,8 @@ export function StrategyLab({
         .map((k) => ({
           id: `local-${k}-${now}`,
           param: String(PARAM_LABELS[k as keyof typeof PARAM_LABELS] || k),
-          old: formatParamValue(k as keyof StrategyParams, prev[k]),
-          next: formatParamValue(k as keyof StrategyParams, snapshot[k]),
+          old: formatParamValue(k as keyof StrategyParams, prev[k] as number | boolean),
+          next: formatParamValue(k as keyof StrategyParams, snapshot[k] as number | boolean),
           source: "USER" as const,
           time: fmtDate(now),
         }));
@@ -207,7 +208,7 @@ export function StrategyLab({
         </Group>
 
         <Group title="Custom parameters">
-          <div className="space-y-4">
+            <div className="space-y-4">
             {customKeys.map((k) => (
               <div key={k} className="flex items-end gap-3">
                 <div className="flex-1 space-y-1.5">
@@ -215,8 +216,8 @@ export function StrategyLab({
                   <Input
                     id={`custom-${k}`}
                     type="number"
-                    value={params[k] as number}
-                    onChange={(e) => set(k as any, Number(e.target.value))}
+                    value={params[k as keyof StrategyParams] as number}
+                    onChange={(e) => set(k as keyof StrategyParams, Number(e.target.value) as any)}
                     className="w-full"
                   />
                 </div>
@@ -226,7 +227,7 @@ export function StrategyLab({
                   className="px-2 mb-0.5 shrink-0" 
                   onClick={() => {
                     const p = { ...params };
-                    delete p[k];
+                    delete p[k as keyof StrategyParams];
                     setParams(p);
                   }}
                 >
@@ -239,7 +240,7 @@ export function StrategyLab({
               size="sm"
               onClick={() => {
                 const newKey = `customParam${customKeys.length + 1}`;
-                set(newKey as any, 0);
+                set(newKey as keyof StrategyParams, 0 as any);
               }}
             >
               <Plus size={14} className="mr-1" /> Add Parameter

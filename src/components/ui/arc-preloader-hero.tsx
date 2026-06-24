@@ -71,7 +71,19 @@ export function ArcRevealHero({
 }: ArcRevealHeroProps) {
   const prefersReducedMotion = useReducedMotion();
 
-  const [phase, setPhase] = React.useState<Phase>("intro");
+  const [phase, setPhase] = React.useState<Phase>(() => {
+    if (prefersReducedMotion) return "done";
+    if (storageKey && typeof window !== "undefined") {
+      try {
+        if (window.sessionStorage.getItem(storageKey) === "done") {
+          return "done";
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return "intro";
+  });
   const [index, setIndex] = React.useState(0);
 
   // Drive the arc shape from a single 0→1 progress.
@@ -88,20 +100,9 @@ export function ArcRevealHero({
 
   // Honor reduced-motion + replay-suppression on mount.
   React.useEffect(() => {
-    if (prefersReducedMotion) {
-      setPhase("done");
-      return;
-    }
-    if (storageKey && typeof window !== "undefined") {
-      try {
-        if (window.sessionStorage.getItem(storageKey) === "done") {
-          setPhase("done");
-        }
-      } catch {
-        /* sessionStorage can throw in private mode — fall through */
-      }
-    }
-  }, [prefersReducedMotion, storageKey]);
+    // If we're already done due to SSR or initial state, don't re-run.
+    if (phase === "done") return;
+  }, [phase, prefersReducedMotion, storageKey]);
 
   // Greeting cycle.
   React.useEffect(() => {

@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/wordmark";
-import { Button } from "@/components/ui/button";
-import { authUrl, dashboardUrl } from "@/lib/urls";
 import { MarketingMobileMenu } from "./marketing-mobile-menu";
 import { AuthButtons } from "./auth-buttons";
 

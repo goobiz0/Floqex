@@ -22,7 +22,7 @@ export type StrategyParams = {
   trailingStopPct: number;
   minVolume: number;
   newsPause: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type NumericParam =
@@ -186,7 +186,7 @@ export function parseStrategyParams(
   
   // Custom parameters
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
+    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
       out[key] = o[key];
     }
   }
@@ -213,7 +213,7 @@ export function coerceStrategyParams(input: unknown): StrategyParams {
   if (typeof o.newsPause === "boolean") out.newsPause = o.newsPause;
 
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as any) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
+    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
       out[key] = o[key];
     }
   }

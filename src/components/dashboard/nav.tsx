@@ -38,9 +38,9 @@ type NavItem = { href: string; label: string; icon: Icon };
 const NAVIGATE: NavItem[] = [
   { href: "/dashboard", label: "Main Dashboard", icon: SquaresFour },
   { href: "/dashboard/bots", label: "Bots & Automations", icon: Robot },
-  { href: "/dashboard/journal", label: "Journal & History", icon: Notebook },
+  { href: "/dashboard/analytics/playbook", label: "God Mode Playbook", icon: Notebook },
   { href: "/dashboard/strategy", label: "Strategy Lab", icon: Flask },
-  { href: "/dashboard/analytics", label: "Analytics & PnL", icon: ChartBar },
+  { href: "/dashboard/strategy/builder", label: "AI Strategy Builder", icon: ChartBar },
 ];
 
 const MORE: NavItem[] = [

@@ -1,7 +1,6 @@
 import React from "react";
 import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { WidgetItem, WIDGET_DIMENSIONS } from "./widget-grid";
+import { WIDGET_DIMENSIONS } from "./widget-grid";
 import { Plus } from "@phosphor-icons/react/dist/ssr";
 
 const AVAILABLE_WIDGETS = [

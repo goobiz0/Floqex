@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { mcpServer } from "@/lib/mcp";
-import { prisma } from "@/lib/db";
 
 // Global map to hold active transports by sessionId
 declare global {
@@ -45,6 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // The client will POST to /api/mcp/messages?sessionId=...
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transport = new SSEServerTransport("/api/mcp/messages", res as any);
   
   await mcpServer.connect(transport);

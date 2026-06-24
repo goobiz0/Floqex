@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { Signal } from "./signal-generator";
 import { PLANS, type Plan } from "@/lib/plans";
 
-export async function validateRisk(botId: string, accountId: string, signal: NonNullable<Signal>, accountParams: any) {
+export async function validateRisk(botId: string, accountId: string, signal: NonNullable<Signal>) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: { user: true }

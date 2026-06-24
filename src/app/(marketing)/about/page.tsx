@@ -27,35 +27,36 @@ export default function AboutPage() {
             </p>
           </div>
 
-          {/* Clean SVG Abstract Graphic - Apple Liquid Glass Style */}
-          <div className="w-full max-w-md aspect-square relative rounded-[40px] bg-white/40 border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.04)] backdrop-blur-3xl overflow-hidden flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 mix-blend-multiply" />
-            <svg viewBox="0 0 200 200" className="w-4/5 h-4/5 drop-shadow-sm">
-              <defs>
-                <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.2" />
-                </linearGradient>
-              </defs>
-              {/* Grid backdrop */}
-              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1" fill="rgba(0,0,0,0.05)" />
-              </pattern>
-              <rect width="200" height="200" fill="url(#grid)" />
-              
-              {/* Connecting nodes */}
-              <circle cx="40" cy="140" r="6" fill="var(--color-accent)" className="drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <circle cx="100" cy="100" r="8" fill="var(--color-accent)" className="drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-              <circle cx="160" cy="60" r="6" fill="var(--color-accent)" className="drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              
-              <path d="M 40 140 Q 70 140 100 100 T 160 60" fill="none" stroke="url(#lineGrad)" strokeWidth="3" strokeLinecap="round" />
-              
-              {/* Floating pulse ring */}
-              <circle cx="100" cy="100" r="24" fill="none" stroke="var(--color-accent)" strokeWidth="1" strokeOpacity="0.3" strokeDasharray="4 4">
-                <animate attributeName="r" values="24; 36; 24" dur="4s" repeatCount="indefinite" />
-                <animate attributeName="stroke-opacity" values="0.3; 0; 0.3" dur="4s" repeatCount="indefinite" />
-              </circle>
-            </svg>
+          {/* High Fidelity Static UI Component */}
+          <div className="w-full max-w-md aspect-square relative flex items-center justify-center">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] bg-accent/10 blur-[60px] rounded-full pointer-events-none" />
+            <div className="relative z-10 w-full max-w-[320px] rounded-[var(--radius-card)] border border-line bg-base shadow-[var(--shadow-xl)] p-5 overflow-hidden flex flex-col gap-5">
+              <div className="flex items-center justify-between border-b border-line pb-4">
+                <div className="flex items-center gap-3">
+                   <div className="h-8 w-8 rounded-[8px] bg-accent-soft text-accent flex items-center justify-center font-bold font-mono text-xs">
+                      ORB
+                   </div>
+                   <div>
+                     <p className="text-sm font-semibold text-fg leading-none">Systematic Edge</p>
+                     <p className="text-xs text-fg-subtle mt-1">Version 2.4.1</p>
+                   </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center p-2 rounded-[var(--radius-control)] bg-surface border border-line">
+                   <p className="text-xs font-medium text-fg-muted pl-1">Emotionless Execution</p>
+                   <div className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center"><div className="h-1.5 w-1.5 bg-accent rounded-full" /></div>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-[var(--radius-control)] bg-surface border border-line">
+                   <p className="text-xs font-medium text-fg-muted pl-1">Risk Management</p>
+                   <div className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center"><div className="h-1.5 w-1.5 bg-accent rounded-full" /></div>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-[var(--radius-control)] bg-surface border border-line">
+                   <p className="text-xs font-medium text-fg-muted pl-1">Data-Backed Logic</p>
+                   <div className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center"><div className="h-1.5 w-1.5 bg-accent rounded-full" /></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -105,7 +106,7 @@ export default function AboutPage() {
         </AboutClientMotion>
 
         <div className="text-center pt-24">
-          <Button variant="primary" href="/dashboard" size="lg" className="rounded-full h-14 px-10 text-[16px] shadow-lg shadow-accent/20">
+          <Button variant="primary" href="/dashboard" size="lg" className="rounded-[var(--radius-control)] h-12 px-8 text-[15px] font-semibold active:scale-[0.98]">
             Return to Dashboard
           </Button>
         </div>

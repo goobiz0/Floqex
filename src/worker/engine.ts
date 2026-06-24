@@ -1,12 +1,12 @@
 import { prisma } from "../lib/db";
 import { getRealMarketData } from "../lib/engine/market-data";
-import { evaluateOrbStrategy, evaluateExit } from "../lib/engine/signal-generator";
+import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit } from "../lib/engine/signal-generator";
 import { executeTrade, closeTrade } from "../lib/engine/execution-router";
 import { validateRisk } from "../lib/engine/risk-engine";
 import { sendUrgentAlert } from "../lib/alerting";
 
 // Engine configuration
-const TICK_RATE_MS = 10000; // 10 seconds
+const TICK_RATE_MS = 2000; // 2 seconds
 
 async function tick() {
   try {
@@ -60,8 +60,19 @@ async function tick() {
       }
 
       if (openTrade) {
-        const exitSignal = evaluateExit(openTrade, marketData);
+        const exitSignal = evaluateExit(openTrade, marketData, params);
         if (exitSignal) {
+          if (exitSignal.reason === 'TRAIL_UPDATE' && exitSignal.newStopPrice) {
+            console.log(`[TRAIL] Updating stop on bot ${bot.id} to ${exitSignal.newStopPrice.toFixed(2)}`);
+            await prisma.trade.update({
+              where: { id: openTrade.id },
+              data: { stopPrice: exitSignal.newStopPrice }
+            });
+            continue;
+          }
+          
+          if (!exitSignal.exitPrice) continue;
+
           console.log(`[EXIT SIGNAL] ${exitSignal.reason} on bot ${bot.id}`);
           try {
             const pnl = await closeTrade(openTrade.id, bot.accountId, exitSignal.reason, exitSignal.exitPrice);
@@ -76,18 +87,24 @@ async function tick() {
               }
             });
             await sendUrgentAlert(bot.account.userId, "TRADE", "Trade Closed", `Closed ${openTrade.direction} on ${instrument} at ${exitSignal.exitPrice.toFixed(2)}. Reason: ${exitSignal.reason}. PnL: $${pnl?.toFixed(2)}`, { botId: bot.id, pnl });
-          } catch (error: any) {
+          } catch (e: unknown) {
+            const error = e as Error;
             console.error(`[FATAL] Failed to close trade ${openTrade.id}:`, error);
             await sendUrgentAlert(bot.account.userId, "ERROR", "Live Exit Execution Failed", `Failed to close position for bot ${bot.id}`, { error: error.message, botId: bot.id });
           }
         }
 
       } else {
-        const entrySignal = evaluateOrbStrategy(params, marketData, null);
+        let entrySignal = null;
+        if (bot.strategy.kind === 'CUSTOM') {
+          entrySignal = evaluateCustomStrategy(params, marketData, null);
+        } else {
+          entrySignal = evaluateOrbStrategy(params, marketData, null);
+        }
         if (entrySignal) {
           console.log(`[ENTRY SIGNAL] ${entrySignal.direction} on bot ${bot.id}`);
 
-          const risk = await validateRisk(bot.id, bot.accountId, entrySignal, params);
+          const risk = await validateRisk(bot.id, bot.accountId, entrySignal);
           if (!risk.passed) {
             console.warn(`[RISK REJECTED] Bot ${bot.id} trade rejected: ${risk.reason}`);
             
@@ -108,7 +125,7 @@ async function tick() {
               bot.id, 
               bot.accountId, 
               entrySignal, 
-              { sizeUnits: risk.sizeUnits, riskPct: risk.riskPct }, 
+              { sizeUnits: risk.sizeUnits || 0, riskPct: risk.riskPct || 0 }, 
               instrument
             );
 
@@ -131,7 +148,8 @@ async function tick() {
             }
           });
           await sendUrgentAlert(bot.account.userId, "TRADE", "Trade Executed", `Executed ${entrySignal.direction} on ${instrument} at ${entrySignal.entryPrice.toFixed(2)}. Size: ${(risk.sizeUnits || 0).toFixed(4)}. Stop: ${entrySignal.stopPrice.toFixed(2)}. Target: ${entrySignal.targetPrice.toFixed(2)}`, { botId: bot.id });
-          } catch (error: any) {
+          } catch (e: unknown) {
+            const error = e as Error;
             console.error(`[FATAL] Failed to execute trade for bot ${bot.id}:`, error);
             await sendUrgentAlert(bot.account.userId, "ERROR", "Live Entry Execution Failed", `Failed to open position for bot ${bot.id}`, { error: error.message, botId: bot.id });
           }
@@ -148,8 +166,9 @@ console.log("🚀 Floqex Background Trading Engine Started");
 console.log(`⏱️  Tick Rate: ${TICK_RATE_MS / 1000} seconds`);
 console.log("==========================================");
 
-// Initial tick
-tick();
+async function runLoop() {
+  await tick();
+  setTimeout(runLoop, TICK_RATE_MS);
+}
 
-// Start infinite loop
-setInterval(tick, TICK_RATE_MS);
+runLoop();

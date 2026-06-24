@@ -18,7 +18,7 @@ export type WidgetItem = {
   w: number;
   h: number;
   type: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 };
 
 type WidgetGridProps = {
@@ -57,6 +57,7 @@ export function WidgetGrid({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

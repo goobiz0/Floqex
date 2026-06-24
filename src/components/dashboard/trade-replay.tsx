@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { TradeRow } from "@/lib/metrics";
-import { Play, Pause, FastForward } from "@phosphor-icons/react";
+import { Play, Pause } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 type TapeEvent = {
@@ -47,6 +47,7 @@ export function TradeReplay({ trade }: { trade: TradeRow }) {
   useEffect(() => {
     // Reset when trade changes
     const generated = generateMockTape(trade);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEvents(generated);
     setVisibleEvents([]);
     setIsPlaying(false);

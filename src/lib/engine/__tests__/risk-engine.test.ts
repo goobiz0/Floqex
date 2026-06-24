@@ -29,7 +29,7 @@ describe('Risk Engine', () => {
 
   it('rejects trade if account is not found', async () => {
     vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
-    const result = await validateRisk('bot1', 'acc1', baseSignal, {});
+    const result = await validateRisk('bot1', 'acc1', baseSignal);
     expect(result).toEqual({ passed: false, reason: 'ACCOUNT_NOT_FOUND' });
   });
 
@@ -39,7 +39,7 @@ describe('Risk Engine', () => {
       mode: 'LIVE',
       user: { plan: 'FREE' }
     } as any);
-    const result = await validateRisk('bot1', 'acc1', baseSignal, {});
+    const result = await validateRisk('bot1', 'acc1', baseSignal);
     expect(result).toEqual({ passed: false, reason: 'LIVE_TRADING_NOT_ALLOWED_ON_PLAN' });
   });
 
@@ -52,7 +52,7 @@ describe('Risk Engine', () => {
     } as any);
     vi.mocked(prisma.dailySummary.findFirst).mockResolvedValue(null);
 
-    const result = await validateRisk('bot1', 'acc1', baseSignal, {});
+    const result = await validateRisk('bot1', 'acc1', baseSignal);
     expect(result).toEqual({ passed: false, reason: 'GLOBAL_HARD_STOP_BALANCE_TOO_LOW' });
   });
 
@@ -60,7 +60,7 @@ describe('Risk Engine', () => {
     vi.mocked(prisma.account.findUnique).mockResolvedValue({
       id: 'acc1',
       mode: 'PAPER',
-      balance: 1000,
+      balance: 10000,
       maxDailyDrawdown: 50,
       user: { plan: 'TRADER' }
     } as any);
@@ -69,7 +69,7 @@ describe('Risk Engine', () => {
       netPnl: { toNumber: () => -51 }
     } as any);
 
-    const result = await validateRisk('bot1', 'acc1', baseSignal, {});
+    const result = await validateRisk('bot1', 'acc1', baseSignal);
     expect(result).toEqual({ passed: false, reason: 'CIRCUIT_BREAKER_TRIPPED' });
   });
 
@@ -83,7 +83,7 @@ describe('Risk Engine', () => {
     } as any);
     vi.mocked(prisma.dailySummary.findFirst).mockResolvedValue(null);
 
-    const result = await validateRisk('bot1', 'acc1', baseSignal, {});
+    const result = await validateRisk('bot1', 'acc1', baseSignal);
     
     // Balance 10000, 1% risk = $100
     // Entry 100, Stop 90 => $10 price risk per unit

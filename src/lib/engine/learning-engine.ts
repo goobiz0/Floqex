@@ -17,7 +17,7 @@ export async function runLearningEngine(botId: string, strategyId: string) {
   const strategy = await prisma.strategy.findUnique({ where: { id: strategyId } });
   if (!strategy) return;
   
-  const params: any = strategy.params || DEFAULT_PARAMS;
+  const params: Record<string, unknown> = strategy.params as Record<string, unknown> || DEFAULT_PARAMS;
 
   // Optimization Logic 1: Trend Filter
   // If win rate is below 40% and they aren't using the trend filter, suggest turning it on.

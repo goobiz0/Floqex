@@ -1,5 +1,7 @@
 import yahooFinance from 'yahoo-finance2';
 
+// In-memory cache for SMA50 (1 hour expiry)
+const smaCache: Record<string, { value: number; expiresAt: number }> = {};
 export interface MarketData {
   price: number;
   dayHigh: number;
@@ -25,39 +27,48 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
   // const cached = await redis.get(cacheKey);
   // if (cached) return JSON.parse(cached);
   
-  try {
-    const quote = (await yahooFinance.quote(symbol)) as any;
-    if (!quote || !quote.regularMarketPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
-      return null;
-    }
-    
-    // Fetch historical data for SMA50
-    const today = new Date();
-    const eightyDaysAgo = new Date();
-    eightyDaysAgo.setDate(eightyDaysAgo.getDate() - 80); 
-    
-    let sma50: number | null = null;
     try {
-      const history = (await yahooFinance.historical(symbol, {
-        period1: eightyDaysAgo.toISOString().split("T")[0],
-        period2: today.toISOString().split("T")[0],
-      })) as any[];
-      
-      if (history && history.length >= 50) {
-        const last50 = history.slice(-50);
-        const sum = last50.reduce((acc, bar) => acc + bar.close, 0);
-        sma50 = sum / 50;
+      const quote = (await yahooFinance.quote(symbol)) as Record<string, unknown>;
+      if (!quote || !quote.regularMarketPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
+        return null;
       }
-    } catch (e) {
-      console.warn("Could not fetch historical data for SMA", e);
+      
+      // Fetch historical data for SMA50
+      const today = new Date();
+      const eightyDaysAgo = new Date();
+      eightyDaysAgo.setDate(eightyDaysAgo.getDate() - 80); 
+      
+      let sma50: number | null = null;
+      
+      if (smaCache[symbol] && smaCache[symbol].expiresAt > Date.now()) {
+        sma50 = smaCache[symbol].value;
+      } else {
+        try {
+          const history = (await yahooFinance.historical(symbol, {
+            period1: eightyDaysAgo.toISOString().split("T")[0],
+            period2: today.toISOString().split("T")[0],
+          })) as unknown as Array<{ close: number }>;
+        
+        if (history && history.length >= 50) {
+          const last50 = history.slice(-50);
+          const sum = last50.reduce((acc, bar) => acc + bar.close, 0);
+          sma50 = sum / 50;
+          smaCache[symbol] = {
+            value: sma50,
+            expiresAt: Date.now() + 1000 * 60 * 60, // 1 hour cache
+          };
+        }
+      } catch (e) {
+        console.warn("Could not fetch historical data for SMA", e);
+      }
     }
     
     const data = {
-      price: quote.regularMarketPrice,
-      dayHigh: quote.regularMarketDayHigh,
-      dayLow: quote.regularMarketDayLow,
+      price: quote.regularMarketPrice as number,
+      dayHigh: quote.regularMarketDayHigh as number,
+      dayLow: quote.regularMarketDayLow as number,
       sma50,
-      timestamp: quote.regularMarketTime || new Date(),
+      timestamp: (quote.regularMarketTime as Date) || new Date(),
     };
     
     // TODO (Performance): Cache the result

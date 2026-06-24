@@ -3,7 +3,7 @@ import { Signal } from "./signal-generator";
 import { decrypt } from "@/lib/crypto";
 import { executeLiveOrder, closeLivePosition } from "./live-broker";
 
-export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: any, instrument: string) {
+export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: { connection: true },
@@ -28,9 +28,10 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     try {
       const order = await executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits);
       filledPrice = order.filledPrice;
-    } catch (e: any) {
-      console.error("Live Execution Failed:", e.message);
-      throw new Error(`Failed to execute live order: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error("Live Execution Failed:", err.message);
+      throw new Error(`Failed to execute live order: ${err.message}`);
     }
   } else {
     // ---------------------------------------------------------
@@ -81,9 +82,10 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
     try {
       const order = await closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits));
       finalExitPrice = order.filledPrice;
-    } catch (e: any) {
-      console.error("Live Exit Execution Failed:", e.message);
-      throw new Error(`Failed to close live position: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error("Live Exit Execution Failed:", err.message);
+      throw new Error(`Failed to close live position: ${err.message}`);
     }
   } else {
     // Exit slippage injection for Paper

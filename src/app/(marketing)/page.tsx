@@ -28,10 +28,10 @@ export default function LandingPage() {
 
       {/* Bento Grid Features */}
       <section id="features" className="py-24 relative">
-        <div className="absolute inset-0 bg-surface/50 border-y border-line" />
+        <div className="absolute inset-0 bg-base border-y border-line" />
         <div className="mx-auto max-w-[1200px] px-6 relative z-10">
           <div className="max-w-2xl mb-16">
-            <h2 className="text-3xl font-semibold tracking-tight text-fg md:text-5xl mb-4">
+            <h2 className="text-3xl font-semibold tracking-tight text-fg md:text-4xl mb-4">
               Everything you need to scale.
             </h2>
             <p className="text-lg text-fg-muted">
@@ -40,69 +40,68 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
               <InfrastructureVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
-                  <ChartLineUp size={24} className="text-fg" weight="duotone" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface flex items-center justify-center border border-line">
+                  <ChartLineUp size={20} className="text-fg" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
                   Low-latency execution.
                 </h3>
-                <p className="text-fg-subtle text-[15px] leading-relaxed">
+                <p className="text-fg-muted text-[15px] leading-relaxed">
                   Our engine processes market data and executes orders in milliseconds, directly at the broker level for zero slippage.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+            <BentoCard className="min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
               <StrategyLabVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
-                  <Flask size={24} className="text-fg" weight="duotone" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface flex items-center justify-center border border-line">
+                  <Flask size={20} className="text-fg" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
                   Tune instantly.
                 </h3>
-                <p className="text-fg-subtle text-[15px] leading-relaxed">
+                <p className="text-fg-muted text-[15px] leading-relaxed">
                   Visual node-based backtesting without a single line of code.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <BentoCard className="min-h-[320px] group" innerClassName="bg-surface border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
-                  <Notebook size={24} className="text-fg" weight="duotone" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-base shadow-[var(--shadow-sm)] flex items-center justify-center border border-line">
+                  <Notebook size={20} className="text-fg" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
                   Automated records.
                 </h3>
-                <p className="text-fg-subtle text-[15px] leading-relaxed">
+                <p className="text-fg-muted text-[15px] leading-relaxed">
                   Every execution is logged and analyzed automatically.
                 </p>
               </div>
             </BentoCard>
 
-            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-white border border-line/80 shadow-sm p-10 flex flex-col justify-between">
+            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
               <RiskControlVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-12 h-12 rounded-full bg-surface shadow-sm flex items-center justify-center border border-line">
-                  <ShieldCheck size={24} className="text-fg" weight="duotone" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface flex items-center justify-center border border-line">
+                  <ShieldCheck size={20} className="text-fg" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-2xl font-semibold tracking-tight mb-3 text-fg">
+                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
                   Hard limits that actually work.
                 </h3>
-                <p className="text-fg-subtle text-[15px] leading-relaxed">
+                <p className="text-fg-muted text-[15px] leading-relaxed">
                   Set daily drawdown limits and max position sizing. Our engine enforces them at the broker level, keeping your capital safe.
                 </p>
               </div>
@@ -114,17 +113,14 @@ export default function LandingPage() {
       <PricingTable />
 
       {/* CTA */}
-      <section className="py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-surface/80 border-t border-line" />
-        <div className="absolute inset-0 grid-faint pointer-events-none opacity-50" />
-        
+      <section className="py-32 relative overflow-hidden bg-elevated border-t border-line">
         <div className="relative z-10 mx-auto max-w-3xl text-center px-6">
-          <h2 className="text-4xl md:text-6xl font-semibold tracking-tight text-fg mb-8">
+          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-fg mb-6">
             Ready to trade?
           </h2>
-          <Button href={authUrl("/sign-up")} size="lg" className="rounded-full h-14 px-10 text-[16px] shadow-lg shadow-accent/20 font-semibold tracking-wide">
+          <Button href={authUrl("/sign-up")} size="lg" className="rounded-[var(--radius-control)] h-12 px-8 text-[15px] font-semibold">
             Open your account
-            <ArrowRight size={20} weight="bold" className="ml-2" />
+            <ArrowRight size={18} weight="bold" className="ml-2" />
           </Button>
         </div>
       </section>

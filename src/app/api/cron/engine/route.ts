@@ -68,19 +68,30 @@ export async function GET(req: Request) {
       }
 
       if (openTrade) {
-        const exitSignal = evaluateExit(openTrade, marketData);
+        const exitSignal = evaluateExit(openTrade, marketData, params);
         if (exitSignal) {
-          const pnl = await closeTrade(openTrade.id, bot.accountId, exitSignal.reason, exitSignal.exitPrice);
-          
-          await prisma.agentEvent.create({
-            data: {
-              botId: bot.id,
-              accountId: bot.accountId,
-              kind: "TRADE",
-              message: `Closed ${openTrade.direction} on NQ at ${exitSignal.exitPrice.toFixed(2)}. Reason: ${exitSignal.reason}. PnL: $${pnl?.toFixed(2)}`,
-              tradeId: openTrade.id
-            }
-          });
+          if (exitSignal.reason === 'TRAIL_UPDATE' && exitSignal.newStopPrice) {
+            await prisma.trade.update({
+              where: { id: openTrade.id },
+              data: { stopPrice: exitSignal.newStopPrice }
+            });
+            continue;
+          }
+
+          if (exitSignal.exitPrice !== undefined) {
+            const exitPriceNum = Number(exitSignal.exitPrice);
+            const pnl = await closeTrade(openTrade.id, bot.accountId, exitSignal.reason, exitPriceNum);
+            
+            await prisma.agentEvent.create({
+              data: {
+                botId: bot.id,
+                accountId: bot.accountId,
+                kind: "TRADE",
+                message: `Closed ${openTrade.direction} on NQ at ${exitPriceNum.toFixed(2)}. Reason: ${exitSignal.reason}. PnL: $${pnl?.toFixed(2)}`,
+                tradeId: openTrade.id
+              }
+            });
+          }
         }
       } else {
         const entrySignal = evaluateOrbStrategy(params, marketData, null);
