@@ -7,6 +7,7 @@ import { Sidebar, BottomNav } from "@/components/dashboard/nav";
 import { Topbar } from "@/components/dashboard/topbar";
 import { MochiChat } from "@/components/dashboard/mochi-chat";
 import { IdleTimeout } from "@/components/auth/idle-timeout";
+import Script from "next/script";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Force onboarding until the user has provisioned an account. A brand-new user
@@ -46,6 +47,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <BottomNav />
         <MochiChat />
       </div>
+      <Script src="https://floqex1.statuspage.io/embed/script.js" strategy="afterInteractive" />
     </div>
   );
 }

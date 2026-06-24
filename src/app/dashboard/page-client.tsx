@@ -53,15 +53,27 @@ function EventIcon({ kind }: { kind: string }) {
   }
 }
 
-function HeroCard2({ hasBot, agentEvents }: { hasBot: boolean, agentEvents: AgentEventRow[] }) {
+function HeroCard2({ hasBot, agentEvents, engineStatus }: { hasBot: boolean, agentEvents: AgentEventRow[], engineStatus: "ONLINE" | "DEGRADED" | "OFFLINE" }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
       className="relative flex h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-card)] p-6 border border-line bg-elevated"
     >
       <div className="flex items-center justify-between mb-4 shrink-0">
-        <h3 className="text-sm font-medium text-fg">Live Execution Feed</h3>
-        {hasBot && (
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-fg">Live Execution Feed</h3>
+          {engineStatus === "DEGRADED" && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-warning bg-warning/10 px-1.5 py-0.5 rounded-[4px]">
+              <WarningCircle size={12} weight="fill" /> Degraded
+            </span>
+          )}
+          {engineStatus === "OFFLINE" && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-negative bg-negative/10 px-1.5 py-0.5 rounded-[4px]">
+              <WarningCircle size={12} weight="fill" /> Offline
+            </span>
+          )}
+        </div>
+        {hasBot && engineStatus === "ONLINE" && (
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
@@ -172,12 +184,30 @@ export function DashboardPageClient({
   trades?: TradeRow[];
   agentEvents?: AgentEventRow[];
   botStatus?: string;
+  lastHeartbeat?: string | null;
 }) {
 
   // Compute metrics
   const todayDateStr = new Date().toISOString().slice(0, 10);
   const todaySummary = summaries.find(s => s.date === todayDateStr);
   const todayPnl = todaySummary?.netPnl ?? 0;
+
+  // Compute Engine Health based on lastHeartbeat (if RUNNING, we expect a heartbeat every 10-30 seconds)
+  let engineStatus: "ONLINE" | "DEGRADED" | "OFFLINE" = "OFFLINE";
+  if (botStatus === "RUNNING") {
+    if (lastHeartbeat) {
+      const msSinceHeartbeat = Date.now() - new Date(lastHeartbeat).getTime();
+      if (msSinceHeartbeat < 60000) {
+        engineStatus = "ONLINE"; // < 1 minute
+      } else if (msSinceHeartbeat < 300000) {
+        engineStatus = "DEGRADED"; // 1 to 5 minutes
+      } else {
+        engineStatus = "OFFLINE"; // > 5 minutes
+      }
+    } else {
+      engineStatus = "OFFLINE";
+    }
+  }
 
   let totalWins = 0;
   let totalTrades = 0;
@@ -266,7 +296,7 @@ export function DashboardPageClient({
       {/* Hero Cards Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <HeroCard1 balance={balance} hasAccount={hasAccount} todayPnl={todayPnl} />
-        <HeroCard2 hasBot={hasBot} agentEvents={agentEvents} />
+        <HeroCard2 hasBot={hasBot} agentEvents={agentEvents} engineStatus={engineStatus} />
         <HeroCard3 hasBot={hasBot} />
         <HeroCard4 hasBot={hasBot} winRate={winRate} />
       </div>
@@ -377,6 +407,18 @@ export function DashboardPageClient({
                 {botStatus}
               </span>
             </div>
+            {botStatus === "RUNNING" && (
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-fg-subtle">Engine Health</span>
+                <span className={cn(
+                  "flex items-center gap-1.5 text-[12px] font-medium",
+                  engineStatus === "ONLINE" ? "text-profit" : engineStatus === "DEGRADED" ? "text-warning" : "text-negative"
+                )}>
+                  {engineStatus === "ONLINE" ? <CheckCircle size={14} weight="fill" /> : <WarningCircle size={14} weight="fill" />}
+                  {engineStatus}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-fg-subtle">Broker API</span>
               <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg-subtle">

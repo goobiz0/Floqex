@@ -46,6 +46,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
     trades={data.trades}
     agentEvents={data.agentEvents}
     botStatus={data.bot?.status ?? "NONE"}
+    lastHeartbeat={data.bot?.lastHeartbeat ?? null}
   />;
 }
 
