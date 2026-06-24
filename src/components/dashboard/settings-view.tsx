@@ -91,8 +91,10 @@ type NotificationSettings = {
 
 import { generateMcpKey } from "@/app/dashboard/settings/actions";
 import { usePrivacy } from "@/components/privacy-provider";
-import { TerminalWindow, Copy, Check, Eye, EyeSlash } from "@phosphor-icons/react";
+import { useDisplayMode } from "@/components/display-provider";
+import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown } from "@phosphor-icons/react";
 import { motion } from "motion/react";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export function SettingsView({
   trades,
@@ -106,6 +108,7 @@ export function SettingsView({
   mcpKey?: string;
 }) {
   const { isPrivacyMode, togglePrivacyMode } = usePrivacy();
+  const { displayMode, setDisplayMode } = useDisplayMode();
   const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
   const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
   const [notifyPush, setNotifyPush] = useState(settings.notifyPush);
@@ -326,6 +329,25 @@ export function SettingsView({
               </div>
               <div className="flex items-center justify-between py-4">
                 <div>
+                  <p className="text-sm font-medium text-fg">P&L Display Mode</p>
+                  <p className="text-xs text-fg-subtle">Choose how P&L values are shown across the platform.</p>
+                </div>
+                <Dropdown
+                  align="right"
+                  items={[
+                    { label: "Money ($)", onClick: () => setDisplayMode("MONEY") },
+                    { label: "Percentage (%)", onClick: () => setDisplayMode("PERCENTAGE") },
+                    { label: "Hidden (XX.XX)", onClick: () => setDisplayMode("HIDDEN") },
+                  ]}
+                  trigger={
+                    <button className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg shadow-sm hover:border-line-strong hover:bg-surface-hover transition-colors min-w-[120px]">
+                      <span>{displayMode === "MONEY" ? "Money ($)" : displayMode === "PERCENTAGE" ? "Percentage (%)" : "Hidden (XX.XX)"}</span>
+                      <CaretDown size={12} className="text-fg-subtle" />
+                    </button>
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between py-4">
                   <p className="text-sm font-medium text-fg flex items-center gap-2">
                     Privacy Mode {isPrivacyMode ? <EyeSlash size={14} className="text-fg-subtle" /> : <Eye size={14} className="text-fg-subtle" />}
                   </p>

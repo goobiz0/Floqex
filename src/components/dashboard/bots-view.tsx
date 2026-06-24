@@ -3,10 +3,11 @@
 import { useTransition, useOptimistic } from "react";
 import Link from "next/link";
 import { Plus, Flask } from "@phosphor-icons/react";
-import { Card } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, formatUSD } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 import { toggleBotStatus } from "@/app/dashboard/accounts/actions";
 import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
@@ -109,12 +110,12 @@ function BotCard({ bot }: { bot: BotRow }) {
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs text-fg-subtle">Balance</p>
-          <p className="tnum mt-0.5 text-lg font-semibold text-fg">{formatUSD(bot.balance)}</p>
+          <p className="tnum mt-0.5 text-lg font-semibold text-fg"><DisplayValue type="BALANCE" money={bot.balance} /></p>
         </div>
         <div>
           <p className="text-xs text-fg-subtle">Today</p>
           <p className={cn("tnum mt-0.5 text-lg font-semibold", pnlTone)}>
-            {formatUSD(bot.todayPnl, { sign: true })}
+            <DisplayValue type="PNL" money={bot.todayPnl} percent={bot.balance ? (bot.todayPnl / bot.balance) * 100 : undefined} />
           </p>
         </div>
       </div>

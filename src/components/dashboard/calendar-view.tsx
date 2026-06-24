@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { formatUSD } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 import type { DailyRow, TradeRow } from "@/lib/queries";
 import { motion, AnimatePresence } from "motion/react";
 import { CaretLeft, CaretRight, CalendarBlank, X } from "@phosphor-icons/react";
@@ -29,6 +29,14 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
     const prev = new Date(currentMonth);
     prev.setMonth(prev.getMonth() - 1);
     setCurrentMonth(prev);
+    setSelectedDate(null);
+  };
+
+  const goToToday = () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    setCurrentMonth(d);
     setSelectedDate(null);
   };
 
@@ -118,16 +126,21 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
         </div>
 
         {viewMode === "DAILY" && (
-          <div className="flex items-center gap-4 bg-surface px-2 py-1 rounded-[var(--radius-pill)] border border-line">
-            <button onClick={prevMonth} className="p-1.5 text-fg-subtle hover:text-fg hover:bg-base rounded-full transition-colors">
-              <CaretLeft size={16} weight="bold" />
-            </button>
-            <span className="text-sm font-bold w-36 text-center">
-              {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-            </span>
-            <button onClick={nextMonth} className="p-1.5 text-fg-subtle hover:text-fg hover:bg-base rounded-full transition-colors">
-              <CaretRight size={16} weight="bold" />
-            </button>
+          <div className="flex flex-col items-end gap-1.5">
+            <p className="text-[10px] font-bold text-fg-muted uppercase tracking-wider pr-2">
+              {new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+            </p>
+            <div className="flex items-center gap-1 bg-surface px-1 py-1 rounded-[var(--radius-pill)] border border-line">
+              <button onClick={prevMonth} className="p-1.5 text-fg-subtle hover:text-fg hover:bg-base rounded-full transition-colors">
+                <CaretLeft size={16} weight="bold" />
+              </button>
+              <button onClick={goToToday} className="text-sm font-bold w-36 text-center text-fg hover:text-accent transition-colors rounded-full hover:bg-base py-1">
+                {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </button>
+              <button onClick={nextMonth} className="p-1.5 text-fg-subtle hover:text-fg hover:bg-base rounded-full transition-colors">
+                <CaretRight size={16} weight="bold" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -176,7 +189,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
                     {summary && summary.tradeCount > 0 ? (
                       <div className="mt-auto w-full">
                         <div className={cn("text-xs sm:text-sm font-bold truncate", pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg")}>
-                          {pnl > 0 ? "+" : ""}{formatUSD(pnl)}
+                          <DisplayValue type="PNL" money={pnl} percent={summary.startBalance ? (pnl / summary.startBalance) * 100 : undefined} />
                         </div>
                         <div className="text-[10px] text-fg-muted mt-0.5 truncate hidden sm:block">
                           {summary.tradeCount} trade{summary.tradeCount > 1 ? "s" : ""}
@@ -234,7 +247,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
                             selectedDayTrades.reduce((acc, t) => acc + Number(t.netPnl), 0) > 0 ? "text-profit" : 
                             selectedDayTrades.reduce((acc, t) => acc + Number(t.netPnl), 0) < 0 ? "text-negative" : "text-fg"
                           )}>
-                            {formatUSD(selectedDayTrades.reduce((acc, t) => acc + Number(t.netPnl), 0))}
+                            <DisplayValue type="PNL" money={selectedDayTrades.reduce((acc, t) => acc + Number(t.netPnl), 0)} />
                           </p>
                         </div>
                         <div className="p-3 rounded-lg border border-line bg-base">
@@ -267,7 +280,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
                               </div>
                               <div className="text-right">
                                 <div className={cn("font-bold text-sm tnum", pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg")}>
-                                  {pnl > 0 ? "+" : ""}{formatUSD(pnl)}
+                                  <DisplayValue type="PNL" money={pnl} />
                                 </div>
                                 <div className="text-xs text-fg-subtle tnum mt-0.5">
                                   {t.entryPrice.toFixed(2)} → {t.exitPrice ? t.exitPrice.toFixed(2) : "Open"}
@@ -301,7 +314,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
                 <span className={cn("relative z-10 text-3xl font-bold tnum tracking-tight mb-1", 
                   pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg"
                 )}>
-                  {formatUSD(pnl)}
+                  <DisplayValue type="PNL" money={pnl} />
                 </span>
                 <span className="relative z-10 text-xs font-medium text-fg-muted mt-auto pt-4 flex items-center justify-between border-t border-line/50">
                   <span>Total Trades</span>
@@ -326,7 +339,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[], tra
               <span className={cn("relative z-10 text-4xl font-bold tnum tracking-tight mb-2", 
                 pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg"
               )}>
-                {formatUSD(pnl)}
+                <DisplayValue type="PNL" money={pnl} />
               </span>
               <span className="relative z-10 text-sm font-medium text-fg-muted mt-auto pt-6 flex items-center justify-between border-t border-line/50">
                 <span>Total Executed Trades</span>

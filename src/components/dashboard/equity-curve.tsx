@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import { formatUSD } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 import { Segmented } from "@/components/ui/segmented";
 import type { EquityPoint } from "@/lib/metrics";
 import gsap from "gsap";
@@ -148,7 +148,7 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
             News
           </button>
         </div>
-        {data ? <span className="tnum text-xs text-fg-subtle">{formatUSD(data.last)}</span> : null}
+        {data ? <span className="tnum text-xs text-fg-subtle"><DisplayValue type="BALANCE" money={data.last} /></span> : null}
       </div>
 
       {data ? (
@@ -263,14 +263,14 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
                  top: `calc(${(activePoint.y / H) * 100}% - 45px)` 
                }}
              >
-               <div className="font-bold text-fg tnum">{formatUSD(activePoint.val)}</div>
+               <div className="font-bold text-fg tnum"><DisplayValue type="BALANCE" money={activePoint.val} /></div>
                {activePoint.date && <div className="text-fg-faint mt-0.5">{activePoint.date}</div>}
              </div>
           )}
 
           <div className="pointer-events-none absolute right-0 top-0 flex h-full flex-col justify-between py-1 text-right">
-            <span className="tnum text-[0.65rem] text-fg-faint">{formatUSD(data.max)}</span>
-            <span className="tnum text-[0.65rem] text-fg-faint">{formatUSD(data.min)}</span>
+            <span className="tnum text-[0.65rem] text-fg-faint"><DisplayValue type="BALANCE" money={data.max} /></span>
+            <span className="tnum text-[0.65rem] text-fg-faint"><DisplayValue type="BALANCE" money={data.min} /></span>
           </div>
         </div>
       ) : (

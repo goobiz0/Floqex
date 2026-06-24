@@ -32,7 +32,8 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { cn, formatUSD } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 import type { NavAccount } from "@/lib/queries";
 
 type NavItem = { href: string; label: string; icon: Icon };
@@ -181,7 +182,7 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
         </span>
       </div>
       <span className={cn("relative z-10 tnum shrink-0 text-[12px] font-medium", isActive ? "text-accent font-bold" : "text-accent/70")}>
-        {formatUSD(account.balance)}
+        <DisplayValue type="BALANCE" money={account.balance} />
       </span>
     </Link>
   );

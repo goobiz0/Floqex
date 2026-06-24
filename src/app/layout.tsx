@@ -70,17 +70,19 @@ export default async function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <PrivacyProvider>
-            <ClerkProvider
-              signInUrl="/sign-in"
-              signUpUrl="/sign-up"
-              signInFallbackRedirectUrl="/dashboard"
-              signUpFallbackRedirectUrl="/onboarding"
-            >
-              {children}
-            </ClerkProvider>
-            <Toaster position="bottom-right" />
-          </PrivacyProvider>
+          <DisplayProvider>
+            <PrivacyProvider>
+              <ClerkProvider
+                signInUrl="/sign-in"
+                signUpUrl="/sign-up"
+                signInFallbackRedirectUrl="/dashboard"
+                signUpFallbackRedirectUrl="/onboarding"
+              >
+                {children}
+              </ClerkProvider>
+              <Toaster position="bottom-right" />
+            </PrivacyProvider>
+          </DisplayProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dropdown } from "@/components/ui/dropdown";
-import { cn, formatUSD } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
+import { cn } from "@/lib/utils";
 import { connectAccount, toggleBotStatus, disconnectAccount } from "@/app/dashboard/accounts/actions";
 import { PLANS, type Plan, type PlanConfig } from "@/lib/plans";
 import type { Broker } from "@prisma/client";
@@ -147,7 +148,7 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                       <div>
                         <p className="text-xs text-fg-subtle">Balance</p>
                         <p className="tnum mt-0.5 text-xl font-semibold text-fg">
-                          {formatUSD(Number(a.balance))}
+                          <DisplayValue type="BALANCE" money={Number(a.balance)} />
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">

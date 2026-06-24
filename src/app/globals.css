@@ -287,3 +287,25 @@
   filter: blur(0px);
   opacity: 1;
 }
+
+/* Display Modes */
+.display-mode-money .display-value-wrapper::after {
+  content: none;
+}
+.display-mode-money .display-value-money {
+  display: inline;
+}
+
+.display-mode-percent .display-value-wrapper::after {
+  content: attr(data-percent);
+}
+.display-mode-percent .display-value-money {
+  display: none;
+}
+
+.display-mode-hidden .display-value-wrapper::after {
+  content: "XX.XX";
+}
+.display-mode-hidden .display-value-money {
+  display: none;
+}

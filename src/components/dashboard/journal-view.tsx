@@ -6,8 +6,9 @@ import { ArrowUp, ArrowDown, X } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
+import { DisplayValue } from "@/components/ui/display-value";
 import { dailyPnl, type TradeRow, type DailyRow } from "@/lib/metrics";
-import { cn, formatUSD } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { TradeReplay } from "./trade-replay";
 
 type TradeFilter = "all" | "wins" | "losses";
@@ -167,7 +168,6 @@ export function JournalView({
         <ul className="max-h-[520px] divide-y divide-line overflow-y-auto">
           {rows.map((t) => {
             const long = t.direction === "LONG";
-            const win = (t.netPnl ?? 0) >= 0;
             return (
               <li key={t.id}>
                 <button
@@ -192,14 +192,9 @@ export function JournalView({
                       {dateOf(t)} · {timeOf(t.openedAt)}
                     </p>
                   </div>
-                  <span
-                    className={cn(
-                      "tnum shrink-0 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-medium",
-                      win ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative",
-                    )}
-                  >
-                    {formatUSD(t.netPnl ?? 0, { sign: true })}
-                  </span>
+                  <div className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold tnum")}>
+                    <DisplayValue type="PNL" money={t.netPnl ?? 0} />
+                  </div>
                 </button>
               </li>
             );
@@ -271,7 +266,7 @@ function TradeDetail({ trade, onClose }: { trade: TradeRow | null; onClose: () =
             <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border border-line bg-line">
               {(
                 [
-                  ["Net P&L", formatUSD(trade.netPnl ?? 0, { sign: true })],
+                  ["Net P&L", <DisplayValue key="pnl" type="PNL" money={trade.netPnl ?? 0} />],
                   [
                     "R multiple",
                     trade.rMultiple != null
@@ -282,11 +277,11 @@ function TradeDetail({ trade, onClose }: { trade: TradeRow | null; onClose: () =
                   ["Exit", trade.exitPrice != null ? trade.exitPrice.toLocaleString() : "—"],
                   ["Date", dateOf(trade)],
                   ["Time", timeOf(trade.openedAt)],
-                ] as const
-              ).map(([k, v]) => (
-                <div key={k} className="bg-elevated p-3">
-                  <p className="text-xs text-fg-subtle">{k}</p>
-                  <p className="tnum mt-0.5 text-sm font-medium text-fg">{v}</p>
+                ] as [string, React.ReactNode][]
+              ).map(([label, val]) => (
+                <div key={label} className="bg-elevated p-3">
+                  <p className="text-xs text-fg-subtle">{label}</p>
+                  <div className="tnum mt-0.5 text-sm font-medium text-fg">{val}</div>
                 </div>
               ))}
             </div>

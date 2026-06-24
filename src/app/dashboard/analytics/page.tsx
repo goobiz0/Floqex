@@ -12,6 +12,7 @@ import {
   rollingWinRate,
 } from "@/lib/metrics";
 import { formatUSD } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 import { DashboardError } from "@/components/dashboard/states";
 
 export const metadata: Metadata = { title: "Analytics" };
@@ -69,7 +70,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<{ acc
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <MetricCard
           label="Total P&L"
-          value={formatUSD(m.total, { sign: true })}
+          value={<DisplayValue money={m.total} percent={summaries[0]?.startBalance ? (m.total / summaries[0].startBalance) * 100 : undefined} />}
           tone={m.total >= 0 ? "positive" : "negative"}
         />
         <MetricCard label="Win rate" value={`${m.winRate.toFixed(1)}%`} />

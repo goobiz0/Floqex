@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, ReferenceLine } from "recharts";
-import { formatUSD } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 
 interface AssetPnlChartProps {
   data: [string, number][]; // [instrument, pnl]
@@ -47,7 +47,7 @@ export function AssetPnlChart({ data }: AssetPnlChartProps) {
                   <div className="rounded-[var(--radius-card)] border border-line bg-elevated/90 backdrop-blur-md p-3 shadow-sm">
                     <p className="text-[11px] font-medium text-fg-subtle mb-1">{data.instrument} PnL</p>
                     <p className={`text-[13px] font-semibold tnum ${isProfit ? 'text-profit' : 'text-negative'}`}>
-                      {formatUSD(data.pnl, { sign: true })}
+                      <DisplayValue type="PNL" money={data.pnl} />
                     </p>
                   </div>
                 );

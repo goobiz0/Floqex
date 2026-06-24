@@ -14,6 +14,9 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatUSD } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
+import { DashboardEmpty, DashboardError } from "@/components/dashboard/states";
 import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 
 import { WidgetGrid, WidgetItem } from "@/components/dashboard/widget-grid";
@@ -233,7 +236,7 @@ export function DashboardPageClient({
           <div className={cn("absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-60 pointer-events-none", isProfit ? "from-profit/5" : "from-negative/5")} />
           <div className="relative z-10 flex items-start justify-between">
             <span className="text-[28px] font-medium tracking-tight text-fg tnum">
-              {hasAccount ? formatUSD(balance) : "$0.00"}
+              {hasAccount ? <DisplayValue type="BALANCE" money={balance} /> : "$0.00"}
             </span>
             <span className="text-sm font-medium text-fg-subtle">Active Capital</span>
           </div>
@@ -242,7 +245,7 @@ export function DashboardPageClient({
             <div className="flex items-center gap-2">
               {!hasAccount ? <span className="text-sm font-semibold text-fg-subtle">No Account</span>
               : todayPnl === 0 ? <span className="text-sm font-semibold text-fg-subtle">Awaiting Trades</span>
-              : <span className={cn("text-sm font-semibold tnum", isProfit ? "text-profit" : "text-negative")}>{formatUSD(todayPnl, { sign: true })}</span>}
+              : <span className={cn("text-sm font-semibold tnum", isProfit ? "text-profit" : "text-negative")}><DisplayValue type="PNL" money={todayPnl} percent={balance ? (todayPnl / balance) * 100 : undefined} /></span>}
             </div>
           </div>
         </div>
@@ -370,8 +373,8 @@ export function DashboardPageClient({
                     </div>
                     <div><p className="text-[12px] font-medium text-fg">{trade.direction} {trade.instrument}</p></div>
                   </div>
-                  <div className={cn("rounded-pill px-2 py-0.5 text-[11px] font-semibold tnum", isProfit ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
-                    {formatUSD(netPnlNum, { sign: true })}
+                  <div className={cn("rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-semibold tnum", isProfit ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
+                    <DisplayValue type="PNL" money={netPnlNum} />
                   </div>
                 </li>
               );

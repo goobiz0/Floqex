@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
-import { formatUSD } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { DisplayValue } from "@/components/ui/display-value";
 import type { TradeRow } from "@/lib/queries";
 import { MagnifyingGlass, Swap } from "@phosphor-icons/react";
 
@@ -67,7 +68,7 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
                   {trade.exitPrice ? trade.exitPrice.toFixed(2) : "—"}
                 </td>
                 <td className={`py-3 px-3 text-right tnum font-medium text-[13px] ${pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg-subtle"}`}>
-                  {pnl > 0 ? "+" : ""}{formatUSD(pnl)}
+                  <DisplayValue type="PNL" money={pnl} />
                 </td>
                 <td className={`py-3 pl-3 pr-6 text-right tnum text-[13px] ${rMult >= 1 ? "text-profit" : rMult <= -1 ? "text-negative" : "text-fg-subtle"}`}>
                   {rMult.toFixed(2)}R
