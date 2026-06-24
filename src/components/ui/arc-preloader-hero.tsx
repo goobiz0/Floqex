@@ -157,7 +157,7 @@ export function ArcRevealHero({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
             className={cn(
-              "absolute inset-x-0 top-0 z-30 h-screen overflow-hidden bg-fg",
+              "absolute inset-x-0 top-0 z-[100] h-screen overflow-hidden bg-fg",
               introClassName,
             )}
           >
@@ -168,10 +168,10 @@ export function ArcRevealHero({
                   <motion.span
                     key={`${index}-${current.text}`}
                     lang={current.lang}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                    initial={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
+                    animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={cn(
                       "select-none px-6 text-center text-5xl font-semibold tracking-tight text-base sm:text-6xl md:text-7xl",
                       greetingClassName,

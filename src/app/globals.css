@@ -57,7 +57,29 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Brand / Hero components */
+  --color-brand: hsl(var(--brand));
+  --color-brand-foreground: hsl(var(--brand-foreground));
+
+  --animate-appear: appear 0.5s ease-out forwards;
+  --animate-appear-zoom: appear-zoom 0.5s ease-out forwards;
 }
+
+@keyframes appear {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes appear-zoom {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@utility delay-100 { animation-delay: 100ms; }
+@utility delay-300 { animation-delay: 300ms; }
+@utility delay-700 { animation-delay: 700ms; }
+@utility delay-1000 { animation-delay: 1000ms; }
 
 :root {
   color-scheme: light;
@@ -71,6 +93,9 @@
   --fg-muted: #4b5563;
   --fg-subtle: #6b7280;
   --fg-faint: #9ca3af;
+
+  --brand: 27 96% 61%;
+  --brand-foreground: 31 97% 72%;
 
   --accent: #111827;
   --accent-hover: #374151;

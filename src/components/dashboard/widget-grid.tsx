@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Responsive, Layout } from "react-grid-layout";
-const WidthProvider = require("react-grid-layout").WidthProvider;
+import { Responsive, Layout, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { Plus, Gear, X } from "@phosphor-icons/react/dist/ssr";

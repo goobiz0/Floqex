@@ -219,7 +219,8 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
 
         <Section label="More">
           {MORE.map((item) => {
-            const hrefWithContext = activeAccountId ? `${item.href}?account=${activeAccountId}` : item.href;
+            const isDocs = item.href === "/docs";
+            const hrefWithContext = activeAccountId && !isDocs ? `${item.href}?account=${activeAccountId}` : item.href;
             return <NavLink key={item.href} item={{...item, href: hrefWithContext}} active={isActiveRoute(item.href)} />;
           })}
         </Section>

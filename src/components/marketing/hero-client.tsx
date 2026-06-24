@@ -4,6 +4,9 @@ import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { authUrl } from "@/lib/urls";
 
+import { Mockup, MockupFrame } from "@/components/ui/mockup";
+import { Glow } from "@/components/ui/glow";
+
 export function HeroClient() {
   const container = {
     hidden: { opacity: 0 },
@@ -57,7 +60,10 @@ export function HeroClient() {
 
         {/* High fidelity static UI preview right column */}
         <motion.div variants={item} className="hidden md:flex relative w-full items-center justify-end">
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-accent/10 blur-[80px] rounded-full pointer-events-none" />
+           <div className="absolute inset-0 pointer-events-none overflow-hidden">
+             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/15 rounded-full blur-[100px] mix-blend-screen -translate-y-1/3 translate-x-1/4 opacity-80" />
+             <div className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[80px] mix-blend-screen -translate-x-1/2 opacity-60" />
+           </div>
            <div className="relative z-10 w-[400px] rounded-[var(--radius-card)] border border-line bg-base shadow-[var(--shadow-xl)] p-5 overflow-hidden flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-line pb-4">
                 <div className="flex items-center gap-3">
@@ -89,6 +95,28 @@ export function HeroClient() {
            </div>
         </motion.div>
       </motion.div>
+
+      {/* Glow and Mockup Image Section */}
+      <div className="relative z-10 mx-auto max-w-[1000px] px-6 mt-24">
+        <MockupFrame
+          className="animate-appear opacity-0 delay-700"
+          size="small"
+        >
+          <Mockup type="responsive">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=2070&auto=format&fit=crop"
+              alt="Trading Dashboard Mockup"
+              className="w-full h-auto"
+              loading="lazy"
+            />
+          </Mockup>
+        </MockupFrame>
+        <Glow
+          variant="top"
+          className="animate-appear-zoom opacity-0 delay-1000"
+        />
+      </div>
     </section>
   );
 }

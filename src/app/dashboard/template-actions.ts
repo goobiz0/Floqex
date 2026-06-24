@@ -22,20 +22,24 @@ export type WidgetLayout = {
 };
 
 export async function getDashboardTemplates() {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  try {
+    const { userId } = await auth();
+    if (!userId) return [];
 
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true }
-  });
-  
-  if (!user) return [];
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true }
+    });
+    
+    if (!user) return [];
 
-  return prisma.dashboardTemplate.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "asc" },
-  });
+    return await prisma.dashboardTemplate.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+    });
+  } catch {
+    return [];
+  }
 }
 
 export async function createDashboardTemplate(name: string, layout: WidgetLayout[]) {
