@@ -88,7 +88,10 @@ function OnboardingFlow() {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Load state from localStorage on mount
+  // Load state from localStorage on mount. This is a one-shot restore that
+  // syncs wizard state from an external store (localStorage / URL) after mount,
+  // so the synchronous setState calls here are intentional and not a cascade.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
       const saved = localStorage.getItem("ob_state");
@@ -118,6 +121,7 @@ function OnboardingFlow() {
       }
     } catch {}
   }, [searchParams, router]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Save state whenever it changes
   useEffect(() => {
@@ -185,7 +189,7 @@ function OnboardingFlow() {
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-base text-fg font-sans selection:bg-accent/20 selection:text-accent-foreground">
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-100/40 via-purple-100/20 to-transparent" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/12 via-emerald-500/5 to-transparent" />
       <div aria-hidden className="grid-faint pointer-events-none absolute inset-0 -z-10 opacity-20" />
 
       <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-6 shrink-0">
@@ -227,7 +231,7 @@ function OnboardingFlow() {
                         placeholder="Please specify..." 
                         value={customReferral}
                         onChange={(e) => setCustomReferral(e.target.value)}
-                        className="bg-white"
+                        className="bg-surface"
                         autoFocus
                       />
                     </motion.div>
@@ -268,12 +272,12 @@ function OnboardingFlow() {
                             "group relative flex flex-col items-start rounded-2xl border-2 p-4 text-left transition-all duration-300",
                             selected 
                               ? "border-accent bg-accent/5 shadow-[var(--shadow-sm)]" 
-                              : "border-line bg-white hover:border-line-strong"
+                              : "border-line bg-surface hover:border-line-strong"
                           )}
                         >
                           <div className="flex w-full items-center justify-between">
                             <h3 className={cn("font-bold text-sm", selected ? "text-accent" : "text-fg")}>{plan.name}</h3>
-                            {plan.popular && <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Popular</span>}
+                            {plan.popular && <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-on-accent">Popular</span>}
                           </div>
                           <div className="mt-2 flex items-baseline gap-0.5">
                             <span className={cn("text-xl font-black tracking-tight", selected ? "text-accent" : "text-fg")}>${plan.price}</span>
@@ -316,7 +320,7 @@ function OnboardingFlow() {
                           value={nickname}
                           onChange={(e) => setNickname(e.target.value)}
                           maxLength={40}
-                          className="pl-10 h-12 bg-white text-base shadow-[var(--shadow-sm)]"
+                          className="pl-10 h-12 bg-surface text-base shadow-[var(--shadow-sm)]"
                         />
                         <TextAa size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
                       </div>
@@ -330,7 +334,7 @@ function OnboardingFlow() {
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
                             placeholder="Key"
-                            className="bg-white"
+                            className="bg-surface"
                           />
                         </Field>
                         <Field label="API Secret" id="ob-apisecret">
@@ -340,7 +344,7 @@ function OnboardingFlow() {
                             value={apiSecret}
                             onChange={(e) => setApiSecret(e.target.value)}
                             placeholder="Secret"
-                            className="bg-white"
+                            className="bg-surface"
                           />
                         </Field>
                       </div>
@@ -353,7 +357,7 @@ function OnboardingFlow() {
                           id="ob-timezone"
                           value={tz}
                           onChange={(e) => setTz(e.target.value)}
-                          className="w-full appearance-none rounded-xl border border-line bg-white h-12 pl-10 pr-4 text-base text-fg focus-visible:border-accent focus-visible:outline-none transition-colors shadow-[var(--shadow-sm)]"
+                          className="w-full appearance-none rounded-[var(--radius-control)] border border-line bg-surface h-12 pl-10 pr-4 text-base text-fg focus-visible:border-accent focus-visible:outline-none transition-colors shadow-[var(--shadow-sm)]"
                         >
                           {TIMEZONES.map((t) => (
                             <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
@@ -367,7 +371,7 @@ function OnboardingFlow() {
 
               {step === 6 && (
                 <Step icon={Check} title="Activate your bot" desc="It will watch the next session and trade your account automatically, inside its risk guardrails.">
-                  <div className="rounded-2xl border border-line bg-white p-5 text-sm shadow-[var(--shadow-sm)] mt-6">
+                  <div className="rounded-2xl border border-line bg-surface p-5 text-sm shadow-[var(--shadow-sm)] mt-6">
                     <Summary k="Found via" v={referral === "other" ? customReferral : labelOf(REFERRAL, referral ?? "")} />
                     <Summary k="Experience" v={labelOf(EXPERIENCE, experience ?? "")} />
                     <Summary k="Goal" v={labelOf(GOALS, goal ?? "")} />
@@ -391,7 +395,7 @@ function OnboardingFlow() {
           </motion.p>
         )}
 
-        <div className="flex items-center justify-between border-t border-line py-6 shrink-0 mt-auto bg-[#FAFAFA]">
+        <div className="flex items-center justify-between border-t border-line py-6 shrink-0 mt-auto bg-base">
           {step > 0 ? (
             <Button variant="ghost" disabled={pending} onClick={() => setStep((s) => s - 1)} className="text-fg-subtle hover:text-fg px-0">
               <ArrowLeft size={16} className="mr-2" />
@@ -472,7 +476,7 @@ function SelectGrid({
               "group flex items-center justify-between gap-4 rounded-2xl border-2 px-4 py-3.5 text-left transition-all duration-200",
               selected
                 ? "border-accent bg-accent/5 shadow-[var(--shadow-sm)]"
-                : "border-line hover:border-line-strong bg-white hover:bg-surface/50"
+                : "border-line hover:border-line-strong bg-surface hover:bg-surface-hover"
             )}
           >
             <span className="min-w-0">
@@ -482,7 +486,7 @@ function SelectGrid({
             <span
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300",
-                selected ? "border-accent bg-accent text-white scale-110" : "border-line group-hover:border-line-strong"
+                selected ? "border-accent bg-accent text-on-accent scale-110" : "border-line group-hover:border-line-strong"
               )}
             >
               <AnimatePresence>

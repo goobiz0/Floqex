@@ -18,7 +18,7 @@ export function InfrastructureVisual() {
           ))}
         </div>
       </div>
-      <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-base via-base/50 to-transparent" />
     </div>
   );
 }

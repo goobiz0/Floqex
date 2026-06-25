@@ -41,7 +41,7 @@ export function AIOptimizer({ activeAccountId }: { activeAccountId: string }) {
       <Button 
         onClick={handleOptimize} 
         disabled={isOptimizing}
-        className="shrink-0 gap-2 bg-accent hover:bg-accent/90 text-black shadow-[0_0_15px_rgba(var(--accent-rgb),0.4)]"
+        className="shrink-0 gap-2 bg-accent hover:bg-accent-hover text-on-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.4)]"
       >
         <MagicWand size={16} weight="fill" />
         {isOptimizing ? "Analyzing Markets..." : "Run AI Analysis"}

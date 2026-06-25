@@ -85,7 +85,7 @@ export async function Topbar() {
               <>
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-positive shadow-[0_0_8px_rgba(var(--color-positive),0.8)]"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-positive shadow-[0_0_8px_rgba(var(--positive-rgb),0.8)]"></span>
                 </span>
                 <span className="text-[10px] font-semibold text-fg tracking-widest uppercase">NYSE Open</span>
               </>
@@ -130,9 +130,9 @@ export async function Topbar() {
           {canUpgrade ? (
             <Link
               href={dashboardUrl("/billing")}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent py-1.5 pl-2.5 pr-3 text-xs font-semibold tracking-wide text-[var(--color-on-accent)] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_15px_rgba(var(--color-accent),0.3)]"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent py-1.5 pl-2.5 pr-3 text-xs font-semibold tracking-wide text-[var(--color-on-accent)] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_15px_rgba(var(--accent-rgb),0.35)]"
             >
-              <Star size={14} weight="fill" className="text-white drop-shadow-sm" />
+              <Star size={14} weight="fill" className="text-[var(--color-on-accent)]" />
               Upgrade
             </Link>
           ) : null}

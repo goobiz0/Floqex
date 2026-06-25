@@ -12,16 +12,16 @@ export function AnimatedOrbs() {
 
   if (!mounted) {
     return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-multiply">
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-300 blur-[100px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-emerald-300 blur-[120px]" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-screen">
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-500/50 blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-emerald-400/40 blur-[120px]" />
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-50 z-0">
-      <div className="absolute inset-0 mix-blend-multiply">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-60 z-0">
+      <div className="absolute inset-0 mix-blend-screen">
         <motion.div
           animate={{
             x: ["0%", "15%", "-5%", "0%"],
@@ -33,7 +33,7 @@ export function AnimatedOrbs() {
             ease: "easeInOut",
             repeat: Infinity,
           }}
-          className="absolute top-[-5%] left-[-5%] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-blue-400/70 to-blue-300/70 blur-[80px]"
+          className="absolute top-[-5%] left-[-5%] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-emerald-500/60 to-teal-400/50 blur-[80px]"
         />
         <motion.div
           animate={{
@@ -46,11 +46,11 @@ export function AnimatedOrbs() {
             ease: "easeInOut",
             repeat: Infinity,
           }}
-          className="absolute bottom-[-5%] right-[-5%] w-[450px] h-[450px] rounded-full bg-gradient-to-tl from-emerald-300/70 to-teal-200/70 blur-[90px]"
+          className="absolute bottom-[-5%] right-[-5%] w-[450px] h-[450px] rounded-full bg-gradient-to-tl from-emerald-400/55 to-sky-400/35 blur-[90px]"
         />
       </div>
-      {/* Heavy Glass Overlay to frost the blobs */}
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-[60px]" />
+      {/* Subtle dark frost to settle the blobs into the panel */}
+      <div className="absolute inset-0 bg-base/20 backdrop-blur-[60px]" />
       
       {/* Embedded SVG Noise Filter for pure organic grain */}
       <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.15] mix-blend-overlay">

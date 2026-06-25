@@ -15,7 +15,7 @@ const variants: Record<Variant, string> = {
   primary:
     "bg-fg text-[var(--color-base)] hover:bg-fg/90 shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_1px_rgba(255,255,255,0.2)] ring-1 ring-inset ring-fg/5",
   secondary:
-    "bg-surface/80 text-fg ring-1 ring-inset ring-black/5 hover:bg-surface shadow-sm backdrop-blur-md",
+    "bg-surface/80 text-fg ring-1 ring-inset ring-white/10 hover:bg-surface hover:ring-white/15 shadow-sm backdrop-blur-md",
   outline:
     "ring-1 ring-inset ring-line text-fg hover:ring-line-strong hover:bg-surface/60",
   ghost: "text-fg-muted hover:text-fg hover:bg-surface/60",
