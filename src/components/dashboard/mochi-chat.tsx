@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, isToolUIPart, getToolName } from "ai";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { X, Robot, Check, Microphone, ArrowUp } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -39,9 +40,12 @@ export function MochiChat() {
   const [isListening, setIsListening] = useState(false);
   const [listenTime, setListenTime] = useState(0);
   const reduce = useReducedMotion();
-  const { messages, input, setInput, handleInputChange, handleSubmit, isLoading, addToolResult } = useChat({
-    api: "/api/chat",
+  const [input, setInput] = useState("");
+  const [pendingToolId, setPendingToolId] = useState<string | null>(null);
+  const { messages, sendMessage, status, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
+  const isLoading = status === "submitted" || status === "streaming";
   const bottomRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -115,34 +119,43 @@ export function MochiChat() {
     }
   }, [isListening, setInput]);
 
-  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
     }
-    if (input.trim()) {
-      try {
-        handleSubmit(e);
-      } catch (err) {
-        console.error("Chat submit error", err);
-      }
-      setIsOpen(true);
+    const text = input.trim();
+    if (!text) return;
+    setIsOpen(true);
+    // Optimistically clear the draft; restore it if the send rejects so the
+    // user doesn't lose their message. sendMessage is async in AI SDK v6.
+    setInput("");
+    try {
+      await sendMessage({ text });
+    } catch (err) {
+      console.error("Chat submit error", err);
+      setInput(text);
     }
   };
 
   const handleToolAccept = async (toolCallId: string, args: Record<string, unknown>) => {
+    if (pendingToolId) return; // ignore double-clicks / accept-vs-decline races
+    setPendingToolId(toolCallId);
     try {
       const res = await applyStrategyChanges(args);
-      addToolResult({ toolCallId, result: res });
+      addToolResult({ tool: "updateStrategyParams", toolCallId, output: res });
     } catch {
-      addToolResult({ toolCallId, result: { ok: false, message: "Server error" } });
+      addToolResult({ tool: "updateStrategyParams", toolCallId, output: { ok: false, message: "Server error" } });
+    } finally {
+      setPendingToolId(null);
     }
   };
 
   const handleToolDecline = (toolCallId: string) => {
-    addToolResult({ toolCallId, result: { ok: false, message: "User declined the changes." } });
+    if (pendingToolId) return;
+    addToolResult({ tool: "updateStrategyParams", toolCallId, output: { ok: false, message: "User declined the changes." } });
   };
 
   const spring = { type: "spring" as const, damping: 26, stiffness: 280, mass: 0.6 };
@@ -231,53 +244,66 @@ export function MochiChat() {
                             : "rounded-bl-[8px] border border-line bg-surface text-fg",
                         )}
                       >
-                        {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
-                        {m.toolInvocations?.map((inv) => {
-                          const isCall = inv.state === "call";
-                          const isResult = inv.state === "result";
+                        {m.parts.map((part, i) => {
+                          if (part.type === "text") {
+                            return part.text ? (
+                              <div key={`${m.id}-t${i}`} className="whitespace-pre-wrap">{part.text}</div>
+                            ) : null;
+                          }
+                          if (!isToolUIPart(part)) return null;
 
-                          if (inv.toolName === "updateStrategyParams") {
+                          const toolName = getToolName(part);
+                          const isCall = part.state === "input-available";
+                          const isResult = part.state === "output-available";
+
+                          if (toolName === "updateStrategyParams") {
                             if (isCall) {
+                              const args = (part.input ?? {}) as Record<string, unknown>;
+                              const busy = pendingToolId === part.toolCallId;
                               return (
-                                <div key={inv.toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
+                                <div key={part.toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
                                   <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
-                                  <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(inv.args, null, 2)}</pre>
+                                  <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(args, null, 2)}</pre>
                                   <div className="flex gap-2">
                                     <button
-                                      onClick={() => handleToolAccept(inv.toolCallId, inv.args)}
-                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90"
+                                      disabled={busy}
+                                      onClick={() => handleToolAccept(part.toolCallId, args)}
+                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                      Accept & Apply
+                                      {busy ? "Applying…" : "Accept & Apply"}
                                     </button>
                                     <button
-                                      onClick={() => handleToolDecline(inv.toolCallId)}
-                                      className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10"
+                                      disabled={busy}
+                                      onClick={() => handleToolDecline(part.toolCallId)}
+                                      className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       Decline
                                     </button>
                                   </div>
                                 </div>
                               );
-                            } else if (isResult) {
-                              const res = inv.result as { ok?: boolean };
+                            }
+                            if (isResult) {
+                              const res = part.output as { ok?: boolean } | undefined;
                               const ok = res?.ok;
                               return (
-                                <div key={inv.toolCallId} className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
-                                  {ok ? <Check size={12} weight="bold" className="text-profit" /> : <X size={12} weight="bold" className="text-loss" />}
+                                <div key={part.toolCallId} className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
+                                  {ok ? <Check size={12} weight="bold" className="text-profit" /> : <X size={12} weight="bold" className="text-negative" />}
                                   {ok ? "Changes Applied" : "Changes Declined / Failed"}
                                 </div>
                               );
                             }
+                            return null;
                           }
 
                           const labels: Record<string, [string, string]> = {
                             getPerformance: ["Reading performance", "Performance loaded"],
                             getBotStatus: ["Checking bot status", "Status loaded"],
                           };
-                          const [running, finished] = labels[inv.toolName] ?? [`Running ${inv.toolName}`, `${inv.toolName} done`];
+                          const [running, finished] = labels[toolName] ?? [`Running ${toolName}`, `${toolName} done`];
                           return (
                             <div
-                              key={inv.toolCallId}
+                              key={part.toolCallId}
                               className={cn(
                                 "mt-3 flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase",
                                 isResult ? "border-line bg-base text-fg-muted" : "border-accent/30 bg-accent-soft text-accent"
@@ -328,7 +354,7 @@ export function MochiChat() {
                     maxLength={500}
                     aria-label="Message Mochi assistant"
                     value={input}
-                    onChange={handleInputChange}
+                    onChange={(e) => setInput(e.target.value)}
                     placeholder="Ask Mochi..."
                     className="w-full bg-transparent py-2.5 text-[14px] font-medium text-fg placeholder:text-fg-faint focus:outline-none"
                   />
