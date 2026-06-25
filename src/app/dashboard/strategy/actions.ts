@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { summaryMetrics } from "@/lib/metrics";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam, type StrategyParams } from "@/lib/strategy-schema";
+import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
@@ -23,7 +24,7 @@ export async function runAiOptimization(accountId: string) {
   }
 
   // 1. Analyze recent trades
-  const tradeData = account.trades.map((t: any) => ({
+  const tradeData = account.trades.map((t) => ({
     direction: t.direction,
     entryPrice: Number(t.entryPrice),
     exitPrice: Number(t.exitPrice),
@@ -98,7 +99,7 @@ export async function saveStrategy(params: StrategyParams) {
 
   await prisma.strategy.update({
     where: { id: strategyId },
-    data: { params: parsed.params as any },
+    data: { params: parsed.params as unknown as Prisma.InputJsonValue },
   });
 
   revalidatePath("/dashboard/strategy");
@@ -128,7 +129,7 @@ export async function approveSuggestion(id: string) {
   await prisma.$transaction([
     prisma.strategy.update({
       where: { id: suggestion.strategyId },
-      data: { params: result.params as any },
+      data: { params: result.params as unknown as Prisma.InputJsonValue },
     }),
     prisma.botAdjustment.update({
       where: { id },

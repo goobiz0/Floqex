@@ -17,6 +17,10 @@ const eslintConfig = defineConfig([
     ".claude/**",
     ".codex/**",
     "agent/**",
+    // One-off debug scripts not part of the app build.
+    "test-db.js",
+    // One-off scratch scripts not part of the app build.
+    "scratch/**",
   ]),
   {
     rules: {

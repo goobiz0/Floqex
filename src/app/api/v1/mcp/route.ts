@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam } from "@/lib/strategy-schema";
+import type { Prisma } from "@prisma/client";
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.strategy.update({
       where: { id: strategyId },
-      data: { params: result.params as any },
+      data: { params: result.params as unknown as Prisma.InputJsonValue },
     });
 
     return NextResponse.json({ success: true, newParams: result.params });

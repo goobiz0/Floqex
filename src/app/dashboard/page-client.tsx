@@ -22,6 +22,7 @@ import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 import { WidgetGrid, WidgetItem } from "@/components/dashboard/widget-grid";
 import { WidgetConfigDialog } from "@/components/dashboard/widget-config-dialog";
 import { WidgetLibraryDialog } from "@/components/dashboard/widget-library-dialog";
+import type { DashboardTemplate } from "@prisma/client";
 import { getDashboardTemplates, createDashboardTemplate, updateDashboardTemplate, deleteDashboardTemplate, setDefaultTemplate, WidgetLayout } from "./template-actions";
 
 // Default template structure
@@ -75,7 +76,7 @@ export function DashboardPageClient({
   botStatus?: string;
   lastHeartbeat?: string | null;
   accountId?: string | null;
-  initialTemplates?: any[];
+  initialTemplates?: DashboardTemplate[];
   userPlan?: string;
 }) {
 
@@ -199,7 +200,7 @@ export function DashboardPageClient({
     }
   };
 
-  const handleLayoutChange = useCallback((newLayout: any[]) => {
+  const handleLayoutChange = useCallback((newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
     setLayoutItems(prev => prev.map(item => {
       const lay = newLayout.find(l => l.i === item.i);
       if (lay) return { ...item, x: lay.x, y: lay.y, w: lay.w, h: lay.h };
@@ -223,7 +224,7 @@ export function DashboardPageClient({
     setConfigDialogOpen(true);
   }, []);
 
-  const handleSaveWidgetConfig = useCallback((config: Record<string, any>) => {
+  const handleSaveWidgetConfig = useCallback((config: Record<string, string | number | boolean>) => {
     setLayoutItems(prev => prev.map(item => item.i === configWidgetId ? { ...item, config } : item));
   }, [configWidgetId]);
 

@@ -65,7 +65,7 @@ export default async function PlaybookPage() {
         </div>
       ) : (
         <div className="space-y-12">
-          {trades.map((trade: any) => {
+          {trades.map((trade) => {
             const entryTime = new Date(trade.openedAt).toISOString().split('T')[0];
             // If closedAt is the same day, we just offset it visually by using a different date in the mock or same day
             const exitTime = trade.closedAt ? new Date(trade.closedAt).toISOString().split('T')[0] : entryTime;

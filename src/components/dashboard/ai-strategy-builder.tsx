@@ -3,11 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+type StrategyAst = {
+  name: string;
+  direction: string;
+  conditions: Array<{ indicator: string; operator: string; value: string | number }>;
+  stopLossPct: number;
+  targetRatio: number;
+};
+
 export default function StrategyBuilderPage() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ast, setAst] = useState<any>(null);
+  const [ast, setAst] = useState<StrategyAst | null>(null);
   const [error, setError] = useState("");
 
   const handleGenerate = async () => {
@@ -22,9 +30,9 @@ export default function StrategyBuilderPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to generate");
-      setAst(data.ast);
-    } catch (e: any) {
-      setError(e.message);
+      setAst(data.ast as StrategyAst);
+    } catch (e: unknown) {
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -44,8 +52,8 @@ export default function StrategyBuilderPage() {
       });
       if (!res.ok) throw new Error("Failed to deploy");
       router.push("/dashboard/strategy");
-    } catch(e: any) {
-      setError(e.message);
+    } catch(e: unknown) {
+      setError((e as Error).message);
       setLoading(false);
     }
   }

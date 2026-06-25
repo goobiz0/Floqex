@@ -150,7 +150,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             </div>
             <h3 className="text-lg font-bold text-fg mb-2">No strategies defined</h3>
             <p className="text-sm text-fg-subtle text-center max-w-md mb-6">
-              You haven't created any trading algorithms yet. Use our AI builder to instantly generate a strategy based on your criteria.
+              You haven&apos;t created any trading algorithms yet. Use our AI builder to instantly generate a strategy based on your criteria.
             </p>
             <Link href="/dashboard/strategy?view=builder" className="relative group inline-flex items-center gap-2 px-6 py-3 bg-accent border border-accent/50 rounded-[var(--radius-pill)] text-sm font-bold text-base transition-all hover:shadow-[0_0_30px_rgba(var(--color-accent-rgb),0.4)] hover:-translate-y-[1px]">
               <MagicWand size={18} weight="fill" className="text-base" />

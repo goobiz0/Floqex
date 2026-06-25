@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import { Card, CardTitle } from "@/components/ui/card";
 import { AccountsView } from "@/components/dashboard/accounts-view";
 import { auth } from "@clerk/nextjs/server";
@@ -7,7 +8,7 @@ import { prisma } from "@/lib/db";
 export const metadata: Metadata = { title: "Accounts" };
 
 export default async function AccountsPage() {
-  let accountRows: any[] = [];
+  let accountRows: Prisma.AccountGetPayload<{ include: { bot: { select: { status: true } } } }>[] = [];
   let dbError = false;
   let user = null;
 

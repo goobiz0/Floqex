@@ -1,19 +1,13 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 import { Moon, Sun, Monitor, CaretDown } from "@phosphor-icons/react";
 import { Dropdown } from "@/components/ui/dropdown";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
+  if (!resolvedTheme) {
     return <div className="h-9 w-32 rounded-md bg-surface/50 animate-pulse border border-line" />;
   }
 
