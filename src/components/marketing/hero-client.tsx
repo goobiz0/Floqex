@@ -29,7 +29,7 @@ export function HeroClient() {
   };
 
   return (
-    <section className="relative overflow-hidden pt-32 pb-28 md:pt-44 md:pb-36">
+    <section className="relative overflow-hidden pt-28 pb-24 md:pt-36 md:pb-32">
       {/* Slow light-emerald brand aura behind the hero */}
       <div
         aria-hidden
@@ -68,8 +68,8 @@ export function HeroClient() {
           variants={item}
           className="mt-6 max-w-xl text-pretty text-lg text-fg-muted md:text-xl"
         >
-          A precise trading engine that automates your strategies while keeping
-          you completely in control. Built for speed and absolute clarity.
+          A precise trading engine that runs your strategies while keeping you
+          fully in control. Built for speed and clarity.
         </motion.p>
 
         <motion.div

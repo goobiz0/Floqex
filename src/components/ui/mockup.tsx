@@ -3,12 +3,12 @@ import { cn } from "@/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 
 const mockupVariants = cva(
-  "flex relative z-10 overflow-hidden shadow-2xl border border-line border-t-line",
+  "flex relative z-10 overflow-hidden shadow-[var(--shadow-xl)] border border-line",
   {
     variants: {
       type: {
-        mobile: "rounded-[48px] max-w-[350px]",
-        responsive: "rounded-md",
+        mobile: "rounded-[var(--radius-lg)] max-w-[350px]",
+        responsive: "rounded-[var(--radius-card)]",
       },
     },
     defaultVariants: {

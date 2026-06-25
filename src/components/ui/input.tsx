@@ -18,9 +18,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       ref={ref}
       aria-invalid={invalid || undefined}
       className={cn(
-        "h-10 w-full rounded-[var(--radius-control)] border bg-surface/80 text-sm text-fg shadow-sm backdrop-blur-md",
+        "h-10 w-full rounded-[var(--radius-control)] border bg-surface text-sm text-fg shadow-[var(--shadow-sm)]",
         "placeholder:text-fg-faint transition-all duration-200 ease-[var(--ease-out)]",
-        "focus:border-accent focus:bg-surface focus:outline-none focus:ring-4 focus:ring-accent/10 disabled:pointer-events-none disabled:opacity-50",
+        "focus:border-accent focus:outline-none focus:ring-4 focus:ring-[var(--color-accent-ring)] disabled:pointer-events-none disabled:opacity-50",
         icon ? "pl-9" : "pl-3",
         trailing ? "pr-9" : "pr-3",
         invalid ? "border-negative" : "border-line",

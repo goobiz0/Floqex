@@ -40,6 +40,7 @@
   --color-negative-hover: var(--negative-hover);
   --color-negative-soft: var(--negative-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-info: var(--info);
 
   /* Borders */
@@ -119,6 +120,7 @@
   --negative-hover: #dc2626;
   --negative-soft: rgba(239, 68, 68, 0.15);
   --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.14);
   --info: #3b82f6;
 
   --line: #26262b;
@@ -163,6 +165,7 @@
   --negative-hover: #dc2626;
   --negative-soft: rgba(239, 68, 68, 0.1);
   --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
   --info: #3b82f6;
 
   --line: #e5e7eb;

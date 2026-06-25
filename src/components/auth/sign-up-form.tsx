@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { OtpInput } from "./otp-input";
-import { Divider, clerkErrorMessage } from "./shared";
+import { Divider, FormError, clerkErrorMessage } from "./shared";
 import { SocialButtons, type OAuthStrategy } from "./social-buttons";
 import { dashboardUrl, onboardingUrl } from "@/lib/urls";
 import { WaitlistForm } from "./waitlist-form";
@@ -31,6 +31,9 @@ export function SignUpForm() {
       const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
 
       if (isLooping) {
+        // Intentional: surfaces the desync recovery UI when a cache loop is
+        // detected after hydration (same pattern as the intro overlay).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDesynced(true);
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
@@ -40,7 +43,9 @@ export function SignUpForm() {
     }
   }, [isLoaded, isSignedIn, searchParams]);
 
-  // Try to detect Waitlist mode from Clerk environment or local env var
+  // Try to detect Waitlist mode from Clerk environment or local env var.
+  // Clerk does not type the unstable environment, so a cast is required here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const env = (clerk as any)?.__unstable__environment;
   const isWaitlistEnabled = 
     env?.displayConfig?.waitlistEnabled === true || 
@@ -60,7 +65,7 @@ export function SignUpForm() {
 
   if (desynced) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-6 text-center py-10 px-6 rounded-[var(--radius-container)] bg-negative/5 border border-negative/10">
+      <div className="flex flex-col items-center justify-center space-y-6 text-center py-10 px-6 rounded-[var(--radius-card)] bg-negative/5 border border-negative/10">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-negative/10 text-negative ring-4 ring-negative/5">
           <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
             <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
@@ -72,8 +77,8 @@ export function SignUpForm() {
             Your secure session token needs to be regenerated. Please sign out and log back in.
           </p>
         </div>
-        <Button 
-          className="mt-2 bg-negative hover:bg-negative/90 text-white shadow-sm ring-1 ring-inset ring-black/10"
+        <Button
+          className="mt-2 bg-negative hover:bg-negative/90 text-white shadow-[var(--shadow-sm)] ring-1 ring-inset ring-black/10"
           onClick={() => signOut(() => window.location.assign("/sign-in"))}
         >
           Force sign out
@@ -183,11 +188,7 @@ export function SignUpForm() {
           Enter the 6-digit code we sent to <span className="text-fg">{email}</span>.
         </p>
         <OtpInput value={code} onChange={setCode} disabled={submitting} />
-        {error ? (
-          <p className="text-sm text-negative" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         <Button
           type="submit"
           size="lg"
@@ -244,6 +245,7 @@ export function SignUpForm() {
             type="email"
             autoComplete="email"
             required
+            invalid={Boolean(error)}
             icon={<Envelope />}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -263,11 +265,7 @@ export function SignUpForm() {
             placeholder="••••••••"
           />
         </Field>
-        {error ? (
-          <p className="text-sm text-negative" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         {/* Clerk Smart CAPTCHA mounts here (required for custom sign-up flows). */}
         <div id="clerk-captcha" />
         
@@ -277,7 +275,7 @@ export function SignUpForm() {
             id="terms" 
             checked={agreedToTerms} 
             onChange={(e) => setAgreedToTerms(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-fg-muted/30 text-fg focus:ring-2 focus:ring-fg/20 bg-transparent transition-colors cursor-pointer"
+            className="mt-0.5 h-4 w-4 cursor-pointer rounded border-fg-muted/30 bg-transparent accent-[var(--color-accent)] transition-colors focus:ring-2 focus:ring-[var(--color-accent-ring)]"
           />
           <label htmlFor="terms" className="text-xs text-fg-subtle leading-relaxed cursor-pointer select-none">
             I agree to the{" "}

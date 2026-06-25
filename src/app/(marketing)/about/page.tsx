@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Info, ShieldCheck, Lightning, TrendUp } from "@phosphor-icons/react/dist/ssr";
 import { AboutClientMotion } from "./about-client-motion";
+import { authUrl } from "@/lib/urls";
 
 export const metadata: Metadata = { title: "About | Floqex" };
 
@@ -107,8 +108,8 @@ export default function AboutPage() {
         </AboutClientMotion>
 
         <div className="text-center pt-24">
-          <Button variant="primary" href="/dashboard" size="lg" className="rounded-[var(--radius-control)] h-12 px-8 text-[15px] font-semibold active:scale-[0.98]">
-            Return to Dashboard
+          <Button variant="primary" href={authUrl("/sign-up")} size="lg" className="rounded-[var(--radius-control)] h-12 px-8 text-[15px] font-semibold active:scale-[0.98]">
+            Get started
           </Button>
         </div>
       </section>

@@ -63,7 +63,7 @@ export function OtpInput({
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={handlePaste}
-          className="h-12 w-full rounded-[var(--radius-control)] border border-line bg-surface text-center text-lg font-medium tabular-nums text-fg transition-colors duration-150 ease-[var(--ease-out)] focus:border-accent disabled:pointer-events-none disabled:opacity-50"
+          className="h-12 w-full rounded-[var(--radius-control)] border border-line bg-surface text-center text-lg font-medium tabular-nums text-fg transition-colors duration-150 ease-[var(--ease-out)] focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)] disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
     </div>

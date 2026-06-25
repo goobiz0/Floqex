@@ -8,8 +8,7 @@ const tones: Record<Tone, string> = {
   accent: "bg-accent-soft text-accent border border-transparent",
   positive: "bg-accent-soft text-positive border border-transparent",
   negative: "bg-negative-soft text-negative border border-transparent",
-  warning:
-    "bg-[oklch(0.78_0.16_78/0.14)] text-warning border border-transparent",
+  warning: "bg-warning-soft text-warning border border-transparent",
 };
 
 export function Badge({

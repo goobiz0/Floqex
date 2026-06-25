@@ -40,11 +40,11 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
+            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
               <InfrastructureVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface flex items-center justify-center border border-line">
-                  <ChartLineUp size={20} className="text-fg" weight="fill" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center border border-accent/20">
+                  <ChartLineUp size={20} className="text-accent" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto max-w-sm relative z-10">
@@ -57,11 +57,11 @@ export default function LandingPage() {
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
+            <BentoCard className="min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
               <StrategyLabVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface flex items-center justify-center border border-line">
-                  <Flask size={20} className="text-fg" weight="fill" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center border border-accent/20">
+                  <Flask size={20} className="text-accent" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto relative z-10">
@@ -74,10 +74,10 @@ export default function LandingPage() {
               </div>
             </BentoCard>
 
-            <BentoCard className="min-h-[320px] group" innerClassName="bg-surface border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
+            <BentoCard className="min-h-[320px] group" innerClassName="bg-surface border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-base shadow-[var(--shadow-sm)] flex items-center justify-center border border-line">
-                  <Notebook size={20} className="text-fg" weight="fill" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft shadow-[var(--shadow-sm)] flex items-center justify-center border border-accent/20">
+                  <Notebook size={20} className="text-accent" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto relative z-10">
@@ -90,11 +90,11 @@ export default function LandingPage() {
               </div>
             </BentoCard>
 
-            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)]">
+            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
               <RiskControlVisual />
               <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface flex items-center justify-center border border-line">
-                  <ShieldCheck size={20} className="text-fg" weight="fill" />
+                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center border border-accent/20">
+                  <ShieldCheck size={20} className="text-accent" weight="fill" />
                 </div>
               </div>
               <div className="mt-auto max-w-sm relative z-10">

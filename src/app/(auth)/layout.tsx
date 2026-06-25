@@ -5,7 +5,6 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { marketingUrl, dashboardUrl } from "@/lib/urls";
 import { AnimatedOrbs } from "@/components/auth/animated-orbs";
-import { NoiseOverlay } from "@/components/ui/noise-overlay";
 
 const points = [
   { icon: ShieldCheck, text: "Hard risk limits the bot can never widen" },
@@ -23,16 +22,13 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
     <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-2 relative overflow-hidden bg-base">
       {/* Brand panel (Left) */}
       <aside className="relative hidden flex-col justify-between overflow-hidden lg:flex bg-surface/50 text-fg p-12 border-r border-line/50">
-        {/* Animated drifting glass blobs */}
+        {/* Soft, single-accent emerald glows drifting behind the content */}
         <AnimatedOrbs />
-        
-        {/* Subtle noise layered on top to add texture to the gradients */}
-        <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none">
-          <NoiseOverlay />
-        </div>
+
+        {/* One faint structural grid, masked so it fades out toward the edges */}
         <div
           aria-hidden
-          className="grid-faint pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
+          className="grid-faint pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(60%_50%_at_30%_40%,black,transparent)]"
         />
 
         <div className="flex flex-col gap-8 relative z-10">
@@ -57,9 +53,9 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
             {points.map((point) => (
               <div
                 key={point.text}
-                className="group relative flex items-center gap-4 rounded-2xl bg-surface/60 p-4 ring-1 ring-inset ring-white/[0.05] backdrop-blur-md transition-colors hover:bg-surface"
+                className="group relative flex items-center gap-4 rounded-[var(--radius-card)] border border-line bg-surface/80 p-4 transition-colors hover:border-line-strong hover:bg-surface"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent ring-1 ring-inset ring-accent/20">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent ring-1 ring-inset ring-accent/20">
                   <point.icon size={20} weight="duotone" />
                 </div>
                 <span className="text-[15px] font-medium text-fg/90">{point.text}</span>
@@ -74,7 +70,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
       </aside>
 
       {/* Form panel */}
-      <main className="relative flex flex-col bg-base/40 backdrop-blur-sm">
+      <main className="relative flex flex-col bg-base">
         <div className="flex items-center justify-between p-5 lg:hidden relative z-10">
           <a href={marketingUrl()}>
             <Wordmark />

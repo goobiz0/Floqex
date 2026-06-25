@@ -31,7 +31,7 @@ export default function RiskDisclosurePage() {
       </LegalSection>
 
       <LegalSection heading="3. Hypothetical and Past Performance">
-        <p className="bg-warning/10 p-3 rounded-lg border border-warning/20 font-medium">
+        <p className="bg-warning-soft p-3 rounded-[var(--radius-control)] border border-warning/20 font-medium">
           <strong>CFTC RULE 4.41:</strong> HYPOTHETICAL OR SIMULATED PERFORMANCE RESULTS HAVE CERTAIN LIMITATIONS. UNLIKE AN ACTUAL PERFORMANCE RECORD, SIMULATED RESULTS DO NOT REPRESENT ACTUAL TRADING. ALSO, SINCE THE TRADES HAVE NOT BEEN EXECUTED, THE RESULTS MAY HAVE UNDER-OR-OVER COMPENSATED FOR THE IMPACT, IF ANY, OF CERTAIN MARKET FACTORS, SUCH AS LACK OF LIQUIDITY. NO REPRESENTATION IS BEING MADE THAT ANY ACCOUNT WILL OR IS LIKELY TO ACHIEVE PROFIT OR LOSSES SIMILAR TO THOSE SHOWN.
         </p>
         <p className="mt-4">
