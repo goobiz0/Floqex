@@ -328,7 +328,7 @@ function objectKeyMatchStillUsesOriginal(cwd, match, op) {
   const lineNumber = Number(match?.line);
   if (!relative || !Number.isFinite(lineNumber) || lineNumber < 1) return false;
   let lines;
-  try { lines = fs.readFileSync(path.resolve(cwd, relative), 'utf-8').split('\n'); } catch { return false; }
+  try { const base = path.resolve(cwd); const target = path.resolve(base, relative); const rel = path.relative(base, target); if (rel.startsWith('..') || path.isAbsolute(rel)) return false; lines = fs.readFileSync(target, 'utf-8').split('\n'); } catch { return false; }
   const start = Math.max(0, lineNumber - 4);
   const end = Math.min(lines.length, lineNumber + 3);
   const windowLines = lines.slice(start, end);
