@@ -27,7 +27,7 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     
     try {
       const order = await executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits);
-      filledPrice = order.filledPrice;
+      filledPrice = order.filledPrice || signal.entryPrice;
     } catch (e: unknown) {
       const err = e as Error;
       console.error("Live Execution Failed:", err.message);
@@ -81,7 +81,7 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
 
     try {
       const order = await closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits));
-      finalExitPrice = order.filledPrice;
+      finalExitPrice = order.filledPrice || exitPrice;
     } catch (e: unknown) {
       const err = e as Error;
       console.error("Live Exit Execution Failed:", err.message);

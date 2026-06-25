@@ -17,7 +17,7 @@ export type WidgetItem = {
   w: number;
   h: number;
   type: string;
-  config: Record<string, unknown>;
+  config: Record<string, any>;
 };
 
 type WidgetGridProps = {

@@ -224,7 +224,7 @@ export function DashboardPageClient({
     setConfigDialogOpen(true);
   }, []);
 
-  const handleSaveWidgetConfig = useCallback((config: Record<string, string | number | boolean>) => {
+  const handleSaveWidgetConfig = useCallback((config: Record<string, any>) => {
     setLayoutItems(prev => prev.map(item => item.i === configWidgetId ? { ...item, config } : item));
   }, [configWidgetId]);
 
