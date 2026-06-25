@@ -217,7 +217,7 @@ export function StrategyLab({
                     id={`custom-${k}`}
                     type="number"
                     value={params[k as keyof StrategyParams] as number}
-                    onChange={(e) => set(k as keyof StrategyParams, Number(e.target.value) as any)}
+                    onChange={(e) => set(k as keyof StrategyParams, Number(e.target.value) as StrategyParams[keyof StrategyParams])}
                     className="w-full"
                   />
                 </div>
@@ -240,7 +240,7 @@ export function StrategyLab({
               size="sm"
               onClick={() => {
                 const newKey = `customParam${customKeys.length + 1}`;
-                set(newKey as keyof StrategyParams, 0 as any);
+                set(newKey as keyof StrategyParams, 0 as StrategyParams[keyof StrategyParams]);
               }}
             >
               <Plus size={14} className="mr-1" /> Add Parameter

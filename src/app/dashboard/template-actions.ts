@@ -18,7 +18,7 @@ export type WidgetLayout = {
   w: number;
   h: number;
   type: string;
-  config: Record<string, any>;
+  config: Record<string, string | number | boolean>;
 };
 
 export async function getDashboardTemplates() {

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, createSeriesMarkers } from "lightweight-charts";
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, createSeriesMarkers, type CandlestickData, type SeriesMarker, type Time } from "lightweight-charts";
 import { useTheme } from "next-themes";
 
 interface TradeChartProps {
-  data: { time: string | number; open: number; high: number; low: number; close: number }[];
+  data: CandlestickData[];
   entryTime?: string;
   entryPrice?: number;
   exitTime?: string;
@@ -45,14 +45,13 @@ export function TradeChart({ data, entryTime, entryPrice, exitTime, exitPrice, d
       wickUpColor: "var(--color-profit)",
       wickDownColor: "var(--color-negative)",
     });
-    series.setData(data as any);
-    
+    series.setData(data);
+
     // Add Markers for Entry/Exit
-    type MarkerParams = any;
-    const markers: MarkerParams[] = [];
+    const markers: SeriesMarker<Time>[] = [];
     if (entryTime && entryPrice) {
       markers.push({
-        time: entryTime as any,
+        time: entryTime as Time,
         position: direction === "LONG" ? 'belowBar' : 'aboveBar',
         color: 'var(--color-accent)',
         shape: direction === "LONG" ? 'arrowUp' : 'arrowDown',
@@ -63,7 +62,7 @@ export function TradeChart({ data, entryTime, entryPrice, exitTime, exitPrice, d
     if (exitTime && exitPrice) {
       const isWin = direction === "LONG" ? exitPrice > (entryPrice || 0) : exitPrice < (entryPrice || 0);
       markers.push({
-        time: exitTime as any,
+        time: exitTime as Time,
         position: direction === "LONG" ? 'aboveBar' : 'belowBar',
         color: isWin ? 'var(--color-profit)' : 'var(--color-negative)',
         shape: 'circle',

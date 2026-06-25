@@ -20,7 +20,7 @@ export function DisplayProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem("displayMode") as DisplayMode | null;
     if (saved === "MONEY" || saved === "PERCENTAGE" || saved === "HIDDEN") {
-      setDisplayModeState(saved);
+      queueMicrotask(() => setDisplayModeState(saved));
     }
   }, []);
 

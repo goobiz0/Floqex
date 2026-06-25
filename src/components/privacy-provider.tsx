@@ -16,9 +16,8 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("privacyMode");
-    if (saved === "true") {
-      setIsPrivacyMode(true);
+    if (localStorage.getItem("privacyMode") === "true") {
+      queueMicrotask(() => setIsPrivacyMode(true));
     }
   }, []);
 

@@ -1,12 +1,15 @@
 import ccxt from "ccxt";
 
-export async function executeLiveOrder(broker: string, creds: Record<string, any>, instrument: string, direction: string, sizeUnits: number) {
+type BrokerCreds = Record<string, string>;
+type CcxtExchanges = Record<string, new (opts: Record<string, string | boolean | undefined>) => { createMarketOrder: (symbol: string, side: string, amount: number) => Promise<{ id: string; price: number | null; average: number | null }> }>;
+
+export async function executeLiveOrder(broker: string, creds: BrokerCreds, instrument: string, direction: string, sizeUnits: number) {
   // Translate internal terminology to broker terminology
   const side = direction === 'LONG' ? 'buy' : 'sell';
 
   // Handling Crypto via CCXT
   if (['binance', 'coinbase', 'kraken', 'bybit'].includes(broker.toLowerCase())) {
-    const exchangeClass = (ccxt as Record<string, any>)[broker.toLowerCase()];
+    const exchangeClass = (ccxt as unknown as CcxtExchanges)[broker.toLowerCase()];
     if (!exchangeClass) throw new Error(`Unsupported CCXT broker: ${broker}`);
     
     const exchange = new exchangeClass({
@@ -95,7 +98,7 @@ export async function executeLiveOrder(broker: string, creds: Record<string, any
   throw new Error(`Unsupported broker: ${broker}`);
 }
 
-export async function closeLivePosition(broker: string, creds: Record<string, any>, instrument: string, currentDirection: string, sizeUnits: number) {
+export async function closeLivePosition(broker: string, creds: BrokerCreds, instrument: string, currentDirection: string, sizeUnits: number) {
   // To close a LONG, we sell. To close a SHORT, we buy.
   const side = currentDirection === 'LONG' ? 'sell' : 'buy';
   return executeLiveOrder(broker, creds, instrument, side, sizeUnits);

@@ -3,9 +3,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { parseStrategyParams } from "@/lib/strategy-schema";
+import { parseStrategyParams, type StrategyParams } from "@/lib/strategy-schema";
 import { PLANS, type Plan } from "@/lib/plans";
-import type { StrategyKind } from "@prisma/client";
+import type { StrategyKind, Prisma } from "@prisma/client";
 
 export async function createBot({
   accountId,
@@ -16,7 +16,7 @@ export async function createBot({
   accountId: string;
   strategyName: string;
   strategyKind: StrategyKind;
-  params: any;
+  params: StrategyParams;
 }) {
   try {
     const { userId } = await auth();
@@ -52,7 +52,7 @@ export async function createBot({
         userId: user.id,
         name: strategyName,
         kind: strategyKind,
-        params: parsed.params as any,
+        params: parsed.params as unknown as Prisma.InputJsonValue,
       },
     });
 
