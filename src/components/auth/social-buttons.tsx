@@ -41,7 +41,7 @@ export function SocialButtons({
           type="button"
           disabled={disabled}
           onClick={() => onSelect(strategy)}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface text-sm font-medium text-fg transition-[transform,background-color,border-color] duration-150 ease-[var(--ease-out)] hover:border-line-strong hover:bg-overlay active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface text-sm font-medium text-fg transition-[transform,background-color,border-color] duration-150 ease-[var(--ease-out)] hover:border-line-strong hover:bg-surface-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
         >
           <Icon className="h-[18px] w-[18px]" aria-hidden />
           {label}

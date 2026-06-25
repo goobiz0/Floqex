@@ -1,64 +1,42 @@
 "use client";
 
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 
+/**
+ * Calm, on-brand backdrop for the auth brand panel: two soft emerald glows that
+ * drift slowly behind the content. Single accent only (no teal/sky/blue), and
+ * it collapses to static glows under prefers-reduced-motion. Texture (grain,
+ * grid) is layered by the auth layout, not here, to avoid stacking noise.
+ */
 export function AnimatedOrbs() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setMounted(true), 0);
-    return () => clearTimeout(timer);
-  }, []);
+  const reduce = useReducedMotion();
 
-  if (!mounted) {
+  const glow =
+    "absolute rounded-full blur-[120px] bg-[radial-gradient(circle,color-mix(in_oklch,var(--color-accent)_55%,transparent)_0%,transparent_70%)]";
+
+  if (reduce) {
     return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 mix-blend-screen">
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-500/50 blur-[100px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-emerald-400/40 blur-[120px]" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-50">
+        <div className={`${glow} -left-[10%] -top-[10%] h-[460px] w-[460px]`} />
+        <div className={`${glow} -bottom-[15%] -right-[10%] h-[520px] w-[520px] opacity-70`} />
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-60 z-0">
-      <div className="absolute inset-0 mix-blend-screen">
-        <motion.div
-          animate={{
-            x: ["0%", "15%", "-5%", "0%"],
-            y: ["0%", "10%", "-15%", "0%"],
-            scale: [1, 1.1, 0.95, 1],
-          }}
-          transition={{
-            duration: 20,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-          className="absolute top-[-5%] left-[-5%] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-emerald-500/60 to-teal-400/50 blur-[80px]"
-        />
-        <motion.div
-          animate={{
-            x: ["0%", "-15%", "10%", "0%"],
-            y: ["0%", "-10%", "15%", "0%"],
-            scale: [1, 0.9, 1.05, 1],
-          }}
-          transition={{
-            duration: 25,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-          className="absolute bottom-[-5%] right-[-5%] w-[450px] h-[450px] rounded-full bg-gradient-to-tl from-emerald-400/55 to-sky-400/35 blur-[90px]"
-        />
-      </div>
-      {/* Subtle dark frost to settle the blobs into the panel */}
-      <div className="absolute inset-0 bg-base/20 backdrop-blur-[60px]" />
-      
-      {/* Embedded SVG Noise Filter for pure organic grain */}
-      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.15] mix-blend-overlay">
-        <filter id="noiseFilter">
-          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#noiseFilter)" />
-      </svg>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60">
+      <motion.div
+        aria-hidden
+        className={`${glow} -left-[10%] -top-[10%] h-[460px] w-[460px]`}
+        animate={{ x: ["0%", "12%", "-4%", "0%"], y: ["0%", "8%", "-12%", "0%"], scale: [1, 1.08, 0.96, 1] }}
+        transition={{ duration: 26, ease: "easeInOut", repeat: Infinity }}
+      />
+      <motion.div
+        aria-hidden
+        className={`${glow} -bottom-[15%] -right-[10%] h-[520px] w-[520px] opacity-70`}
+        animate={{ x: ["0%", "-12%", "8%", "0%"], y: ["0%", "-8%", "12%", "0%"], scale: [1, 0.94, 1.06, 1] }}
+        transition={{ duration: 32, ease: "easeInOut", repeat: Infinity }}
+      />
     </div>
   );
 }

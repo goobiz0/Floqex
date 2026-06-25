@@ -59,7 +59,7 @@ type Phase = "intro" | "reveal" | "done";
 
 export function ArcRevealHero({
   greetings = DEFAULT_GREETINGS,
-  greetingHold = 540,
+  greetingHold = 820,
   revealDuration = 1500,
   className,
   introClassName,
@@ -129,7 +129,7 @@ export function ArcRevealHero({
     if (phase !== "intro") return;
     const isLast = index >= greetings.length - 1;
     if (isLast) {
-      const t = window.setTimeout(() => setPhase("reveal"), greetingHold + 180);
+      const t = window.setTimeout(() => setPhase("reveal"), greetingHold + 320);
       return () => window.clearTimeout(t);
     }
     const t = window.setTimeout(() => setIndex((i) => i + 1), greetingHold);
@@ -162,8 +162,12 @@ export function ArcRevealHero({
   return (
     <section
       aria-label="Hero"
+      // No `isolate` here on purpose: it would open a new stacking context and
+      // trap the fixed intro overlay (z-100) below the root-level marketing nav
+      // (fixed z-50), letting the nav punch through the curtain. Without it, the
+      // overlay competes in the root stacking context and covers every surface.
       className={cn(
-        "relative isolate min-h-screen w-full overflow-hidden bg-base text-fg",
+        "relative min-h-screen w-full overflow-hidden bg-base text-fg",
         className,
       )}
     >

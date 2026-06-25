@@ -47,7 +47,7 @@ export function HowItWorks() {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className="flex flex-col items-center text-center group"
             >
-              <div className="w-24 h-24 mb-8 rounded-full bg-surface border border-line flex items-center justify-center relative shadow-sm group-hover:border-accent/50 transition-colors duration-300">
+              <div className="w-24 h-24 mb-8 rounded-full bg-surface border border-line flex items-center justify-center relative shadow-[var(--shadow-sm)] group-hover:border-accent/50 transition-colors duration-300">
                 <div className="absolute inset-0 bg-accent/5 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <step.icon size={32} className="text-fg group-hover:text-accent transition-colors duration-300" weight="light" />
               </div>

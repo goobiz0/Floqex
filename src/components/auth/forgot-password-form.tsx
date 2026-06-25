@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { OtpInput } from "./otp-input";
-import { clerkErrorMessage } from "./shared";
-import { dashboardUrl } from "@/lib/urls";
+import { FormError, clerkErrorMessage } from "./shared";
 
 type Step = "request" | "reset" | "mfa" | "mfa-backup";
 
@@ -158,11 +157,7 @@ export function ForgotPasswordForm() {
           <Label htmlFor="mfa-code">Authenticator code</Label>
           <OtpInput id="mfa-code" value={code} onChange={setCode} disabled={submitting} />
         </div>
-        {error ? (
-          <p className="text-sm text-negative" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         <Button
           type="submit"
           size="lg"
@@ -202,11 +197,7 @@ export function ForgotPasswordForm() {
             placeholder="xxxx-xxxx-xxxx-xxxx"
           />
         </Field>
-        {error ? (
-          <p className="text-sm text-negative" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         <Button
           type="submit"
           size="lg"
@@ -253,11 +244,7 @@ export function ForgotPasswordForm() {
             placeholder="••••••••"
           />
         </Field>
-        {error ? (
-          <p className="text-sm text-negative" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         <Button
           type="submit"
           size="lg"
@@ -284,11 +271,7 @@ export function ForgotPasswordForm() {
           placeholder="you@example.com"
         />
       </Field>
-      {error ? (
-        <p className="text-sm text-negative" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <FormError>{error}</FormError> : null}
       <Button type="submit" size="lg" className="w-full" disabled={!ready || submitting}>
         {submitting ? "Sending code…" : "Send reset code"}
       </Button>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { WarningCircle } from "@phosphor-icons/react/dist/ssr";
 
 /** Labelled divider between social buttons and the email form. */
 export function Divider({ children }: { children: ReactNode }) {
@@ -8,6 +9,22 @@ export function Divider({ children }: { children: ReactNode }) {
       <span className="text-xs text-fg-faint">{children}</span>
       <span className="h-px flex-1 bg-line" aria-hidden />
     </div>
+  );
+}
+
+/**
+ * Inline form error. Pairs the negative colour with an icon and text so state
+ * is never communicated by colour alone (accessibility gate).
+ */
+export function FormError({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="alert"
+      className="flex items-start gap-2 rounded-[var(--radius-control)] border border-negative/20 bg-negative/5 px-3 py-2 text-sm text-negative"
+    >
+      <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </p>
   );
 }
 

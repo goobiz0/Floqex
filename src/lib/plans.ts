@@ -51,7 +51,6 @@ export const PLANS: Record<Plan, PlanConfig> = {
     accountLimit: 3,
     liveTrading: true,
     copyTrading: false,
-    popular: true,
     tagline: "Go live across multiple accounts.",
     features: [
       "Everything in Free",
