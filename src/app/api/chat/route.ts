@@ -1,4 +1,4 @@
-import { streamText, tool } from "ai";
+import { streamText, tool, convertToModelMessages, type UIMessage } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   // const { success } = await ratelimit.limit(ip);
   // if (!success) return new Response("Rate limit exceeded", { status: 429 });
 
-  const { messages } = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
   const { userId } = await auth();
   if (!userId) return new Response("Unauthorized", { status: 401 });
 
@@ -45,14 +45,14 @@ Always be professional and concise.
 Available parameters for the updateStrategyParams tool:
 ${boundsHelp}`;
 
-  const result = await streamText({
+  const result = streamText({
     model: chatModel(),
-    messages,
+    messages: await convertToModelMessages(messages),
     system: systemPrompt,
     tools: {
       getPerformance: tool({
         description: "Get the user's trading performance over the last 7 days.",
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async (_args) => {
           // In a real app, query the database. Mocking for now.
           return { winRate: "68%", pnl: "+$1,240.50", trades: 45 };
@@ -60,7 +60,7 @@ ${boundsHelp}`;
       }),
       getBotStatus: tool({
         description: "Check if the bot engine is running and its current status.",
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async (_args) => {
           // In a real app, query the bot state. Mocking for now.
           return { status: "running", activePositions: 2, strategy: "ORB" };
@@ -68,7 +68,7 @@ ${boundsHelp}`;
       }),
       updateStrategyParams: tool({
         description: "Propose an update to the user's trading strategy parameters. The user must accept or decline.",
-        parameters: z.object({
+        inputSchema: z.object({
           riskPct: z.number().optional().describe("Risk percentage per trade"),
           takeProfit: z.number().optional().describe("Take profit multiplier"),
           stopLoss: z.number().optional().describe("Stop loss multiplier"),
@@ -83,5 +83,5 @@ ${boundsHelp}`;
     },
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
