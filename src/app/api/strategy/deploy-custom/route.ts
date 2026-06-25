@@ -37,8 +37,8 @@ export async function POST(req: Request) {
 
     revalidatePath("/dashboard/strategy");
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to deploy custom strategy:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

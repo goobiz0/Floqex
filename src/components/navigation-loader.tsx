@@ -21,16 +21,16 @@ export function NavigationLoader() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+
       // Walk up from click target to find the nearest <a>
       const anchor = (e.target as Element).closest<HTMLAnchorElement>("a[href]");
       if (!anchor) return;
 
       const href = anchor.getAttribute("href") ?? "";
 
-      // Skip: external, hash-only, mailto/tel, new-tab, modifier keys
+      // Skip: hash-only, mailto/tel, new-tab, modifier keys
       if (
-        href.startsWith("http") ||
-        href.startsWith("//") ||
         href.startsWith("#") ||
         href.startsWith("mailto:") ||
         href.startsWith("tel:") ||
@@ -42,8 +42,11 @@ export function NavigationLoader() {
       )
         return;
 
-      // Skip if this href resolves to the current pathname (same page)
+      // Resolve URL and skip if cross-origin (e.g. external absolute link)
       const resolved = new URL(href, window.location.href);
+      if (resolved.origin !== window.location.origin) return;
+
+      // Skip if this href resolves to the current pathname (same page)
       if (resolved.pathname === pathnameRef.current) return;
 
       setVisible(true);

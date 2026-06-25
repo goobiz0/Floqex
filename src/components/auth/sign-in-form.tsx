@@ -32,7 +32,7 @@ export function SignInForm() {
       const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
       
       if (isLooping) {
-        setDesynced(true);
+        queueMicrotask(() => setDesynced(true));
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
         sessionStorage.setItem("floqex_auth_attempt", Date.now().toString());

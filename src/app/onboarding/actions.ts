@@ -4,6 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/user";
 import { connectAccount } from "@/app/dashboard/accounts/actions";
+import type { Broker, AccountMode } from "@prisma/client";
 
 type Result = { ok: boolean; error?: string };
 
@@ -46,8 +47,8 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
 
       const res = await connectAccount({
         nickname: input.nickname.trim() || "Main account",
-        broker: broker as any,
-        mode: mode as any,
+        broker: broker as unknown as Broker,
+        mode: mode as unknown as AccountMode,
         apiKey: input.apiKey,
         apiSecret: input.apiSecret,
       });
@@ -124,13 +125,13 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
         }
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[completeOnboarding] could not save preferences", err);
     }
 
     return { ok: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[completeOnboarding] Failed to complete onboarding:", err);
-    return { ok: false, error: `A database connection error occurred: ${err.message || String(err)}` };
+    return { ok: false, error: `A database connection error occurred: ${err instanceof Error ? err.message : String(err)}` };
   }
 }

@@ -46,9 +46,9 @@ export function WaitlistForm() {
           <CheckCircle weight="fill" size={32} />
         </div>
         <div className="space-y-1">
-          <h3 className="text-xl font-medium tracking-tight text-fg">You're on the list!</h3>
+          <h3 className="text-xl font-medium tracking-tight text-fg">You&apos;re on the list!</h3>
           <p className="text-sm text-fg-muted">
-            We've saved your spot. Keep an eye on <span className="font-medium text-fg">{emailAddress}</span> for updates.
+            We&apos;ve saved your spot. Keep an eye on <span className="font-medium text-fg">{emailAddress}</span> for updates.
           </p>
         </div>
       </motion.div>

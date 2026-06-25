@@ -38,7 +38,7 @@ describe('Risk Engine', () => {
       id: 'acc1',
       mode: 'LIVE',
       user: { plan: 'FREE' }
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof prisma.account.findUnique>>);
     const result = await validateRisk('bot1', 'acc1', baseSignal);
     expect(result).toEqual({ passed: false, reason: 'LIVE_TRADING_NOT_ALLOWED_ON_PLAN' });
   });
@@ -49,7 +49,7 @@ describe('Risk Engine', () => {
       mode: 'PAPER',
       balance: 99,
       user: { plan: 'TRADER' }
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof prisma.account.findUnique>>);
     vi.mocked(prisma.dailySummary.findFirst).mockResolvedValue(null);
 
     const result = await validateRisk('bot1', 'acc1', baseSignal);
@@ -63,11 +63,11 @@ describe('Risk Engine', () => {
       balance: 10000,
       maxDailyDrawdown: 50,
       user: { plan: 'TRADER' }
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof prisma.account.findUnique>>);
     
     vi.mocked(prisma.dailySummary.findFirst).mockResolvedValue({
       netPnl: { toNumber: () => -51 }
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof prisma.dailySummary.findFirst>>);
 
     const result = await validateRisk('bot1', 'acc1', baseSignal);
     expect(result).toEqual({ passed: false, reason: 'CIRCUIT_BREAKER_TRIPPED' });
@@ -80,7 +80,7 @@ describe('Risk Engine', () => {
       balance: 10000,
       maxDailyDrawdown: 500,
       user: { plan: 'TRADER' }
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof prisma.account.findUnique>>);
     vi.mocked(prisma.dailySummary.findFirst).mockResolvedValue(null);
 
     const result = await validateRisk('bot1', 'acc1', baseSignal);

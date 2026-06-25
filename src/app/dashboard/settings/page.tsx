@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { SettingsView } from "@/components/dashboard/settings-view";
 import { getTradeData } from "@/lib/queries";
@@ -30,7 +31,7 @@ export default async function SettingsPage() {
   const { userId } = await auth();
 
   let user = null;
-  let accountRows: any[] = [];
+  let accountRows: Prisma.AccountGetPayload<{ select: { id: true; nickname: true; broker: true; maxDailyDrawdown: true } }>[] = [];
   
   if (userId) {
     try {

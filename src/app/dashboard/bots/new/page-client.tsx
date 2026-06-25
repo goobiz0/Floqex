@@ -68,7 +68,7 @@ export function BotsNewClient({ availableAccounts }: { availableAccounts: Accoun
         </div>
         <h2 className="text-xl font-semibold tracking-tight text-fg mb-2">No available accounts</h2>
         <p className="text-fg-subtle mb-8">
-          All your connected accounts already have a bot attached, or you haven't connected any accounts yet.
+          All your connected accounts already have a bot attached, or you haven&apos;t connected any accounts yet.
         </p>
         <Link href="/dashboard/accounts/new" className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-6 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] active:scale-[0.98]">
           Connect a Broker

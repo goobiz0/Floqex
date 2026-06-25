@@ -31,7 +31,7 @@ export function SignUpForm() {
       const isLooping = lastAttempt && Date.now() - parseInt(lastAttempt) < 3000;
 
       if (isLooping) {
-        setDesynced(true);
+        queueMicrotask(() => setDesynced(true));
         sessionStorage.removeItem("floqex_auth_attempt");
       } else {
         sessionStorage.setItem("floqex_auth_attempt", Date.now().toString());
@@ -41,7 +41,7 @@ export function SignUpForm() {
   }, [isLoaded, isSignedIn, searchParams]);
 
   // Try to detect Waitlist mode from Clerk environment or local env var
-  const env = (clerk as any)?.__unstable__environment;
+  const env = (clerk as { __unstable__environment?: { displayConfig?: { waitlistEnabled?: boolean; waitlistMode?: boolean } } }).__unstable__environment;
   const isWaitlistEnabled = 
     env?.displayConfig?.waitlistEnabled === true || 
     env?.displayConfig?.waitlistMode === true || 
