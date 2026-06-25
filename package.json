@@ -20,6 +20,10 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "overrides": {
+    "@emnapi/runtime": "1.11.1",
+    "@emnapi/core": "1.11.1"
+  },
   "dependencies": {
     "@ai-sdk/google": "^1.0.0",
     "@ai-sdk/openai": "^0.0.66",
