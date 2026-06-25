@@ -42,6 +42,7 @@ export const viewport: Viewport = {
 import { Toaster } from "sonner";
 import { PrivacyProvider } from "@/components/privacy-provider";
 import { DisplayProvider } from "@/components/display-provider";
+import { NavigationLoader } from "@/components/navigation-loader";
 
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
 // src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
@@ -81,6 +82,7 @@ export default async function RootLayout({
               >
                 {children}
               </ClerkProvider>
+              <NavigationLoader />
               <Toaster position="bottom-right" />
             </PrivacyProvider>
           </DisplayProvider>
