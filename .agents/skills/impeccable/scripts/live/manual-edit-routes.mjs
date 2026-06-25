@@ -287,7 +287,7 @@ export function createManualEditRoutes({
 
     if (p === '/manual-edit-discard' && req.method === 'POST') {
       const token = url.searchParams.get('token');
-      if (token !== getToken()) { res.writeHead(401); res.end('Unauthorized'); return true; }
+      if (!token || !crypto.timingSafeEqual(crypto.createHash('sha256').update(token).digest(), crypto.createHash('sha256').update(getToken()).digest())) { res.writeHead(401); res.end('Unauthorized'); return true; }
       const pageUrl = url.searchParams.get('pageUrl');
       let discarded;
       let discardedEntries = [];
