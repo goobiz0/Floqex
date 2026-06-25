@@ -12,6 +12,7 @@ import {
   ArrowDownRight,
   type Icon,
 } from "@phosphor-icons/react";
+import { useId } from "react";
 import { Mark } from "@/components/brand/wordmark";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ function Bar({ className }: { className?: string }) {
 
 export function DashboardMockup() {
   const reduce = useReducedMotion();
+  const gradientId = useId();
 
   const fade = (delay: number) =>
     reduce
@@ -185,14 +187,14 @@ export function DashboardMockup() {
               aria-hidden
             >
               <defs>
-                <linearGradient id="mockup-equity-fill" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.26" />
                   <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <motion.path
                 d={AREA}
-                fill="url(#mockup-equity-fill)"
+                fill={`url(#${gradientId})`}
                 initial={reduce ? false : { opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}

@@ -15,7 +15,7 @@ export function BentoCard({
 }) {
   return (
     <div className={`group relative ${className}`}>
-      <Card className={`h-full w-full relative overflow-hidden flex flex-col rounded-[var(--radius-card)] bg-elevated border border-line ${innerClassName || 'p-8'}`}>
+      <Card className={`relative h-full w-full overflow-hidden flex flex-col ${innerClassName || 'p-8'}`}>
         {children}
       </Card>
     </div>

@@ -167,7 +167,15 @@ export function ArcRevealHero({
         className,
       )}
     >
-      <div className={cn("relative z-0", revealClassName)}>{children}</div>
+      <div
+        className={cn("relative z-0", revealClassName)}
+        // Keep the revealed content out of the tab order / a11y tree while the
+        // intro curtain covers it, so keyboard users can't reach hidden CTAs.
+        aria-hidden={showOverlay || undefined}
+        inert={showOverlay || undefined}
+      >
+        {children}
+      </div>
 
       <AnimatePresence>
         {showOverlay && (
@@ -190,7 +198,7 @@ export function ArcRevealHero({
               className="pointer-events-none absolute inset-0"
               style={{
                 backgroundImage:
-                  "linear-gradient(180deg, rgba(16,185,129,0.13) 0%, rgba(16,185,129,0.05) 34%, transparent 62%), radial-gradient(58% 44% at 50% 40%, rgba(16,185,129,0.22) 0%, transparent 70%)",
+                  "linear-gradient(180deg, color-mix(in oklch, var(--color-accent) 13%, transparent) 0%, color-mix(in oklch, var(--color-accent) 5%, transparent) 34%, transparent 62%), radial-gradient(58% 44% at 50% 40%, color-mix(in oklch, var(--color-accent) 22%, transparent) 0%, transparent 70%)",
               }}
             />
             <div
