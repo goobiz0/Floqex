@@ -13,7 +13,8 @@ export default function AboutPage() {
       <section className="relative pt-32 pb-24 md:pt-48 md:pb-32 px-6">
         <div className="mx-auto max-w-[1200px] flex flex-col md:flex-row items-start justify-between gap-16 relative z-10">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-fg-subtle backdrop-blur-md mb-8 shadow-sm ring-1 ring-black/5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-fg-muted backdrop-blur-md mb-8">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-accent" />
               About Floqex
             </div>
             <h1 className="text-balance text-5xl font-semibold tracking-tight text-fg md:text-7xl leading-[1.05]">
@@ -64,8 +65,8 @@ export default function AboutPage() {
       {/* Core Tenets - Staggered Reveal */}
       <section className="mx-auto max-w-[1200px] px-6 relative z-10">
         <AboutClientMotion className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4 rounded-[32px] bg-white/60 backdrop-blur-xl p-10 border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] hover:bg-white/80 transition-colors">
-            <div className="h-14 w-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm">
+          <div className="space-y-4 rounded-[var(--radius-card)] bg-elevated p-10 border border-line hover:border-line-strong transition-colors">
+            <div className="h-14 w-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6">
               <TrendUp size={24} weight="regular" />
             </div>
             <h3 className="text-2xl font-medium tracking-tight text-fg">Opening Range Breakouts</h3>
@@ -74,8 +75,8 @@ export default function AboutPage() {
             </p>
           </div>
           
-          <div className="space-y-4 rounded-[32px] bg-white/60 backdrop-blur-xl p-10 border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] hover:bg-white/80 transition-colors">
-            <div className="h-14 w-14 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 mb-6 shadow-sm">
+          <div className="space-y-4 rounded-[var(--radius-card)] bg-elevated p-10 border border-line hover:border-line-strong transition-colors">
+            <div className="h-14 w-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6">
               <ShieldCheck size={24} weight="regular" />
             </div>
             <h3 className="text-2xl font-medium tracking-tight text-fg">Strict Risk Guardrails</h3>
@@ -84,8 +85,8 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="space-y-4 rounded-[32px] bg-white/60 backdrop-blur-xl p-10 border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] hover:bg-white/80 transition-colors">
-            <div className="h-14 w-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mb-6 shadow-sm">
+          <div className="space-y-4 rounded-[var(--radius-card)] bg-elevated p-10 border border-line hover:border-line-strong transition-colors">
+            <div className="h-14 w-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6">
               <Lightning size={24} weight="regular" />
             </div>
             <h3 className="text-2xl font-medium tracking-tight text-fg">Instant Execution</h3>
@@ -94,13 +95,13 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="space-y-4 rounded-[32px] bg-white/60 backdrop-blur-xl p-10 border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.03)] hover:bg-white/80 transition-colors">
-            <div className="h-14 w-14 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 mb-6 shadow-sm">
+          <div className="space-y-4 rounded-[var(--radius-card)] bg-elevated p-10 border border-line hover:border-line-strong transition-colors">
+            <div className="h-14 w-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6">
               <Info size={24} weight="regular" />
             </div>
             <h3 className="text-2xl font-medium tracking-tight text-fg">Radical Transparency</h3>
             <p className="text-fg-subtle text-[15px] leading-relaxed">
-              Every trade is journaled. Every adjustment is logged. You maintain full visibility over your bot's behavior through our interactive analytics dashboard.
+              Every trade is journaled. Every adjustment is logged. You maintain full visibility over your bot&apos;s behavior through our interactive analytics dashboard.
             </p>
           </div>
         </AboutClientMotion>

@@ -76,7 +76,7 @@ export function FeedbackWidget() {
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded-[var(--radius-control)] bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="rounded-[var(--radius-control)] bg-accent px-4 py-2 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {isSubmitting ? "Submitting..." : "Submit Feedback"}
           </button>

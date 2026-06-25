@@ -55,11 +55,11 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
           </h2>
           <div className="mt-12 flex flex-col gap-3">
             {points.map((point) => (
-              <div 
-                key={point.text} 
-                className="group relative flex items-center gap-4 rounded-2xl bg-white/40 p-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.04] backdrop-blur-md transition-all hover:bg-white/60 hover:shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
+              <div
+                key={point.text}
+                className="group relative flex items-center gap-4 rounded-2xl bg-surface/60 p-4 ring-1 ring-inset ring-white/[0.05] backdrop-blur-md transition-colors hover:bg-surface"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-accent shadow-sm ring-1 ring-black/[0.06]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent ring-1 ring-inset ring-accent/20">
                   <point.icon size={20} weight="duotone" />
                 </div>
                 <span className="text-[15px] font-medium text-fg/90">{point.text}</span>
@@ -74,7 +74,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
       </aside>
 
       {/* Form panel */}
-      <main className="relative flex flex-col bg-white/10 backdrop-blur-sm">
+      <main className="relative flex flex-col bg-base/40 backdrop-blur-sm">
         <div className="flex items-center justify-between p-5 lg:hidden relative z-10">
           <a href={marketingUrl()}>
             <Wordmark />

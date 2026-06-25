@@ -35,8 +35,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f5f7",
-  colorScheme: "light",
+  themeColor: "#09090b",
+  colorScheme: "dark",
 };
 
 import { Toaster } from "sonner";

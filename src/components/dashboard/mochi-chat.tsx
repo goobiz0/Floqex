@@ -241,7 +241,7 @@ export function MochiChat() {
                               return (
                                 <div key={inv.toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
                                   <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
-                                  <pre className="text-[11px] text-accent/80 mb-3 bg-white/50 p-2 rounded overflow-x-auto">{JSON.stringify(inv.args, null, 2)}</pre>
+                                  <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(inv.args, null, 2)}</pre>
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => handleToolAccept(inv.toolCallId, inv.args)}
@@ -339,9 +339,9 @@ export function MochiChat() {
                     onClick={toggleListen}
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-                      isListening 
-                        ? "bg-rose-500 text-white" 
-                        : "text-fg-subtle hover:text-fg hover:bg-line/50"
+                      isListening
+                        ? "bg-negative text-white"
+                        : "text-fg-subtle hover:text-fg hover:bg-surface-hover"
                     )}
                     title="Voice Input"
                   >

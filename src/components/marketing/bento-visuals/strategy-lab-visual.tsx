@@ -14,7 +14,7 @@ export function StrategyLabVisual() {
           Execute Long
         </div>
       </div>
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-base/50 to-base" />
     </div>
   );
 }

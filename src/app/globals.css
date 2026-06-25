@@ -3,8 +3,9 @@
 @import "react-resizable/css/styles.css";
 
 /* ============================================================
-   Floqex Design System — Bright Light Theme, highly rounded,
-   vibrant colorful gradients.
+   Floqex Design System — "Soft Instrument, Dark".
+   Dark-locked, deep near-black surfaces, single emerald accent,
+   soft-rounded. Light mode exists only as a user preference.
    ============================================================ */
 
 @theme {
@@ -15,6 +16,7 @@
   /* Theme Colors */
   --color-base: var(--base);
   --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-elevated: var(--elevated);
   --color-overlay: var(--overlay);
 
@@ -35,6 +37,7 @@
   --color-positive: var(--positive);
   --color-profit: var(--profit);
   --color-negative: var(--negative);
+  --color-negative-hover: var(--negative-hover);
   --color-negative-soft: var(--negative-soft);
   --color-warning: var(--warning);
   --color-info: var(--info);
@@ -87,33 +90,39 @@
   color-scheme: dark;
   
   --base: #09090b; /* Extremely deep gray/black */
-  --surface: #121214;
-  --elevated: #18181b;
+  --surface: #161619;
+  --surface-hover: #202024;
+  --elevated: #1c1c20;
   --overlay: rgba(9, 9, 11, 0.8);
 
   --fg: #fafafa;
   --fg-muted: #a1a1aa;
   --fg-subtle: #71717a;
-  --fg-faint: #3f3f46;
+  --fg-faint: #52525b;
 
-  --brand: 27 96% 61%;
-  --brand-foreground: 31 97% 72%;
+  /* Brand glow gradient — light emerald (matches the emerald accent) */
+  --brand: 160 84% 39%;
+  --brand-foreground: 152 70% 62%;
 
   --accent: #10b981; /* Emerald accent */
-  --accent-hover: #059669;
+  --accent-hover: #34d399;
   --accent-soft: rgba(16, 185, 129, 0.15);
   --accent-ring: rgba(16, 185, 129, 0.3);
+  --accent-rgb: 16, 185, 129;
+  --color-accent-rgb: 16, 185, 129;
   --on-accent: #022c22; /* Dark text on emerald */
 
   --positive: #10b981;
+  --positive-rgb: 16, 185, 129;
   --profit: #10b981;
   --negative: #ef4444;
+  --negative-hover: #dc2626;
   --negative-soft: rgba(239, 68, 68, 0.15);
   --warning: #f59e0b;
   --info: #3b82f6;
 
-  --line: #27272a;
-  --line-strong: #3f3f46;
+  --line: #26262b;
+  --line-strong: #3a3a42;
 
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.5);
@@ -126,6 +135,7 @@
   
   --base: #f7f9fa;
   --surface: #ffffff;
+  --surface-hover: #f1f3f5;
   --elevated: #ffffff;
   --overlay: rgba(255, 255, 255, 0.8);
 
@@ -134,18 +144,23 @@
   --fg-subtle: #6b7280;
   --fg-faint: #9ca3af;
 
-  --brand: 27 96% 61%;
-  --brand-foreground: 31 97% 72%;
+  /* Brand glow gradient — light emerald (matches the emerald accent) */
+  --brand: 160 84% 39%;
+  --brand-foreground: 152 70% 55%;
 
-  --accent: #111827;
-  --accent-hover: #374151;
-  --accent-soft: rgba(17, 24, 39, 0.05);
-  --accent-ring: rgba(17, 24, 39, 0.2);
+  --accent: #047857;
+  --accent-hover: #065f46;
+  --accent-soft: rgba(4, 120, 87, 0.08);
+  --accent-ring: rgba(4, 120, 87, 0.28);
+  --accent-rgb: 4, 120, 87;
+  --color-accent-rgb: 4, 120, 87;
   --on-accent: #ffffff;
 
-  --positive: #10b981;
-  --profit: #10b981;
+  --positive: #047857;
+  --positive-rgb: 4, 120, 87;
+  --profit: #047857;
   --negative: #ef4444;
+  --negative-hover: #dc2626;
   --negative-soft: rgba(239, 68, 68, 0.1);
   --warning: #f59e0b;
   --info: #3b82f6;
@@ -274,6 +289,77 @@
   100% {
     transform: scale(0.95) translate(-2%, -1%);
     opacity: 0.9;
+  }
+}
+
+/* Hero brand gradient: a soft emerald aura that eases in slowly so it
+   actually reads, then breathes gently. Honors reduced-motion below. */
+@utility hero-aura {
+  background-image:
+    radial-gradient(60% 60% at 50% 18%, rgba(16, 185, 129, 0.28) 0%, transparent 70%),
+    radial-gradient(50% 50% at 78% 8%, rgba(52, 211, 153, 0.18) 0%, transparent 70%),
+    radial-gradient(45% 55% at 20% 30%, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
+  opacity: 0;
+  animation: hero-aura-in 2.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards,
+    hero-aura-breathe 9s ease-in-out 2.8s infinite alternate;
+}
+
+@keyframes hero-aura-in {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hero-aura-breathe {
+  0% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-aura {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+/* Skeleton placeholder with a gentle shimmer sweep (loading-state wireframe). */
+@utility skeleton {
+  background-color: var(--color-surface);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-fg) 7%, transparent) 45%,
+    color-mix(in srgb, var(--color-fg) 7%, transparent) 55%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
   }
 }
 

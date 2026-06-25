@@ -1,121 +1,118 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { authUrl } from "@/lib/urls";
 
 import { Mockup, MockupFrame } from "@/components/ui/mockup";
 import { Glow } from "@/components/ui/glow";
+import { DashboardMockup } from "@/components/marketing/dashboard-mockup";
 
 export function HeroClient() {
+  const reduce = useReducedMotion();
+
   const container = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+      transition: { staggerChildren: 0.1, delayChildren: 0.05 },
     },
   };
 
   const item = {
     hidden: { opacity: 0, y: 20 },
-    show: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { type: "spring" as const, stiffness: 300, damping: 24 }
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring" as const, stiffness: 300, damping: 24 },
     },
   };
 
   return (
-    <section className="relative pt-32 pb-32 md:pt-48 md:pb-40 overflow-hidden">
-      <motion.div 
+    <section className="relative overflow-hidden pt-32 pb-28 md:pt-44 md:pb-36">
+      {/* Slow light-emerald brand aura behind the hero */}
+      <div
+        aria-hidden
+        className="hero-aura pointer-events-none absolute inset-x-0 top-0 z-0 h-[640px] [mask-image:radial-gradient(70%_60%_at_50%_30%,black,transparent)]"
+      />
+
+      <motion.div
         variants={container}
         initial="hidden"
         animate="show"
-        className="relative z-10 mx-auto max-w-[1200px] px-6 grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] gap-12 items-center"
+        className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-6 text-center"
       >
-        <div className="flex flex-col items-start text-left">
-          <motion.div variants={item} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-8 shadow-sm">
-            <span className="flex h-1.5 w-1.5 rounded-full bg-accent" />
-            Live automated execution
-          </motion.div>
-          
-          <motion.h1 variants={item} className="max-w-2xl text-balance text-5xl font-extrabold tracking-tight text-fg md:text-6xl lg:text-7xl leading-[1.05]">
-            Trade smarter.<br />
-            Zero code required.
-          </motion.h1>
-          
-          <motion.p variants={item} className="mt-6 max-w-xl text-pretty text-lg text-fg-muted md:text-xl">
-            A precise trading engine that automates your strategies while keeping you completely in control. Built for speed and absolute clarity.
-          </motion.p>
-          
-          <motion.div variants={item} className="mt-10 flex flex-col sm:flex-row items-start gap-4 w-full sm:w-auto">
-            <Button href={authUrl("/sign-up")} size="lg" className="rounded-[var(--radius-control)] w-full sm:w-auto h-12 px-6 text-[15px] font-semibold">
-              Start building for free
-            </Button>
-            <Button href="#features" variant="secondary" size="lg" className="rounded-[var(--radius-control)] w-full sm:w-auto h-12 px-6 text-[15px] font-medium">
-              Explore platform
-            </Button>
-          </motion.div>
-        </div>
+        <motion.div
+          variants={item}
+          className="mb-7 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-fg-muted"
+        >
+          <span className="relative flex h-1.5 w-1.5">
+            {!reduce && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+            )}
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+          </span>
+          Live automated execution
+        </motion.div>
 
-        {/* High fidelity static UI preview right column */}
-        <motion.div variants={item} className="hidden md:flex relative w-full items-center justify-end">
-           <div className="absolute inset-0 pointer-events-none overflow-hidden">
-             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/15 rounded-full blur-[100px] mix-blend-screen -translate-y-1/3 translate-x-1/4 opacity-80" />
-             <div className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[80px] mix-blend-screen -translate-x-1/2 opacity-60" />
-           </div>
-           <div className="relative z-10 w-[400px] rounded-[var(--radius-card)] border border-line bg-base shadow-[var(--shadow-xl)] p-5 overflow-hidden flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-line pb-4">
-                <div className="flex items-center gap-3">
-                   <div className="h-8 w-8 rounded-[8px] bg-accent-soft text-accent flex items-center justify-center font-bold font-mono text-xs">
-                      FX
-                   </div>
-                   <div>
-                     <p className="text-sm font-semibold text-fg leading-none">Active Session</p>
-                     <p className="text-xs text-fg-subtle tnum mt-1">09:30 - 16:00 NY</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-pill)] bg-surface border border-line">
-                   <span className="flex h-1.5 w-1.5 rounded-full bg-accent" />
-                   <span className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">Running</span>
-                </div>
-              </div>
-              <div className="flex justify-between items-baseline pt-2">
-                 <p className="text-sm font-medium text-fg-muted">Today&apos;s P&amp;L</p>
-                 <p className="text-xl font-semibold text-profit tnum">+$1,240.50</p>
-              </div>
-              <div className="flex justify-between items-baseline">
-                 <p className="text-sm font-medium text-fg-muted">Win Rate</p>
-                 <p className="text-sm font-semibold text-fg tnum">68.4%</p>
-              </div>
-              <div className="flex justify-between items-baseline">
-                 <p className="text-sm font-medium text-fg-muted">Drawdown</p>
-                 <p className="text-sm font-semibold text-fg tnum">0.8%</p>
-              </div>
-           </div>
+        <motion.h1
+          variants={item}
+          className="text-balance text-5xl font-extrabold leading-[1.04] tracking-tight text-fg md:text-6xl lg:text-7xl"
+        >
+          Trade smarter.
+          <br />
+          Zero code required.
+        </motion.h1>
+
+        <motion.p
+          variants={item}
+          className="mt-6 max-w-xl text-pretty text-lg text-fg-muted md:text-xl"
+        >
+          A precise trading engine that automates your strategies while keeping
+          you completely in control. Built for speed and absolute clarity.
+        </motion.p>
+
+        <motion.div
+          variants={item}
+          className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row"
+        >
+          <Button
+            href={authUrl("/sign-up")}
+            size="lg"
+            className="h-12 w-full px-6 text-[15px] font-semibold sm:w-auto"
+          >
+            Start building for free
+          </Button>
+          <Button
+            href="#features"
+            variant="secondary"
+            size="lg"
+            className="h-12 w-full px-6 text-[15px] font-medium sm:w-auto"
+          >
+            Explore platform
+          </Button>
         </motion.div>
       </motion.div>
 
-      {/* Glow and Mockup Image Section */}
-      <div className="relative z-10 mx-auto max-w-[1000px] px-6 mt-24">
-        <MockupFrame
-          className="animate-appear opacity-0 delay-700"
-          size="small"
+      {/* Animated dashboard preview */}
+      <div className="relative z-10 mx-auto mt-16 max-w-[1080px] px-6">
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
         >
-          <Mockup type="responsive">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=2070&auto=format&fit=crop"
-              alt="Trading Dashboard Mockup"
-              className="w-full h-auto"
-              loading="lazy"
-            />
-          </Mockup>
-        </MockupFrame>
-        <Glow
-          variant="top"
-          className="animate-appear-zoom opacity-0 delay-1000"
-        />
+          <MockupFrame size="small">
+            <Mockup type="responsive">
+              <div className="aspect-[16/10] w-full">
+                <DashboardMockup />
+              </div>
+            </Mockup>
+          </MockupFrame>
+          <Glow
+            variant="top"
+            className="animate-appear-zoom opacity-0 delay-700"
+          />
+        </motion.div>
       </div>
     </section>
   );

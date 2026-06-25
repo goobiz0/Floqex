@@ -322,7 +322,7 @@ export function SettingsView({
             <p className="text-fg-subtle mb-6 max-w-sm">
               Earn a percentage of subscription revenue for every trader you refer to Floqex.
             </p>
-            <Button onClick={() => alert("The Floqex Partner Program is coming soon!")} className="bg-accent text-black hover:bg-accent/90">
+            <Button onClick={() => alert("The Floqex Partner Program is coming soon!")} className="bg-accent text-on-accent hover:bg-accent-hover">
               Apply to Partner Program
             </Button>
           </Card>

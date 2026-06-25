@@ -13,7 +13,7 @@ const links = [
 export async function MarketingNav() {
   return (
     <header className="fixed left-1/2 top-6 z-50 w-[90%] max-w-4xl -translate-x-1/2">
-      <nav className="flex h-14 items-center justify-between gap-4 rounded-[var(--radius-pill)] border border-line/50 bg-white/60 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:px-6">
+      <nav className="flex h-14 items-center justify-between gap-4 rounded-[var(--radius-pill)] border border-line/70 bg-base/70 px-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.6)] ring-1 ring-inset ring-white/[0.04] backdrop-blur-xl md:px-6">
         <Link href="/" aria-label="Floqex home" className="flex shrink-0 items-center">
           <Wordmark />
         </Link>
@@ -23,7 +23,7 @@ export async function MarketingNav() {
             <Link
               key={l.href}
               href={l.href}
-              className="rounded-full px-4 py-1.5 text-sm font-medium text-fg-subtle transition-colors hover:bg-black/5 hover:text-fg"
+              className="rounded-full px-4 py-1.5 text-sm font-medium text-fg-subtle transition-colors hover:bg-surface hover:text-fg"
             >
               {l.label}
             </Link>

@@ -167,15 +167,15 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                             aria-checked={isRunning}
                             onClick={() => handleToggle(a.id)}
                             className={cn(
-                              "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                              isRunning ? "bg-accent" : "bg-surface border border-line",
+                              "relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset outline-none transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                              isRunning ? "bg-accent ring-accent/60" : "bg-surface ring-line-strong",
                               pending && "opacity-50 cursor-not-allowed"
                             )}
                           >
                             <span
                               className={cn(
-                                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg transition-transform duration-150 ease-[var(--ease-out)]",
-                                isRunning ? "translate-x-4" : "translate-x-0 bg-fg-muted",
+                                "pointer-events-none absolute left-0.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform duration-150 ease-[var(--ease-out)]",
+                                isRunning ? "translate-x-5" : "translate-x-0",
                               )}
                             />
                           </button>
