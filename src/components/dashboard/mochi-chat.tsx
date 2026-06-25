@@ -41,6 +41,7 @@ export function MochiChat() {
   const [listenTime, setListenTime] = useState(0);
   const reduce = useReducedMotion();
   const [input, setInput] = useState("");
+  const [pendingToolId, setPendingToolId] = useState<string | null>(null);
   const { messages, sendMessage, status, addToolResult } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
@@ -118,34 +119,42 @@ export function MochiChat() {
     }
   }, [isListening, setInput]);
 
-  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
     }
-    if (input.trim()) {
-      try {
-        sendMessage({ text: input });
-        setInput("");
-      } catch (err) {
-        console.error("Chat submit error", err);
-      }
-      setIsOpen(true);
+    const text = input.trim();
+    if (!text) return;
+    setIsOpen(true);
+    // Optimistically clear the draft; restore it if the send rejects so the
+    // user doesn't lose their message. sendMessage is async in AI SDK v6.
+    setInput("");
+    try {
+      await sendMessage({ text });
+    } catch (err) {
+      console.error("Chat submit error", err);
+      setInput(text);
     }
   };
 
   const handleToolAccept = async (toolCallId: string, args: Record<string, unknown>) => {
+    if (pendingToolId) return; // ignore double-clicks / accept-vs-decline races
+    setPendingToolId(toolCallId);
     try {
       const res = await applyStrategyChanges(args);
       addToolResult({ tool: "updateStrategyParams", toolCallId, output: res });
     } catch {
       addToolResult({ tool: "updateStrategyParams", toolCallId, output: { ok: false, message: "Server error" } });
+    } finally {
+      setPendingToolId(null);
     }
   };
 
   const handleToolDecline = (toolCallId: string) => {
+    if (pendingToolId) return;
     addToolResult({ tool: "updateStrategyParams", toolCallId, output: { ok: false, message: "User declined the changes." } });
   };
 
@@ -250,20 +259,23 @@ export function MochiChat() {
                           if (toolName === "updateStrategyParams") {
                             if (isCall) {
                               const args = (part.input ?? {}) as Record<string, unknown>;
+                              const busy = pendingToolId === part.toolCallId;
                               return (
                                 <div key={part.toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
                                   <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
                                   <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(args, null, 2)}</pre>
                                   <div className="flex gap-2">
                                     <button
+                                      disabled={busy}
                                       onClick={() => handleToolAccept(part.toolCallId, args)}
-                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90"
+                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                      Accept & Apply
+                                      {busy ? "Applying…" : "Accept & Apply"}
                                     </button>
                                     <button
+                                      disabled={busy}
                                       onClick={() => handleToolDecline(part.toolCallId)}
-                                      className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10"
+                                      className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       Decline
                                     </button>

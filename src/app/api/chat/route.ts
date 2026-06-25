@@ -33,9 +33,12 @@ export async function POST(req: Request) {
   // const { success } = await ratelimit.limit(ip);
   // if (!success) return new Response("Rate limit exceeded", { status: 429 });
 
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { messages } = (await req.json()) as { messages?: UIMessage[] };
   const { userId } = await auth();
   if (!userId) return new Response("Unauthorized", { status: 401 });
+  if (!Array.isArray(messages)) {
+    return new Response("Invalid request: 'messages' must be an array", { status: 400 });
+  }
 
   const systemPrompt = `You are Mochi, an expert trading copilot.
 You help the user manage their trading bots and analyze performance.
@@ -68,17 +71,15 @@ ${boundsHelp}`;
       }),
       updateStrategyParams: tool({
         description: "Propose an update to the user's trading strategy parameters. The user must accept or decline.",
+        // No execute: this is a human-in-the-loop approval tool. The proposal
+        // stays in the `input-available` state until the client supplies the
+        // result via addToolResult after the user accepts or declines.
         inputSchema: z.object({
           riskPct: z.number().optional().describe("Risk percentage per trade"),
           takeProfit: z.number().optional().describe("Take profit multiplier"),
           stopLoss: z.number().optional().describe("Stop loss multiplier"),
           maxDrawdown: z.number().optional().describe("Maximum drawdown allowed"),
         }),
-        execute: async (args) => {
-          // This tool execution handles the *proposal*, 
-          // the client handles acceptance and calls the server action.
-          return { proposed: args, status: "pending_user_approval" };
-        },
       }),
     },
   });
