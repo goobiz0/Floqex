@@ -21,9 +21,9 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.0.0",
-    "@ai-sdk/openai": "^0.0.66",
-    "@ai-sdk/react": "^1.0.0",
+    "@ai-sdk/google": "^3.0.46",
+    "@ai-sdk/openai": "^3.0.43",
+    "@ai-sdk/react": "^3.0.120",
     "@clerk/backend": "^3.8.3",
     "@clerk/nextjs": "^7.5.7",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -33,7 +33,7 @@
     "@upstash/qstash": "^2.11.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
-    "ai": "^4.0.0",
+    "ai": "^6.0.118",
     "ccxt": "^4.5.59",
     "class-variance-authority": "^0.7.1",
     "gsap": "^3.15.0",
