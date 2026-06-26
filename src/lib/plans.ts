@@ -99,6 +99,19 @@ export const PLANS: Record<Plan, PlanConfig> = {
 
 export const PLAN_ORDER: Plan[] = ["FREE", "TRADER", "PRO", "ELITE"];
 
+/**
+ * Mochi (AI copilot) token budgets per plan, over two rolling windows. The
+ * per-5-hour window is a burst guard (protects against a single session running
+ * up cost); the weekly window is the overall allowance. Tuned so the unit cost
+ * of Gemini Flash stays well within each plan's price.
+ */
+export const MOCHI_LIMITS: Record<Plan, { per5h: number; perWeek: number }> = {
+  FREE: { per5h: 20_000, perWeek: 80_000 },
+  TRADER: { per5h: 120_000, perWeek: 1_200_000 },
+  PRO: { per5h: 400_000, perWeek: 5_000_000 },
+  ELITE: { per5h: 1_200_000, perWeek: 20_000_000 },
+};
+
 /** True when the price id maps to a known paid tier. Side-effect free (no logging). */
 export function isPaidPriceId(priceId: string | null | undefined): boolean {
   return priceId === PRICE_IDS.TRADER || priceId === PRICE_IDS.PRO || priceId === PRICE_IDS.ELITE;

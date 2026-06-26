@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getBillingData, getMonthlyUsage } from "@/lib/queries";
-import { PLANS, formatAccountLimit } from "@/lib/plans";
+import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
+import { getMochiUsage } from "@/lib/mochi-usage";
+import { MochiUsageCard } from "@/components/dashboard/mochi-usage-card";
 import { BillingPlans } from "@/components/dashboard/billing-plans";
 import { DashboardError } from "@/components/dashboard/states";
 
@@ -11,6 +15,18 @@ export const metadata: Metadata = { title: "Billing" };
 export default async function BillingPage() {
   const [data, monthlyUsage] = await Promise.all([getBillingData(), getMonthlyUsage()]);
   const current = PLANS[data.plan];
+
+  // Mochi token usage for the signed-in user (graceful if unavailable).
+  let mochiUsage = null;
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
+      if (user) mochiUsage = await getMochiUsage(user.id, user.plan as Plan);
+    }
+  } catch {
+    // non-fatal: billing still renders without the Mochi panel
+  }
   const activeStatus = data.status === "active" || data.status === "trialing";
   const renews = data.currentPeriodEnd
     ? new Date(data.currentPeriodEnd).toLocaleDateString("en-US", {
@@ -57,6 +73,8 @@ export default async function BillingPage() {
               </div>
             </div>
           </Card>
+
+          {mochiUsage && <MochiUsageCard usage={mochiUsage} plan={data.plan} />}
 
           <BillingPlans currentPlan={data.plan} hasCustomer={data.hasCustomer} monthlyUsage={monthlyUsage} />
         </>

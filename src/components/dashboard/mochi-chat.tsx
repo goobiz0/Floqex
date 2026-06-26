@@ -11,9 +11,55 @@ import { applyStrategyChanges } from "@/app/dashboard/settings/actions";
 const SUGGESTIONS = [
   "How am I doing so far?",
   "Is my bot running?",
-  "Explain the ORB strategy",
+  "Odds of 50% drawdown at 1% risk, 55% win, 2R?",
   "Lower my risk to 0.5%",
 ];
+
+const STORAGE_KEY = "mochi_chat_v1";
+
+type MochiUsage = {
+  plan: string;
+  used5h: number;
+  usedWeek: number;
+  limit5h: number;
+  limitWeek: number;
+  lastMessageTokens: number;
+  blocked: boolean;
+  window: "5h" | "week" | null;
+};
+
+const fmtTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+
+// Compact equity-path sparkline for a Monte Carlo result.
+function MonteCarloChart({ path }: { path: number[] }) {
+  if (!path || path.length < 2) return null;
+  const min = Math.min(...path);
+  const max = Math.max(...path);
+  const span = max - min || 1;
+  const W = 240;
+  const H = 56;
+  const pts = path
+    .map((v, i) => {
+      const x = (i / (path.length - 1)) * W;
+      const y = H - 4 - ((v - min) / span) * (H - 8);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const up = path[path.length - 1] >= path[0];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-14 w-full" preserveAspectRatio="none" aria-hidden>
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={up ? "var(--color-profit)" : "var(--color-negative)"}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
 
 function ThinkingDots() {
   return (
@@ -42,10 +88,54 @@ export function MochiChat() {
   const reduce = useReducedMotion();
   const [input, setInput] = useState("");
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
-  const { messages, sendMessage, status, addToolResult } = useChat({
+  const { messages, sendMessage, status, addToolResult, setMessages, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
   const isLoading = status === "submitted" || status === "streaming";
+  const [usage, setUsage] = useState<MochiUsage | null>(null);
+  const restoredRef = useRef(false);
+
+  // Persist the conversation so switching dashboard pages, changing tabs, or a
+  // refresh never loses what Mochi was doing. Restore once on mount.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed);
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, [setMessages]);
+
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
+    } catch {
+      /* quota / serialization issues are non-fatal */
+    }
+  }, [messages]);
+
+  // Refresh usage whenever the panel is open and the chat status changes (so it
+  // updates after each reply finishes). The fetch + setState live inside an
+  // async IIFE so nothing runs synchronously in the effect body.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/mochi/usage");
+        if (!cancelled && res.ok) setUsage(await res.json());
+      } catch {
+        /* offline; keep last known usage */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, status]);
   const bottomRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -296,9 +386,51 @@ export function MochiChat() {
                             return null;
                           }
 
+                          if (toolName === "calculate" && isResult) {
+                            const out = (part.output ?? {}) as { expression?: string; result?: number; error?: string };
+                            return (
+                              <div key={part.toolCallId} className="mt-3 rounded-[10px] border border-line bg-base px-3 py-2 font-mono text-[12px] text-fg">
+                                {out.error ? (
+                                  <span className="text-negative">{out.error}</span>
+                                ) : (
+                                  <span><span className="text-fg-subtle">{out.expression} =</span> <span className="font-semibold text-accent">{out.result}</span></span>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          if (toolName === "runMonteCarlo" && isResult) {
+                            const mc = (part.output ?? {}) as {
+                              startingBalance?: number; trades?: number; simulations?: number;
+                              p10?: number; p50?: number; p90?: number; ruinProbability?: number; samplePath?: number[];
+                            };
+                            const money = (n?: number) => `$${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+                            return (
+                              <div key={part.toolCallId} className="mt-3 rounded-[12px] border border-line bg-base p-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Monte Carlo · {mc.simulations} runs · {mc.trades} trades</p>
+                                  <span className={cn("text-[11px] font-semibold", (mc.ruinProbability ?? 0) > 25 ? "text-negative" : "text-fg-muted")}>
+                                    {mc.ruinProbability}% risk of 50% drawdown
+                                  </span>
+                                </div>
+                                <MonteCarloChart path={mc.samplePath ?? []} />
+                                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                                  {[["Worst 10%", mc.p10, "text-negative"], ["Median", mc.p50, "text-fg"], ["Best 10%", mc.p90, "text-profit"]].map(([k, v, tone]) => (
+                                    <div key={String(k)} className="rounded-[8px] bg-surface py-1.5">
+                                      <p className="text-[9px] uppercase tracking-wider text-fg-subtle">{k as string}</p>
+                                      <p className={cn("tnum text-[12px] font-semibold", tone as string)}>{money(v as number)}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+
                           const labels: Record<string, [string, string]> = {
                             getPerformance: ["Reading performance", "Performance loaded"],
                             getBotStatus: ["Checking bot status", "Status loaded"],
+                            calculate: ["Calculating", "Calculated"],
+                            runMonteCarlo: ["Running simulation", "Simulation complete"],
                           };
                           const [running, finished] = labels[toolName] ?? [`Running ${toolName}`, `${toolName} done`];
                           return (
@@ -328,8 +460,34 @@ export function MochiChat() {
                   <ThinkingDots />
                 </div>
               )}
+              {error && (
+                <div className="rounded-[10px] border border-negative/30 bg-negative-soft px-3 py-2 text-[12px] text-negative">
+                  {usage?.blocked
+                    ? `You've hit your Mochi ${usage.window === "week" ? "weekly" : "5-hour"} token limit. It resets as the window rolls forward, or upgrade for more.`
+                    : "Mochi hit a snag. Please try again."}
+                </div>
+              )}
               <div ref={bottomRef} className="h-px" />
             </div>
+
+            {/* Usage meter */}
+            {usage && (
+              <div className="border-t border-line bg-base px-4 pt-2.5">
+                <div className="flex items-center justify-between text-[10px] text-fg-subtle">
+                  <span className="font-medium uppercase tracking-wider">Weekly tokens · {usage.plan}</span>
+                  <span className="tnum">
+                    {fmtTokens(usage.usedWeek)} / {fmtTokens(usage.limitWeek)}
+                    {usage.lastMessageTokens > 0 && <span className="text-fg-faint"> · last {fmtTokens(usage.lastMessageTokens)}</span>}
+                  </span>
+                </div>
+                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-surface">
+                  <div
+                    className={cn("h-full rounded-full transition-[width] duration-500", usage.blocked ? "bg-negative" : "bg-accent")}
+                    style={{ width: `${Math.min(100, (usage.usedWeek / Math.max(1, usage.limitWeek)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Input Form inside the Dialog */}
             <form
