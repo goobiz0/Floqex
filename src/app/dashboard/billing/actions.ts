@@ -55,6 +55,7 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
     const customer = await ensureCustomer();
     if (!customer) return { ok: false, error: "You are not signed in." };
 
+
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       customer: customer.customerId,
@@ -62,8 +63,10 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
       success_url: absolute(successUrl, await requestOrigin()),
       cancel_url: absolute(cancelUrl, await requestOrigin()),
       allow_promotion_codes: true,
+      metadata: { plan, userId: customer.id },
       subscription_data: { metadata: { plan } },
     });
+
     return session.url ? { ok: true, url: session.url } : { ok: false, error: "Could not start checkout." };
   } catch (err) {
     console.error("[startCheckout] Stripe error:", err);

@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         
@@ -63,10 +64,27 @@ export async function POST(req: NextRequest) {
 
         if (session.subscription && session.customer) {
           const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
+
+          // Fallback to update plan from session metadata if subscription metadata doesn't have it yet
+          if (!sub.metadata?.plan && session.metadata?.plan) {
+            await getStripe().subscriptions.update(session.subscription as string, {
+              metadata: { plan: session.metadata.plan }
+            });
+            sub.metadata = { ...sub.metadata, plan: session.metadata.plan };
+          }
+
           await syncSubscription(session.customer as string, sub);
+        } else if (session.customer && session.metadata?.userId && session.metadata?.plan) {
+           // Rare case where session completes but subscription isn't attached directly on the event
+           // Or it's a one time payment (not the case here since mode=subscription)
+           await prisma.user.update({
+              where: { id: session.metadata.userId },
+              data: { plan: session.metadata.plan as Plan }
+           });
         }
         break;
       }
+
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {

@@ -95,16 +95,25 @@ export async function GET(req: Request) {
         ? JSON.parse(bot.strategy.params) 
         : bot.strategy.params;
 
+
+      // We will decide the instrument based on what market is open.
+      // If Nyse is open, default to NQ (Nasdaq)
+      // If only ASX is open, default to XJO (ASX 200)
+      const isTradingAsx = !isNyseOpen && isAsxOpen;
+      const instrument = isTradingAsx ? "XJO" : "NQ";
+
       const openTrade = await prisma.trade.findFirst({
         where: { botId: bot.id, status: "OPEN" },
       });
 
-      // Fetch market data (assuming NQ as default for ORB for this example)
-      const marketData = await getRealMarketData("NQ");
+      // Fetch market data
+      const marketData = await getRealMarketData(instrument);
+
       
       if (!marketData) {
         continue;
       }
+
 
       // Log info event occasionally
       if (Math.random() > 0.8 && !openTrade) {
@@ -113,7 +122,7 @@ export async function GET(req: Request) {
             botId: bot.id,
             accountId: bot.accountId,
             kind: "INFO",
-            message: `Market pulse: NQ @ ${marketData.price.toFixed(2)}. Day range: ${marketData.dayLow.toFixed(2)} - ${marketData.dayHigh.toFixed(2)}.`,
+            message: `Market pulse: ${instrument} @ ${marketData.price.toFixed(2)}. Day range: ${marketData.dayLow.toFixed(2)} - ${marketData.dayHigh.toFixed(2)}.`,
           }
         });
       }
@@ -138,7 +147,7 @@ export async function GET(req: Request) {
                 botId: bot.id,
                 accountId: bot.accountId,
                 kind: "TRADE",
-                message: `Closed ${openTrade.direction} on NQ at ${exitPriceNum.toFixed(2)}. Reason: ${exitSignal.reason}. PnL: $${pnl?.toFixed(2)}`,
+                message: `Closed ${openTrade.direction} on ${openTrade.instrument} at ${exitPriceNum.toFixed(2)}. Reason: ${exitSignal.reason}. PnL: ${pnl?.toFixed(2)}`,
                 tradeId: openTrade.id
               }
             });
@@ -160,7 +169,7 @@ export async function GET(req: Request) {
             bot.accountId, 
             entrySignal, 
             { sizeUnits, riskPct }, 
-            "NQ"
+            instrument
           );
 
           await prisma.agentEvent.create({
@@ -168,7 +177,7 @@ export async function GET(req: Request) {
               botId: bot.id,
               accountId: bot.accountId,
               kind: "SIGNAL",
-              message: `Signal Generator triggered ${entrySignal.direction} on NQ at ${entrySignal.entryPrice.toFixed(2)}. Routing to execution engine.`,
+              message: `Signal Generator triggered ${entrySignal.direction} on ${instrument} at ${entrySignal.entryPrice.toFixed(2)}. Routing to execution engine.`,
             }
           });
 
@@ -177,7 +186,7 @@ export async function GET(req: Request) {
               botId: bot.id,
               accountId: bot.accountId,
               kind: "TRADE",
-              message: `Executed ${entrySignal.direction} on NQ at ${entrySignal.entryPrice.toFixed(2)}. Size: ${sizeUnits.toFixed(4)}. Stop: ${entrySignal.stopPrice.toFixed(2)}. Target: ${entrySignal.targetPrice.toFixed(2)}`,
+              message: `Executed ${entrySignal.direction} on ${instrument} at ${entrySignal.entryPrice.toFixed(2)}. Size: ${sizeUnits.toFixed(4)}. Stop: ${entrySignal.stopPrice.toFixed(2)}. Target: ${entrySignal.targetPrice.toFixed(2)}`,
               tradeId: trade.id
             }
           });

@@ -18,6 +18,7 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
     'ETH': 'ETH-USD',
     'SPY': 'SPY',
     'QQQ': 'QQQ',
+    'XJO': '^AXJO',
   };
   
   const symbol = symbolMap[instrument] || instrument;
