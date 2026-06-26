@@ -7,12 +7,22 @@ import { cn } from "@/lib/utils";
 import { PLANS, PLAN_ORDER, type Plan } from "@/lib/plans";
 import { startCheckout, openBillingPortal } from "@/app/dashboard/billing/actions";
 
+// Monthly engine-action allowance per plan (real usage is metered against this).
+const ACTION_LIMIT: Record<Plan, number> = {
+  FREE: 50_000,
+  TRADER: 250_000,
+  PRO: 1_000_000,
+  ELITE: Infinity,
+};
+
 export function BillingPlans({
   currentPlan,
   hasCustomer,
+  monthlyUsage = 0,
 }: {
   currentPlan: Plan;
   hasCustomer: boolean;
+  monthlyUsage?: number;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -88,18 +98,21 @@ export function BillingPlans({
                       </Button>
                     )}
                     
-                    <div className="relative z-10 rounded-[var(--radius-control)] border border-line bg-base/40 p-3">
-                      <p className="mb-2 flex items-center justify-between text-xs font-medium text-fg">
-                        <span>API Usage</span>
-                        <span className="tnum">14,230 / {plan.name === 'Free' ? '50,000' : plan.name === 'Pro' ? '250,000' : 'Unlimited'}</span>
-                      </p>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
-                        <div 
-                          className="h-full rounded-full bg-accent" 
-                          style={{ width: plan.name === 'Unlimited' ? '5%' : plan.name === 'Pro' ? '5.6%' : '28.4%' }}
-                        />
-                      </div>
-                    </div>
+                    {(() => {
+                      const limit = ACTION_LIMIT[id];
+                      const pct = Number.isFinite(limit) ? Math.min(100, (monthlyUsage / limit) * 100) : Math.min(100, monthlyUsage / 50_000);
+                      return (
+                        <div className="relative z-10 rounded-[var(--radius-control)] border border-line bg-base/40 p-3">
+                          <p className="mb-2 flex items-center justify-between text-xs font-medium text-fg">
+                            <span>Engine actions this month</span>
+                            <span className="tnum">{monthlyUsage.toLocaleString()} / {Number.isFinite(limit) ? limit.toLocaleString() : "Unlimited"}</span>
+                          </p>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+                            <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : isUpgrade ? (
                   <Button

@@ -434,6 +434,30 @@ export async function getBillingData(): Promise<BillingData> {
   }
 }
 
+/**
+ * Real engine activity for the current calendar month: the number of agent
+ * events (decisions, signals, trades, risk checks) the user's bots produced.
+ * Replaces the previously hardcoded usage meter on the billing page.
+ */
+export async function getMonthlyUsage(): Promise<number> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return 0;
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { accounts: { select: { id: true } } },
+    });
+    const accountIds = user?.accounts.map((a) => a.id) ?? [];
+    if (accountIds.length === 0) return 0;
+    const start = new Date();
+    start.setUTCDate(1);
+    start.setUTCHours(0, 0, 0, 0);
+    return prisma.agentEvent.count({ where: { accountId: { in: accountIds }, ts: { gte: start } } });
+  } catch {
+    return 0;
+  }
+}
+
 export type BotRow = {
   accountId: string;
   botId: string | null;

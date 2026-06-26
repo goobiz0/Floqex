@@ -74,6 +74,18 @@ export async function POST(req: NextRequest) {
         await syncSubscription(sub.customer as string, sub);
         break;
       }
+      case "invoice.payment_failed": {
+        // Surface the dunning state so the billing page can warn the user; the
+        // plan itself stays until Stripe finally cancels the subscription.
+        const invoice = event.data.object as Stripe.Invoice;
+        if (invoice.customer) {
+          await prisma.user.updateMany({
+            where: { stripeCustomerId: invoice.customer as string },
+            data: { stripeSubStatus: "past_due" },
+          });
+        }
+        break;
+      }
       default:
         break;
     }

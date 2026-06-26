@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getBillingData } from "@/lib/queries";
+import { getBillingData, getMonthlyUsage } from "@/lib/queries";
 import { PLANS, formatAccountLimit } from "@/lib/plans";
 import { BillingPlans } from "@/components/dashboard/billing-plans";
 import { DashboardError } from "@/components/dashboard/states";
@@ -9,7 +9,7 @@ import { DashboardError } from "@/components/dashboard/states";
 export const metadata: Metadata = { title: "Billing" };
 
 export default async function BillingPage() {
-  const data = await getBillingData();
+  const [data, monthlyUsage] = await Promise.all([getBillingData(), getMonthlyUsage()]);
   const current = PLANS[data.plan];
   const activeStatus = data.status === "active" || data.status === "trialing";
   const renews = data.currentPeriodEnd
@@ -58,7 +58,7 @@ export default async function BillingPage() {
             </div>
           </Card>
 
-          <BillingPlans currentPlan={data.plan} hasCustomer={data.hasCustomer} />
+          <BillingPlans currentPlan={data.plan} hasCustomer={data.hasCustomer} monthlyUsage={monthlyUsage} />
         </>
       )}
     </div>

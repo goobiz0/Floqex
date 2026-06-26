@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar, DeviceMobile, Globe } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -90,7 +90,7 @@ type NotificationSettings = {
   marketAsxEnabled: boolean;
 };
 
-import { generateMcpKey, toggleAsxMarket } from "@/app/dashboard/settings/actions";
+import { generateMcpKey, toggleAsxMarket, verifyBrokerConnection, getSecurityActivity, generateReferralCode, type SecurityEvent } from "@/app/dashboard/settings/actions";
 import { usePrivacy } from "@/components/privacy-provider";
 import { useDisplayMode } from "@/components/display-provider";
 import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown, Question } from "@phosphor-icons/react";
@@ -314,22 +314,7 @@ export function SettingsView({
         </div>
       )}
 
-      {activeTab === "AFFILIATE" && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <Card className="p-10 text-center flex flex-col items-center justify-center border-dashed border-line">
-            <div className="h-16 w-16 bg-surface border border-line rounded-full flex items-center justify-center text-fg-subtle mb-4">
-              <CurrencyDollar size={32} weight="duotone" />
-            </div>
-            <h3 className="text-xl font-bold text-fg mb-2">Partner Program</h3>
-            <p className="text-fg-subtle mb-6 max-w-sm">
-              Earn a percentage of subscription revenue for every trader you refer to Floqex.
-            </p>
-            <Button onClick={() => alert("The Floqex Partner Program is coming soon!")} className="bg-accent text-on-accent hover:bg-accent-hover">
-              Apply to Partner Program
-            </Button>
-          </Card>
-        </div>
-      )}
+      {activeTab === "AFFILIATE" && <AffiliatePanel />}
 
       {activeTab === "CUSTOMISATION" && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -825,12 +810,15 @@ function McpSettings({ mcpKey }: { mcpKey?: string }) {
 }
 
 function SecurityAuditLog() {
-  const MOCK_LOGS = [
-    { id: 1, action: "Login successful", ip: "192.168.1.42", time: "2026-06-24 09:00:01" },
-    { id: 2, action: "Broker API key encrypted", ip: "192.168.1.42", time: "2026-06-23 15:30:12" },
-    { id: 3, action: "Notification preferences updated", ip: "192.168.1.42", time: "2026-06-22 10:11:40" },
-    { id: 4, action: "New paper account created", ip: "192.168.1.42", time: "2026-06-21 14:22:05" },
-  ];
+  const [logs, setLogs] = useState<SecurityEvent[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getSecurityActivity()
+      .then((rows) => { if (active) setLogs(rows); })
+      .catch(() => { if (active) setLogs([]); });
+    return () => { active = false; };
+  }, []);
 
   return (
     <Card className="p-5">
@@ -838,26 +826,34 @@ function SecurityAuditLog() {
         <CardTitle>Security Audit Log</CardTitle>
       </div>
       <p className="text-sm text-fg-subtle mb-4">
-        Review recent security events and account activity.
+        Recent security events and account activity, drawn from your real account records.
       </p>
-      
+
       <div className="border border-line rounded-[var(--radius-control)] overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-surface/30 text-fg-subtle">
             <tr>
               <th className="px-4 py-2 font-medium">Event</th>
-              <th className="px-4 py-2 font-medium">IP Address</th>
+              <th className="px-4 py-2 font-medium">Detail</th>
               <th className="px-4 py-2 font-medium">Timestamp</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line bg-base/40">
-            {MOCK_LOGS.map((log) => (
-              <tr key={log.id}>
-                <td className="px-4 py-2 text-fg">{log.action}</td>
-                <td className="px-4 py-2 text-fg-muted font-mono text-xs">{log.ip}</td>
-                <td className="px-4 py-2 text-fg-muted whitespace-nowrap">{log.time}</td>
-              </tr>
-            ))}
+            {logs === null ? (
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-fg-subtle">Loading activity...</td></tr>
+            ) : logs.length === 0 ? (
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-fg-subtle">No recorded activity yet.</td></tr>
+            ) : (
+              logs.map((log) => (
+                <tr key={log.id}>
+                  <td className="px-4 py-2 text-fg">{log.action}</td>
+                  <td className="px-4 py-2 text-fg-muted text-xs truncate max-w-[260px]" title={log.detail}>{log.detail}</td>
+                  <td className="px-4 py-2 text-fg-muted whitespace-nowrap tnum">
+                    {new Date(log.time).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -865,15 +861,77 @@ function SecurityAuditLog() {
   );
 }
 
+function AffiliatePanel() {
+  const [code, setCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const link = code ? `https://floqex.com/?ref=${code}` : "";
+
+  async function handleGenerate() {
+    setLoading(true);
+    const res = await generateReferralCode();
+    setLoading(false);
+    if (res.ok && res.code) setCode(res.code);
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Card className="p-8 flex flex-col items-center text-center">
+        <div className="h-16 w-16 bg-accent-soft border border-accent/20 rounded-full flex items-center justify-center text-accent mb-4">
+          <CurrencyDollar size={32} weight="duotone" />
+        </div>
+        <h3 className="text-xl font-bold text-fg mb-2">Partner Program</h3>
+        <p className="text-fg-subtle mb-6 max-w-sm">
+          Share your link and earn a share of subscription revenue for every trader you refer to Floqex.
+        </p>
+
+        {!code ? (
+          <Button onClick={handleGenerate} disabled={loading} className="bg-accent text-on-accent hover:bg-accent-hover">
+            {loading ? "Generating..." : "Generate my referral link"}
+          </Button>
+        ) : (
+          <div className="w-full max-w-md space-y-3">
+            <div className="flex items-center gap-2 rounded-[var(--radius-control)] border border-line bg-base px-3 py-2">
+              <span className="truncate text-sm text-fg tnum">{link}</span>
+              <button onClick={copyLink} className="ml-auto shrink-0 rounded-[var(--radius-control)] bg-accent px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] hover:bg-accent-hover">
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p className="text-xs text-fg-subtle">
+              Your code is <span className="font-semibold text-fg">{code}</span>. Referred sign-ups are credited automatically.
+            </p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function BrokerConnectionRow({ account }: { account: SettingsAccount }) {
   const [status, setStatus] = useState<"idle" | "pinging" | "success" | "error">("idle");
+  const [message, setMessage] = useState<string>("");
 
-  function handlePing() {
+  async function handlePing() {
     setStatus("pinging");
-    setTimeout(() => {
-      setStatus("success");
-      setTimeout(() => setStatus("idle"), 2000);
-    }, 1000);
+    setMessage("");
+    try {
+      const res = await verifyBrokerConnection(account.id);
+      setStatus(res.ok ? "success" : "error");
+      setMessage(res.ok ? `${res.message}${res.latencyMs ? ` · ${res.latencyMs}ms` : ""}` : res.message);
+    } catch {
+      setStatus("error");
+      setMessage("Verification failed");
+    }
+    setTimeout(() => setStatus((s) => (s === "pinging" ? "idle" : s)), 6000);
   }
 
   return (
@@ -883,8 +941,8 @@ function BrokerConnectionRow({ account }: { account: SettingsAccount }) {
         <p className="text-xs text-fg-subtle">{account.broker}</p>
       </div>
       <div className="flex items-center gap-3">
-        {status === "success" && <span className="text-xs font-medium text-profit">Verified</span>}
-        {status === "error" && <span className="text-xs font-medium text-negative">Failed</span>}
+        {status === "success" && <span className="text-xs font-medium text-profit">{message || "Verified"}</span>}
+        {status === "error" && <span className="max-w-[220px] truncate text-xs font-medium text-negative" title={message}>{message || "Failed"}</span>}
         <Button size="sm" variant="secondary" onClick={handlePing} disabled={status === "pinging"}>
           {status === "pinging" ? "Pinging..." : "Ping/Verify"}
         </Button>
