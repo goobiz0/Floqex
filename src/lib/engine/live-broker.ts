@@ -86,6 +86,16 @@ export async function executeLiveOrder(broker: string, creds: BrokerCreds, instr
     };
   }
   
+
+  if (broker.toLowerCase() === 'asx') {
+    console.log(`[ASX] Executing ${side} ${sizeUnits} of ${instrument}`);
+    return {
+      id: `asx_${Date.now()}`,
+      filledPrice: Math.random() * 1000,
+      status: 'FILLED'
+    };
+  }
+
   if (broker.toLowerCase() === 'schwab') {
     console.log(`[SCHWAB] Executing ${side} ${sizeUnits} of ${instrument}`);
     return {

@@ -23,6 +23,7 @@ export type NotificationPrefs = {
   drawdownAlertPct: number;
   globalKillSwitch: boolean;
   maxGlobalDrawdown: number;
+  marketAsxEnabled: boolean;
 };
 
 const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
@@ -64,6 +65,7 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
         drawdownAlertPct: clampPct(prefs.drawdownAlertPct, 0, 100),
         globalKillSwitch: prefs.globalKillSwitch,
         maxGlobalDrawdown: clampPct(prefs.maxGlobalDrawdown, 0, 100),
+        marketAsxEnabled: prefs.marketAsxEnabled,
       },
     });
     return { ok: true };

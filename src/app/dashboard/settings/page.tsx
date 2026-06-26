@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = {
   drawdownAlertPct: 8,
   globalKillSwitch: false,
   maxGlobalDrawdown: 10,
+  marketAsxEnabled: true,
 };
 
 export default async function SettingsPage() {
@@ -82,6 +83,7 @@ export default async function SettingsPage() {
         drawdownAlertPct: typeof m.drawdownAlertPct === "number" ? m.drawdownAlertPct : 8,
         globalKillSwitch: m.globalKillSwitch === true,
         maxGlobalDrawdown: typeof m.maxGlobalDrawdown === "number" ? m.maxGlobalDrawdown : 10,
+        marketAsxEnabled: m.marketAsxEnabled !== false,
       };
     } catch {
       settings = DEFAULT_SETTINGS;
