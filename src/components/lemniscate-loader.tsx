@@ -7,7 +7,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const CONFIG = {
   particleCount: 70,
   trailSpan: 0.4,
-  durationMs: 3200,
+  durationMs: 5600,
   pulseDurationMs: 5000,
   strokeWidth: 4.8,
   lemniscateA: 20,
@@ -54,7 +54,7 @@ export function LemniscateLoader({ className }: { className?: string }) {
     path.setAttribute("stroke-linecap", "round");
     path.setAttribute("stroke-linejoin", "round");
     path.setAttribute("fill", "none");
-    path.setAttribute("opacity", "0.12");
+    path.setAttribute("opacity", "0.1");
     path.setAttribute("stroke-width", String(CONFIG.strokeWidth));
     group.appendChild(path);
 
