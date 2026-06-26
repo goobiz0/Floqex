@@ -1,5 +1,6 @@
 import YahooFinance from 'yahoo-finance2';
 import { getYahooSymbol, getMarketForInstrument, isInstrumentTradeable, type MarketKind } from '@/lib/market';
+import { computeIndicatorContext, type IndicatorContext } from './indicators';
 
 // yahoo-finance2 v3 ships the API as a CLASS that must be instantiated — calling
 // the methods statically (the v2 style) throws "Call `new YahooFinance()`
@@ -25,6 +26,9 @@ export interface MarketData {
   market: MarketKind;
   isOpen: boolean;
   timestamp: Date;
+  /** Full indicator set computed from daily history. Optional so any failure to
+   * compute it never blocks the core quote; consumers fall back gracefully. */
+  indicators?: IndicatorContext;
 }
 
 export async function getRealMarketData(instrument: string): Promise<MarketData | null> {
@@ -43,29 +47,29 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
       return null;
     }
 
-    // Fetch historical data for SMA50 (cached for an hour per symbol).
-    let sma50: number | null = null;
-    if (smaCache[symbol] && smaCache[symbol].expiresAt > Date.now()) {
-      sma50 = smaCache[symbol].value;
-    } else {
-      try {
-        const today = new Date();
-        const eightyDaysAgo = new Date();
-        eightyDaysAgo.setDate(eightyDaysAgo.getDate() - 80);
-        const history = (await yahooFinance.historical(symbol, {
-          period1: eightyDaysAgo.toISOString().split('T')[0],
-          period2: today.toISOString().split('T')[0],
-        })) as unknown as Array<{ close: number }>;
-
-        if (history && history.length >= 50) {
-          const last50 = history.slice(-50);
-          const sum = last50.reduce((acc, bar) => acc + bar.close, 0);
-          sma50 = sum / 50;
+    // Compute the full indicator set from daily history (cached). SMA50 is taken
+    // from the same context so we fetch history once. Guarded so any failure
+    // leaves the core quote intact.
+    const cachedSma = smaCache[symbol];
+    let sma50: number | null = cachedSma && cachedSma.expiresAt > Date.now() ? cachedSma.value : null;
+    let indicators: IndicatorContext | undefined;
+    try {
+      const bars = await getHistoryBars(instrument, 220);
+      if (bars.length >= 2) {
+        indicators = computeIndicatorContext(bars, {
+          price: quote.regularMarketPrice as number,
+          dayHigh: quote.regularMarketDayHigh as number,
+          dayLow: quote.regularMarketDayLow as number,
+          prevClose: (quote.regularMarketPreviousClose as number) ?? null,
+          volume: (quote.regularMarketVolume as number) ?? null,
+        });
+        if (indicators.sma50 != null) {
+          sma50 = indicators.sma50;
           smaCache[symbol] = { value: sma50, expiresAt: Date.now() + 1000 * 60 * 60 };
         }
-      } catch (e) {
-        console.warn('Could not fetch historical data for SMA', e);
       }
+    } catch (e) {
+      console.warn('Could not compute indicators', e);
     }
 
     const data: MarketData = {
@@ -76,6 +80,7 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
       market,
       isOpen: isInstrumentTradeable(instrument),
       timestamp: (quote.regularMarketTime as Date) || new Date(),
+      indicators,
     };
 
     quoteCache[symbol] = { data, expiresAt: Date.now() + QUOTE_TTL_MS };

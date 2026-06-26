@@ -7,6 +7,7 @@ import { BrokerNotConfiguredError } from "../lib/engine/live-broker";
 import { recordBotStatus, RISK_REASON_TEXT } from "../lib/engine/feedback";
 import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
+import { instrumentsFromParams } from "../lib/custom-strategy";
 
 // Engine configuration
 const TICK_RATE_MS = 2000; // 2 seconds
@@ -39,11 +40,14 @@ async function tick() {
         ? JSON.parse(bot.strategy.params) 
         : bot.strategy.params;
 
+      // A bot can trade several instruments. Evaluate each independently; the
+      // per-account risk limits below still span all of them.
+      const instruments = instrumentsFromParams(params);
+      for (const instrument of instruments) {
       const openTrade = await prisma.trade.findFirst({
-        where: { botId: bot.id, status: "OPEN" },
+        where: { botId: bot.id, status: "OPEN", instrument },
       });
 
-      const instrument = params.instrument || "NQ";
       const marketData = await getRealMarketData(instrument);
 
       if (!marketData) {
@@ -202,6 +206,7 @@ async function tick() {
             }
           }
         }
+      }
       }
     }
   } catch (error) {
