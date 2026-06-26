@@ -200,6 +200,114 @@ export async function applyStrategyChanges(changes: Record<string, unknown>): Pr
 }
 
 import { randomBytes } from "crypto";
+import { decrypt } from "@/lib/crypto";
+import { verifyConnection } from "@/lib/engine/live-broker";
+
+/**
+ * Really verify a broker connection: decrypt the stored credentials and call the
+ * broker's auth/account endpoint. Updates the connection's status and
+ * lastVerifiedAt. Paper accounts always pass (the simulator is always reachable).
+ */
+export async function verifyBrokerConnection(accountId: string): Promise<{ ok: boolean; message: string; latencyMs?: number }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, message: "You are not signed in." };
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+  if (!user) return { ok: false, message: "User not found." };
+
+  const account = await prisma.account.findFirst({
+    where: { id: accountId, userId: user.id },
+    include: { connection: true },
+  });
+  if (!account) return { ok: false, message: "Account not found." };
+
+  if (account.mode === "PAPER" || !account.connection) {
+    return { ok: true, message: "Floqex simulator ready", latencyMs: 0 };
+  }
+
+  let creds: Record<string, string>;
+  try {
+    creds = JSON.parse(decrypt(account.connection.encrypted));
+  } catch {
+    return { ok: false, message: "Could not read stored credentials." };
+  }
+  creds.mode = account.mode;
+
+  const res = await verifyConnection(account.broker, creds);
+  await prisma.connection
+    .update({
+      where: { accountId: account.id },
+      data: { status: res.ok ? "CONNECTED" : "ERROR", lastVerifiedAt: new Date() },
+    })
+    .catch(() => {});
+  return { ok: res.ok, message: res.message, latencyMs: res.latencyMs };
+}
+
+export type SecurityEvent = { id: string; action: string; detail: string; time: string };
+
+/**
+ * Real account-activity log derived from durable records (account/connection
+ * creation, last verification, profile updates, and recent risk events). No
+ * fabricated entries; if there is nothing to show the table renders empty.
+ */
+export async function getSecurityActivity(): Promise<SecurityEvent[]> {
+  const { userId } = await auth();
+  if (!userId) return [];
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    include: { accounts: { include: { connection: true } } },
+  });
+  if (!user) return [];
+
+  const events: SecurityEvent[] = [
+    { id: `u_${user.id}`, action: "Profile updated", detail: user.email, time: user.updatedAt.toISOString() },
+  ];
+  for (const a of user.accounts) {
+    events.push({ id: `a_${a.id}`, action: "Account created", detail: `${a.nickname} (${a.broker})`, time: a.createdAt.toISOString() });
+    if (a.connection) {
+      events.push({ id: `c_${a.connection.id}`, action: "Broker credentials encrypted", detail: a.broker, time: a.connection.createdAt.toISOString() });
+      if (a.connection.lastVerifiedAt) {
+        events.push({
+          id: `cv_${a.connection.id}`,
+          action: a.connection.status === "CONNECTED" ? "Connection verified" : "Connection check failed",
+          detail: a.broker,
+          time: a.connection.lastVerifiedAt.toISOString(),
+        });
+      }
+    }
+  }
+  try {
+    const risk = await prisma.agentEvent.findMany({
+      where: { accountId: { in: user.accounts.map((a) => a.id) }, kind: "RISK" },
+      orderBy: { ts: "desc" },
+      take: 5,
+    });
+    for (const r of risk) events.push({ id: `r_${r.id}`, action: "Risk control triggered", detail: r.message.slice(0, 70), time: r.ts.toISOString() });
+  } catch {}
+
+  return events.sort((x, y) => new Date(y.time).getTime() - new Date(x.time).getTime()).slice(0, 12);
+}
+
+/**
+ * Generate (once) and return the user's referral code, stored on the Clerk user.
+ */
+export async function generateReferralCode(): Promise<Result & { code?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "You are not signed in." };
+  try {
+    const client = await clerkClient();
+    const current = await client.users.getUser(userId);
+    let code = (current.privateMetadata?.referralCode as string) || "";
+    if (!code) {
+      code = `FQX-${randomBytes(3).toString("hex").toUpperCase()}`;
+      await client.users.updateUserMetadata(userId, {
+        privateMetadata: { ...current.privateMetadata, referralCode: code },
+      });
+    }
+    return { ok: true, code };
+  } catch {
+    return { ok: false, error: "Could not generate a referral code." };
+  }
+}
 
 /**
  * Generate a new MCP authentication key and persist it on the Clerk user.

@@ -35,11 +35,17 @@ export default async function PlaybookPage() {
     const date = new Date();
     date.setDate(date.getDate() - 10);
     
+    // Deterministic pseudo-random so the illustrative candles are stable across
+    // renders (no hydration mismatch) without pulling in real data.
+    const wobble = (n: number) => {
+      const x = Math.sin(n * 12.9898) * 43758.5453;
+      return x - Math.floor(x); // 0..1
+    };
     for(let i = 0; i < 20; i++) {
       const open = currentPrice;
-      const close = i === 10 ? entryPrice : (i === 15 ? exitPrice : currentPrice + (Math.random() * 4 - 2));
-      const high = Math.max(open, close) + Math.random() * 2;
-      const low = Math.min(open, close) - Math.random() * 2;
+      const close = i === 10 ? entryPrice : (i === 15 ? exitPrice : currentPrice + (wobble(i) * 4 - 2));
+      const high = Math.max(open, close) + wobble(i + 100) * 2;
+      const low = Math.min(open, close) - wobble(i + 200) * 2;
       
       data.push({
         time: date.toISOString().split('T')[0],

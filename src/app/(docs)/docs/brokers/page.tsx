@@ -46,7 +46,7 @@ export default function BrokersPage() {
             </div>
             <h3 className="text-2xl font-semibold text-fg">Alpaca Markets</h3>
             <p className="mt-3 text-sm text-fg-subtle leading-relaxed max-w-sm">
-              Commission-free API trading. Best for US Equities. We fully support Alpaca's REST v2 API, including OCO (One-Cancels-Other) bracket orders and fractional shares.
+              Commission-free API trading. Best for US Equities. We fully support Alpaca&apos;s REST v2 API, including OCO (One-Cancels-Other) bracket orders and fractional shares.
             </p>
             <div className="mt-8 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive bg-positive/10 px-4 py-2 rounded-full border border-positive/20">
               <CheckCircle size={18} weight="fill" /> Fully Supported & Tested
@@ -124,7 +124,7 @@ export default function BrokersPage() {
             <div className="h-10 w-10 shrink-0 rounded-xl bg-surface border border-line flex items-center justify-center font-mono text-base font-bold text-fg shadow-sm">3</div>
             <div className="pt-2">
               <strong className="text-fg block text-lg mb-1">Paste into Floqex</strong>
-              <span className="text-sm text-fg-subtle leading-relaxed block">Go to the Accounts Dashboard. Click "Connect Live Account" and input your newly generated Key ID and Secret.</span>
+              <span className="text-sm text-fg-subtle leading-relaxed block">Go to the Accounts Dashboard. Click &quot;Connect Live Account&quot; and input your newly generated Key ID and Secret.</span>
             </div>
           </div>
         </div>

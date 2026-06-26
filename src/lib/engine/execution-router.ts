@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { Signal } from "./signal-generator";
 import { decrypt } from "@/lib/crypto";
 import { executeLiveOrder, closeLivePosition } from "./live-broker";
+import { getSessionForInstrument } from "@/lib/market";
 
 export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string) {
   const account = await prisma.account.findUnique({
@@ -49,7 +50,7 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
       accountId,
       instrument,
       direction: signal.direction,
-      session: "NY",
+      session: getSessionForInstrument(instrument),
       status: "OPEN",
       entryPrice: filledPrice,
       stopPrice: signal.stopPrice,

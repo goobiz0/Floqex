@@ -24,6 +24,7 @@ import { WidgetConfigDialog } from "@/components/dashboard/widget-config-dialog"
 import { WidgetLibraryDialog } from "@/components/dashboard/widget-library-dialog";
 import type { DashboardTemplate } from "@prisma/client";
 import { getDashboardTemplates, createDashboardTemplate, updateDashboardTemplate, deleteDashboardTemplate, setDefaultTemplate, WidgetLayout } from "./template-actions";
+import { useLiveStream } from "@/lib/use-live-stream";
 
 // Default template structure
 const DEFAULT_LAYOUT: WidgetItem[] = [
@@ -126,6 +127,7 @@ export function DashboardPageClient({
   let engineStatus: "ONLINE" | "DEGRADED" | "OFFLINE" = "OFFLINE";
   if (botStatus === "RUNNING") {
     if (lastHeartbeat) {
+      // eslint-disable-next-line react-hooks/purity -- initial estimate only; the SSE stream supersedes this with liveEngineStatus
       const msSinceHeartbeat = Date.now() - new Date(lastHeartbeat).getTime();
       if (msSinceHeartbeat < 60000) engineStatus = "ONLINE";
       else if (msSinceHeartbeat < 300000) engineStatus = "DEGRADED";
@@ -136,6 +138,18 @@ export function DashboardPageClient({
   let totalWins = 0; let totalTrades = 0;
   for (const s of summaries) { totalWins += s.winCount; totalTrades += s.tradeCount; }
   const winRate = totalTrades > 0 ? (totalWins / totalTrades) * 100 : null;
+
+  // Live stream: real-time feed, balance, position, and engine status without a
+  // page refresh. Seeded with the server-rendered props so first paint is full.
+  const live = useLiveStream(accountId, Boolean(accountId), {
+    events: agentEvents,
+    balance,
+    botStatus,
+  });
+  const liveBalance = live.balance ?? balance;
+  const liveEvents = live.events.length > 0 ? live.events : agentEvents;
+  const liveBotStatus = live.botStatus ?? botStatus;
+  const liveEngineStatus = live.engineStatus ?? engineStatus;
 
   const assetEntries = useMemo(() => {
     const assetPnl = trades.reduce((acc, t) => {
@@ -226,6 +240,7 @@ export function DashboardPageClient({
     setConfigDialogOpen(true);
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSaveWidgetConfig = useCallback((config: Record<string, any>) => {
     setLayoutItems(prev => prev.map(item => item.i === configWidgetId ? { ...item, config } : item));
   }, [configWidgetId]);
@@ -235,20 +250,26 @@ export function DashboardPageClient({
     if (item.type === "equity-hero") {
       const isProfit = todayPnl >= 0;
       return (
-        <div className="relative flex h-full w-full flex-col justify-between p-6">
-          <div className={cn("absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-60 pointer-events-none", isProfit ? "from-profit/5" : "from-negative/5")} />
-          <div className="relative z-10 flex items-start justify-between">
-            <span className="text-[28px] font-medium tracking-tight text-fg tnum">
-              {hasAccount ? <DisplayValue type="BALANCE" money={balance} /> : "$0.00"}
-            </span>
-            <span className="text-sm font-medium text-fg-subtle">Active Capital</span>
+        <div className="relative flex h-full w-full flex-col justify-between p-6 overflow-hidden">
+          <div className={cn("absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl opacity-40 pointer-events-none", isProfit ? "bg-accent/20" : "bg-negative/15")} />
+          <div className="relative z-10 flex items-center gap-2 text-fg-subtle">
+            <Wallet size={15} weight="fill" className="text-accent" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Active Capital</span>
           </div>
-          <div className="relative z-10 mt-auto">
-            <p className="text-sm font-medium text-fg-subtle mb-1">24h PnL</p>
-            <div className="flex items-center gap-2">
+          <div className="relative z-10 mt-3">
+            <span className="text-[34px] font-semibold leading-none tracking-tight text-fg tnum">
+              {hasAccount ? <DisplayValue type="BALANCE" money={liveBalance} /> : "$0.00"}
+            </span>
+          </div>
+          <div className="relative z-10 mt-auto pt-4 flex items-center justify-between border-t border-line/60">
+            <span className="text-xs font-medium text-fg-subtle">24h PnL</span>
+            <div className="flex items-center gap-1.5">
               {!hasAccount ? <span className="text-sm font-semibold text-fg-subtle">No Account</span>
               : todayPnl === 0 ? <span className="text-sm font-semibold text-fg-subtle">Awaiting Trades</span>
-              : <span className={cn("text-sm font-semibold tnum", isProfit ? "text-profit" : "text-negative")}><DisplayValue type="PNL" money={todayPnl} percent={balance ? (todayPnl / balance) * 100 : undefined} /></span>}
+              : <span className={cn("inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2.5 py-1 text-sm font-semibold tnum", isProfit ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
+                  {isProfit ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}
+                  <DisplayValue type="PNL" money={todayPnl} percent={liveBalance ? (todayPnl / liveBalance) * 100 : undefined} />
+                </span>}
             </div>
           </div>
         </div>
@@ -262,13 +283,16 @@ export function DashboardPageClient({
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-medium text-fg">Live Execution Feed</h3>
-              {engineStatus === "DEGRADED" && (
+              {liveEngineStatus === "DEGRADED" && (
                 <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-warning bg-warning/10 px-1.5 py-0.5 rounded-[4px]">
                   <WarningCircle size={12} weight="fill" /> Degraded
                 </span>
               )}
+              {live.connected && (
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-accent">Live</span>
+              )}
             </div>
-            {hasBot && engineStatus === "ONLINE" && (
+            {hasBot && liveEngineStatus === "ONLINE" && (
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
@@ -278,11 +302,11 @@ export function DashboardPageClient({
           <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2">
             {!hasBot ? (
               <div className="flex items-center justify-center h-full"><p className="text-xs text-fg-subtle text-center">Your feed will appear here.</p></div>
-            ) : agentEvents.length === 0 ? (
+            ) : liveEvents.length === 0 ? (
               <div className="flex items-center justify-center h-full"><p className="text-xs text-fg-subtle text-center">Listening...</p></div>
             ) : (
               <div className="flex flex-col gap-3 justify-end min-h-full">
-                {agentEvents.slice(0, 10).map((event, i) => (
+                {liveEvents.slice(-10).map((event, i) => (
                   <motion.div 
                     key={event.id}
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -412,8 +436,8 @@ export function DashboardPageClient({
         <div className="relative flex h-full w-full flex-col p-5">
           <div className="flex items-center gap-2 mb-4"><Heartbeat size={16} className="text-accent" /><h3 className="text-xs font-medium text-fg">Engine Health</h3></div>
           <div className="mt-auto space-y-3">
-            <div className="flex items-center justify-between"><span className="text-[11px] text-fg-subtle">Bot</span><span className={cn("text-[11px] font-medium", botStatus === "RUNNING" ? "text-profit" : "text-fg-subtle")}>{botStatus}</span></div>
-            {botStatus === "RUNNING" && <div className="flex items-center justify-between"><span className="text-[11px] text-fg-subtle">Core</span><span className={cn("flex items-center gap-1 text-[11px] font-medium", engineStatus === "ONLINE" ? "text-profit" : "text-warning")}>{engineStatus}</span></div>}
+            <div className="flex items-center justify-between"><span className="text-[11px] text-fg-subtle">Bot</span><span className={cn("text-[11px] font-medium", liveBotStatus === "RUNNING" ? "text-profit" : "text-fg-subtle")}>{liveBotStatus}</span></div>
+            {liveBotStatus === "RUNNING" && <div className="flex items-center justify-between"><span className="text-[11px] text-fg-subtle">Core</span><span className={cn("flex items-center gap-1 text-[11px] font-medium", liveEngineStatus === "ONLINE" ? "text-profit" : "text-warning")}>{liveEngineStatus}</span></div>}
             <div className="flex items-center justify-between"><span className="text-[11px] text-fg-subtle">API</span><span className="flex items-center gap-1 text-[11px] font-medium text-fg-subtle"><CheckCircle size={12} className={hasAccount ? "text-profit" : ""} />{hasAccount ? "Connected" : "Disconnected"}</span></div>
           </div>
         </div>
@@ -456,7 +480,7 @@ export function DashboardPageClient({
 
     // Fallback
     return <div className="p-6 text-sm text-fg-subtle">Unknown Widget</div>;
-  }, [todayPnl, hasAccount, balance, engineStatus, hasBot, agentEvents, winRate, recent, assetEntries, botStatus]);
+  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus]);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">

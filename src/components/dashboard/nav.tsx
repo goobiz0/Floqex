@@ -29,6 +29,7 @@ import {
   Code,
   ChartLineUp,
   CalendarBlank,
+  MagnifyingGlass,
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -41,6 +42,7 @@ type NavItem = { href: string; label: string; icon: Icon };
 const NAVIGATE: NavItem[] = [
   { href: "/dashboard", label: "Main Dashboard", icon: SquaresFour },
   { href: "/dashboard/bots", label: "Bots & Automations", icon: Robot },
+  { href: "/dashboard/markets", label: "Markets", icon: MagnifyingGlass },
   { href: "/dashboard/trades", label: "Trades", icon: ChartLineUp },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarBlank },
   { href: "/dashboard/analytics/playbook", label: "God Mode Playbook", icon: Notebook },

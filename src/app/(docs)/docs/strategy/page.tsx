@@ -66,7 +66,7 @@ export default function StrategyPage() {
             </div>
             <h3 className="font-semibold text-fg text-lg">3. Risk & Reward</h3>
             <p className="text-sm text-fg-subtle leading-relaxed">
-              Simultaneous to the entry, an OCO (One-Cancels-Other) bracket is placed. The Stop Loss is set below the breakout candle's low, and the Take Profit is set at exactly 2x (or user-defined) the risk amount.
+              Simultaneous to the entry, an OCO (One-Cancels-Other) bracket is placed. The Stop Loss is set below the breakout candle&apos;s low, and the Take Profit is set at exactly 2x (or user-defined) the risk amount.
             </p>
           </div>
         </div>

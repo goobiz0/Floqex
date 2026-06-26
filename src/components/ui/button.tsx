@@ -13,7 +13,7 @@ const base =
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-fg text-[var(--color-base)] hover:bg-fg/90 shadow-[0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_1px_rgba(255,255,255,0.2)] ring-1 ring-inset ring-fg/5",
+    "bg-accent text-[var(--color-on-accent)] hover:bg-accent-hover shadow-[0_2px_8px_rgba(16,185,129,0.25),inset_0_1px_1px_rgba(255,255,255,0.18)] ring-1 ring-inset ring-[rgba(16,185,129,0.4)]",
   secondary:
     "bg-surface text-fg ring-1 ring-inset ring-line hover:bg-surface-hover hover:ring-line-strong shadow-[var(--shadow-sm)]",
   outline:

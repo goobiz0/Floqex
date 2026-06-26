@@ -3,6 +3,8 @@ import { getRealMarketData } from "../lib/engine/market-data";
 import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit } from "../lib/engine/signal-generator";
 import { executeTrade, closeTrade } from "../lib/engine/execution-router";
 import { validateRisk } from "../lib/engine/risk-engine";
+import { BrokerNotConfiguredError } from "../lib/engine/live-broker";
+import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
 
 // Engine configuration
@@ -95,6 +97,21 @@ async function tick() {
         }
 
       } else {
+        // Only open new positions while the instrument's market is in session.
+        if (!isInstrumentTradeable(instrument)) {
+          if (Math.random() > 0.95) {
+            await prisma.agentEvent.create({
+              data: {
+                botId: bot.id,
+                accountId: bot.accountId,
+                kind: "INFO",
+                message: `${marketLabel(getMarketForInstrument(instrument))} is closed. Holding flat on ${instrument} until the next session.`,
+              }
+            });
+          }
+          continue;
+        }
+
         let entrySignal = null;
         if (bot.strategy.kind === 'CUSTOM') {
           entrySignal = evaluateCustomStrategy(params, marketData, null);
@@ -151,7 +168,23 @@ async function tick() {
           } catch (e: unknown) {
             const error = e as Error;
             console.error(`[FATAL] Failed to execute trade for bot ${bot.id}:`, error);
-            await sendUrgentAlert(bot.account.userId, "ERROR", "Live Entry Execution Failed", `Failed to open position for bot ${bot.id}`, { error: error.message, botId: bot.id });
+
+            if (error instanceof BrokerNotConfiguredError) {
+              // No real route for this live broker: record honestly and stop the
+              // bot rather than retry forever or fabricate a fill.
+              await prisma.agentEvent.create({
+                data: {
+                  botId: bot.id,
+                  accountId: bot.accountId,
+                  kind: "RISK",
+                  message: `Live execution blocked: ${error.message} Bot stopped. Connect a supported broker to trade live.`,
+                }
+              });
+              await prisma.bot.update({ where: { id: bot.id }, data: { status: "STOPPED" } });
+              await sendUrgentAlert(bot.account.userId, "ERROR", "Broker Not Configured", error.message, { botId: bot.id });
+            } else {
+              await sendUrgentAlert(bot.account.userId, "ERROR", "Live Entry Execution Failed", `Failed to open position for bot ${bot.id}`, { error: error.message, botId: bot.id });
+            }
           }
         }
       }

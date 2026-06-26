@@ -33,7 +33,7 @@ export function HeroClient() {
       {/* Slow light-emerald brand aura behind the hero */}
       <div
         aria-hidden
-        className="hero-aura pointer-events-none absolute inset-x-0 top-0 z-0 h-[640px] [mask-image:radial-gradient(70%_60%_at_50%_30%,black,transparent)]"
+        className="hero-aura pointer-events-none absolute inset-x-0 top-0 z-0 h-[520px] [mask-image:radial-gradient(60%_55%_at_50%_25%,black,transparent)]"
       />
 
       <motion.div

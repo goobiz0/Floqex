@@ -41,6 +41,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
 
             const priceId = sub.items.data.map((i) => i.price?.id).find((id) => isPaidPriceId(id)) ?? sub.items.data[0]?.price?.id;
             const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const syncedPlan = active ? ((sub.metadata?.plan as any) || planFromPriceId(priceId)) : "FREE";
 
             if (dbUser.plan !== syncedPlan) {

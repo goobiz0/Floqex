@@ -67,7 +67,7 @@ export async function Topbar() {
       }, runningBots[0]);
 
       if (oldestBot && oldestBot.updatedAt) {
-        let startTime = oldestBot.updatedAt.getTime();
+        const startTime = oldestBot.updatedAt.getTime();
 
         // If market is open now, we want to calculate uptime from when market opened OR when bot was started
         if (isMarketOpen) {
