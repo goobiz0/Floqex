@@ -90,7 +90,7 @@ type NotificationSettings = {
   marketAsxEnabled: boolean;
 };
 
-import { generateMcpKey } from "@/app/dashboard/settings/actions";
+import { generateMcpKey, toggleAsxMarket } from "@/app/dashboard/settings/actions";
 import { usePrivacy } from "@/components/privacy-provider";
 import { useDisplayMode } from "@/components/display-provider";
 import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown, Question } from "@phosphor-icons/react";
@@ -169,7 +169,6 @@ export function SettingsView({
         drawdownAlertPct: Number(drawdown),
         globalKillSwitch,
         maxGlobalDrawdown: Number(maxGlobalDrawdown),
-        marketAsxEnabled,
       });
       if (res.ok) {
         setSaved(true);
@@ -370,7 +369,7 @@ export function SettingsView({
                   <p className="text-sm font-medium text-fg">Enable ASX Trading</p>
                   <InfoTooltip text="Allow bots to trade Australian Securities Exchange (ASX) instruments and show market open times." />
                 </div>
-                <Switch checked={marketAsxEnabled} onChange={setMarketAsxEnabled} label="ASX Enabled" />
+                <Switch checked={marketAsxEnabled} onChange={async (v) => { setMarketAsxEnabled(v); await toggleAsxMarket(v); }} label="ASX Enabled" />
               </div>
               <div className="flex items-center justify-between py-4">
                 <div className="flex items-center">

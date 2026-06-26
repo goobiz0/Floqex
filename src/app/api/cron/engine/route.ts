@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { getRealMarketData } from "@/lib/engine/market-data";
 import { evaluateOrbStrategy, evaluateExit } from "@/lib/engine/signal-generator";
 import { executeTrade, closeTrade } from "@/lib/engine/execution-router";
+import { clerkClient } from "@clerk/nextjs/server";
+
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,7 @@ export async function GET(req: Request) {
   }
 
   try {
+
     const bots = await prisma.bot.findMany({
       where: { status: "RUNNING" },
       include: {
@@ -32,13 +35,61 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, message: "No running bots" });
     }
 
+
+    const userIds = [...new Set(bots.map(b => b.account.userId))];
+    const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
+
+    // Fetch clerk data efficiently
+    const client = await clerkClient();
+    const clerkUserIds = users.map(u => u.clerkId);
+    let clerkUsers: any[] = [];
+    try {
+      const response = await client.users.getUserList({ userId: clerkUserIds, limit: 100 });
+      clerkUsers = response.data;
+    } catch(e) {}
+
+    const asxSettingsMap = new Map();
+    for (const u of users) {
+       const cu = clerkUsers.find(c => c.id === u.clerkId);
+       if (cu) {
+         const m = (cu.privateMetadata ?? {}) as Record<string, unknown>;
+         asxSettingsMap.set(u.id, m.marketAsxEnabled !== false);
+       } else {
+         asxSettingsMap.set(u.id, true);
+       }
+    }
+
+
+
     // Process each bot
     for (const bot of bots) {
+
       // Update heartbeat
       await prisma.bot.update({
         where: { id: bot.id },
         data: { lastHeartbeat: new Date() },
       });
+
+      // Market check logic
+      const now = new Date();
+
+      const estTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const estHour = estTime.getHours();
+      const estMinute = estTime.getMinutes();
+      const estDay = estTime.getDay();
+      const isNyseOpen = estDay >= 1 && estDay <= 5 && (estHour > 9 || (estHour === 9 && estMinute >= 30)) && estHour < 16;
+
+      let isAsxOpen = false;
+      if (asxSettingsMap.get(bot.account.userId)) {
+        const aydtTime = new Date(now.toLocaleString("en-US", { timeZone: "Australia/Sydney" }));
+        const aydtHour = aydtTime.getHours();
+        const aydtDay = aydtTime.getDay();
+        isAsxOpen = aydtDay >= 1 && aydtDay <= 5 && aydtHour >= 10 && aydtHour < 16;
+      }
+
+
+      if (!isNyseOpen && !isAsxOpen) continue;
+
 
       const params = typeof bot.strategy.params === 'string' 
         ? JSON.parse(bot.strategy.params) 

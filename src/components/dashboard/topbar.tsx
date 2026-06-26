@@ -22,14 +22,32 @@ export async function Topbar() {
   ]);
   const canUpgrade = plan !== TOP_PLAN;
 
+  const { clerkClient } = await import("@clerk/nextjs/server");
+  const clerkId = (await auth()).userId;
+  let marketAsxEnabled = false;
+  if (clerkId) {
+    try {
+      const client = await clerkClient();
+      const cu = await client.users.getUser(clerkId);
+      marketAsxEnabled = (cu.privateMetadata?.marketAsxEnabled !== false);
+    } catch {}
+  }
+
   // Market logic: NY Session is 9:30 AM to 4:00 PM EST, Mon-Fri.
-  // For a generic status, we'll just check if it's currently a weekday and within those hours in EST.
   const now = new Date();
   const estTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
   const estHour = estTime.getHours();
   const estMinute = estTime.getMinutes();
   const estDay = estTime.getDay();
-  const isMarketOpen = estDay >= 1 && estDay <= 5 && (estHour > 9 || (estHour === 9 && estMinute >= 30)) && estHour < 16;
+  const isNyseOpen = estDay >= 1 && estDay <= 5 && (estHour > 9 || (estHour === 9 && estMinute >= 30)) && estHour < 16;
+
+  // ASX logic: Sydney session is 10:00 AM to 4:00 PM AEDT, Mon-Fri.
+  const aydtTime = new Date(now.toLocaleString("en-US", { timeZone: "Australia/Sydney" }));
+  const aydtHour = aydtTime.getHours();
+  const aydtDay = aydtTime.getDay();
+  const isAsxOpen = marketAsxEnabled && aydtDay >= 1 && aydtDay <= 5 && aydtHour >= 10 && aydtHour < 16;
+
+  const isMarketOpen = isNyseOpen || isAsxOpen;
 
   // Uptime logic: find the earliest running bot for the user
   let uptimeString = "00h 00m";
@@ -49,10 +67,36 @@ export async function Topbar() {
       }, runningBots[0]);
 
       if (oldestBot && oldestBot.updatedAt) {
-        const diffMs = now.getTime() - oldestBot.updatedAt.getTime();
-        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        uptimeString = `${diffHrs.toString().padStart(2, "0")}h ${diffMins.toString().padStart(2, "0")}m`;
+        let startTime = oldestBot.updatedAt.getTime();
+
+        // If market is open now, we want to calculate uptime from when market opened OR when bot was started
+        if (isMarketOpen) {
+          const nyseOpenTime = new Date();
+          nyseOpenTime.setHours(9, 30, 0, 0); // local time approximation, actually we should use the estTime logic
+
+          let marketOpenTimeMs = startTime;
+
+          if (isNyseOpen) {
+             const nyseOpen = new Date(estTime);
+             nyseOpen.setHours(9, 30, 0, 0);
+             const tzOffset = estTime.getTime() - now.getTime();
+             const localNyseOpenMs = nyseOpen.getTime() - tzOffset;
+             marketOpenTimeMs = Math.max(startTime, localNyseOpenMs);
+          } else if (isAsxOpen) {
+             const asxOpen = new Date(aydtTime);
+             asxOpen.setHours(10, 0, 0, 0);
+             const tzOffset = aydtTime.getTime() - now.getTime();
+             const localAsxOpenMs = asxOpen.getTime() - tzOffset;
+             marketOpenTimeMs = Math.max(startTime, localAsxOpenMs);
+          }
+
+          const diffMs = now.getTime() - marketOpenTimeMs;
+          const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMins = Math.floor((Math.abs(diffMs) % (1000 * 60 * 60)) / (1000 * 60));
+          uptimeString = diffMs >= 0 ? `${diffHrs.toString().padStart(2, "0")}h ${diffMins.toString().padStart(2, "0")}m` : "00h 00m";
+        } else {
+          uptimeString = "00h 00m";
+        }
       }
     } else {
       uptimeString = "OFFLINE";
@@ -87,7 +131,7 @@ export async function Topbar() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-positive shadow-[0_0_8px_rgba(var(--positive-rgb),0.8)]"></span>
                 </span>
-                <span className="text-[10px] font-semibold text-fg tracking-widest uppercase">NYSE Open</span>
+                <span className="text-[10px] font-semibold text-fg tracking-widest uppercase">{isNyseOpen && isAsxOpen ? "NYSE & ASX OPEN" : isNyseOpen ? "NYSE OPEN" : "ASX OPEN"}</span>
               </>
             ) : (
               <>
