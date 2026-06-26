@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   MagnifyingGlass,
   TrendUp,
@@ -64,7 +64,6 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (sym: string, withSpinner = true) => {
     if (!sym) return;
@@ -90,13 +89,16 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
     }
   }, []);
 
-  // Poll the quote for live data while a symbol is selected.
+  // Poll the quote for live data while a symbol is selected. The initial load is
+  // deferred out of the effect body so the spinner state change isn't a
+  // synchronous setState during the effect.
   useEffect(() => {
     if (!symbol) return;
-    load(symbol);
-    pollRef.current = setInterval(() => load(symbol, false), POLL_MS);
+    const kick = setTimeout(() => load(symbol), 0);
+    const poll = setInterval(() => load(symbol, false), POLL_MS);
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      clearTimeout(kick);
+      clearInterval(poll);
     };
   }, [symbol, load]);
 

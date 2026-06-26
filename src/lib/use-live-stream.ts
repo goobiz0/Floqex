@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export type LiveAgentEvent = { id: string; t: string; kind: string; message: string };
 export type LivePosition = {
@@ -65,14 +65,8 @@ export function useLiveStream(accountId: string | null, enabled: boolean, seed: 
     lastUpdate: null,
   });
 
-  const seedRef = useRef(seed);
-  seedRef.current = seed;
-
   useEffect(() => {
-    if (!enabled || !accountId) {
-      setState((s) => ({ ...s, connected: false }));
-      return;
-    }
+    if (!enabled || !accountId) return;
 
     const es = new EventSource(`/api/stream/${accountId}`);
 

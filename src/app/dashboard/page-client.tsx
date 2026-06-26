@@ -127,6 +127,7 @@ export function DashboardPageClient({
   let engineStatus: "ONLINE" | "DEGRADED" | "OFFLINE" = "OFFLINE";
   if (botStatus === "RUNNING") {
     if (lastHeartbeat) {
+      // eslint-disable-next-line react-hooks/purity -- initial estimate only; the SSE stream supersedes this with liveEngineStatus
       const msSinceHeartbeat = Date.now() - new Date(lastHeartbeat).getTime();
       if (msSinceHeartbeat < 60000) engineStatus = "ONLINE";
       else if (msSinceHeartbeat < 300000) engineStatus = "DEGRADED";
@@ -239,6 +240,7 @@ export function DashboardPageClient({
     setConfigDialogOpen(true);
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSaveWidgetConfig = useCallback((config: Record<string, any>) => {
     setLayoutItems(prev => prev.map(item => item.i === configWidgetId ? { ...item, config } : item));
   }, [configWidgetId]);
