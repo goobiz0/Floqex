@@ -125,6 +125,17 @@ describe("parseCustomConfig", () => {
     }
   });
 
+  it("rejects deploying a non-JavaScript (beta) language", () => {
+    const res = parseCustomConfig({
+      mode: "CODE",
+      language: "python",
+      instruments: ["BTC"],
+      code: "def decide(ctx):\n    return None",
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/beta|JavaScript/i);
+  });
+
   it("rejects code that trips the static guard", () => {
     const res = parseCustomConfig({
       mode: "CODE",

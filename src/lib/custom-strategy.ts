@@ -266,10 +266,17 @@ export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
     const language = languageMeta(String(o.language)) ? (o.language as StrategyLanguage) : "javascript";
     const code = typeof o.code === "string" ? o.code : "";
     if (!code.trim()) return { ok: false, error: "Write some strategy code before deploying." };
-    if (language === "javascript") {
-      const guard = staticGuard(code);
-      if (guard) return { ok: false, error: guard };
+    // Only languages the engine executes live are deployable, so a created bot
+    // always functions. Beta languages can be authored and validated, but not
+    // deployed until their runtime ships.
+    if (language !== "javascript") {
+      return {
+        ok: false,
+        error: `Live execution for ${languageMeta(language)?.label ?? language} is in beta. Switch to JavaScript to deploy this bot.`,
+      };
     }
+    const guard = staticGuard(code);
+    if (guard) return { ok: false, error: guard };
     return { ok: true, instruments, config: { mode: "CODE", language, code, direction, stopLossPct, targetRatio } };
   }
 

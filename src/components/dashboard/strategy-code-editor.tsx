@@ -131,7 +131,7 @@ export function StrategyCodeEditor({
         <div className="flex items-start gap-2 rounded-[var(--radius-control)] border border-warning/30 bg-warning-soft/40 px-3 py-2 text-xs leading-relaxed text-fg-muted">
           <Info size={15} weight="fill" className="mt-px shrink-0 text-warning" />
           <span>
-            {meta.label} is in beta. Your code is saved and validated for structure now. Live order execution for {meta.label} is rolling out. JavaScript executes in the live engine today.
+            {meta.label} is in beta. You can write and validate it here now, but to deploy a live bot today, switch to JavaScript, which executes in the engine. {meta.label} live execution is rolling out.
           </span>
         </div>
       )}

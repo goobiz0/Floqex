@@ -154,6 +154,10 @@ export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: 
       toast.error("Write some strategy code before deploying.");
       return;
     }
+    if (strategyMode === "CODE" && language !== "javascript") {
+      toast.error("Live execution for this language is in beta. Switch to JavaScript to deploy.");
+      return;
+    }
 
     const strategyKind = strategyMode === "ORB" ? "ORB" : "CUSTOM";
     const finalParams: Record<string, unknown> = {
@@ -389,7 +393,12 @@ export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: 
           </div>
           <div className="flex items-center gap-3">
             <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
-            <Button type="button" disabled={loading || !selectedAccountId} onClick={handleSubmit} className="px-8">
+            <Button
+              type="button"
+              disabled={loading || !selectedAccountId || (strategyMode === "CODE" && language !== "javascript")}
+              onClick={handleSubmit}
+              className="px-8"
+            >
               <Robot size={16} weight="bold" className="mr-1" />
               {loading ? "Deploying..." : "Deploy bot"}
             </Button>
