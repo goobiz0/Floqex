@@ -291,6 +291,7 @@ export type AdjustmentRow = {
 export type StrategyData = {
   hasStrategy: boolean;
   accountId: string | null;
+  strategyId: string | null;
   params: StrategyParams | null;
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
@@ -302,6 +303,7 @@ export type StrategyData = {
 const EMPTY_STRATEGY: StrategyData = {
   hasStrategy: false,
   accountId: null,
+  strategyId: null,
   params: null,
   changeLog: [],
   pending: [],
@@ -343,7 +345,7 @@ function serializeAdjustment(a: DbAdjustment): AdjustmentRow {
 }
 
 /** The user's strategy params, change log, pending suggestions, and auto-adjust meter. */
-export async function getStrategyData(accountId?: string): Promise<StrategyData> {
+export async function getStrategyData(accountId?: string, strategyId?: string): Promise<StrategyData> {
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY_STRATEGY;
@@ -352,20 +354,30 @@ export async function getStrategyData(accountId?: string): Promise<StrategyData>
       where: { clerkId: userId },
       include: {
         accounts: { orderBy: { createdAt: "asc" }, include: { bot: true } },
-        strategies: { take: 1, orderBy: { createdAt: "asc" } },
+        strategies: { orderBy: { createdAt: "asc" } },
       },
     });
 
     if (!user) return EMPTY_STRATEGY;
 
-    const account = accountId 
-      ? user.accounts.find(a => a.id === accountId) || user.accounts[0]
-      : user.accounts[0];
+    // A botless strategy opened straight from the hub is addressed by id and has
+    // no account context; otherwise resolve via the edited account's bot.
+    const explicitStrategy = strategyId
+      ? user.strategies.find((s) => s.id === strategyId) ?? null
+      : null;
+
+    const account = explicitStrategy
+      ? null
+      : accountId
+        ? user.accounts.find((a) => a.id === accountId) || user.accounts[0]
+        : user.accounts[0];
 
     const bot = account?.bot ?? null;
-    const strategy = bot
-      ? await prisma.strategy.findUnique({ where: { id: bot.strategyId } })
-      : (user.strategies[0] ?? null);
+    const strategy = explicitStrategy
+      ? explicitStrategy
+      : bot
+        ? await prisma.strategy.findUnique({ where: { id: bot.strategyId } })
+        : (user.strategies[0] ?? null);
     if (!strategy) return EMPTY_STRATEGY;
 
     const adjustments = bot
@@ -379,6 +391,7 @@ export async function getStrategyData(accountId?: string): Promise<StrategyData>
     return {
       hasStrategy: true,
       accountId: account?.id ?? null,
+      strategyId: strategy.id,
       params: coerceStrategyParams(strategy.params),
       changeLog: adjustments.filter((a) => a.status !== "PENDING").map(serializeAdjustment),
       pending: adjustments.filter((a) => a.status === "PENDING").map(serializeAdjustment),

@@ -1,46 +1,99 @@
-import React from "react";
+"use client";
+
+import { useMemo, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { WIDGET_DIMENSIONS } from "./widget-grid";
-import { Plus } from "@phosphor-icons/react/dist/ssr";
+import { Input } from "@/components/ui/input";
+import { Plus, MagnifyingGlass } from "@phosphor-icons/react/dist/ssr";
 
-const AVAILABLE_WIDGETS = [
-  { type: "equity-hero", name: "Balance & Equity", desc: "Hero view of active capital and daily PnL." },
-  { type: "agent-feed", name: "Live Execution Feed", desc: "Real-time feed of bot actions and alerts." },
-  { type: "risk-heatmap", name: "Risk Heatmap", desc: "Visual grid of daily drawdown status." },
-  { type: "win-rate", name: "Win Rate Gauge", desc: "Circular gauge of recent operation success." },
-  { type: "recent-operations", name: "Recent Operations", desc: "List of the most recent closed trades." },
-  { type: "asset-pnl", name: "Asset PnL Breakdown", desc: "Bar chart of net PnL by instrument." },
-  { type: "system-health", name: "Engine Health", desc: "Core latency and bot connection status." },
-  { type: "market-pulse", name: "Market Pulse", desc: "Countdown to next major session open." },
-  { type: "quick-actions", name: "Quick Actions", desc: "Shortcut buttons for new bot, broker, etc." },
+type WidgetMeta = {
+  type: string;
+  name: string;
+  desc: string;
+  category: "Performance" | "Activity" | "Markets" | "Utility";
+  keywords: string;
+};
+
+const AVAILABLE_WIDGETS: WidgetMeta[] = [
+  { type: "equity-hero", name: "Balance & Equity", desc: "Hero view of active capital and daily PnL.", category: "Performance", keywords: "balance equity capital pnl profit money hero" },
+  { type: "win-rate", name: "Win Rate Gauge", desc: "Circular gauge of recent operation success.", category: "Performance", keywords: "win rate gauge success ratio percentage" },
+  { type: "asset-pnl", name: "Asset PnL Breakdown", desc: "Bar chart of net PnL by instrument.", category: "Performance", keywords: "asset pnl breakdown chart instrument symbol bar" },
+  { type: "risk-heatmap", name: "Risk Heatmap", desc: "Visual grid of daily drawdown status.", category: "Performance", keywords: "risk heatmap drawdown loss exposure grid" },
+  { type: "agent-feed", name: "Live Execution Feed", desc: "Real-time feed of bot actions and alerts.", category: "Activity", keywords: "feed live execution bot actions alerts stream events" },
+  { type: "recent-operations", name: "Recent Operations", desc: "List of the most recent closed trades.", category: "Activity", keywords: "recent operations trades history closed list" },
+  { type: "market-pulse", name: "Market Pulse", desc: "Countdown to next major session open.", category: "Markets", keywords: "market pulse session open countdown nyse asx clock" },
+  { type: "system-health", name: "Engine Health", desc: "Core latency and bot connection status.", category: "Utility", keywords: "system health engine latency status connection api" },
+  { type: "quick-actions", name: "Quick Actions", desc: "Shortcut buttons for new bot, broker, etc.", category: "Utility", keywords: "quick actions shortcuts new bot broker buttons" },
 ];
 
-export function WidgetLibraryDialog({ isOpen, onClose, onAdd }: { isOpen: boolean, onClose: () => void, onAdd: (type: string) => void }) {
+const CATEGORY_ORDER: WidgetMeta["category"][] = ["Performance", "Activity", "Markets", "Utility"];
+
+export function WidgetLibraryDialog({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: () => void; onAdd: (type: string) => void }) {
+  const [query, setQuery] = useState("");
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return AVAILABLE_WIDGETS;
+    return AVAILABLE_WIDGETS.filter((w) =>
+      `${w.name} ${w.desc} ${w.keywords} ${w.category}`.toLowerCase().includes(q),
+    );
+  }, [query]);
+
+  const grouped = useMemo(
+    () => CATEGORY_ORDER.map((cat) => ({ cat, items: matches.filter((w) => w.category === cat) })).filter((g) => g.items.length > 0),
+    [matches],
+  );
+
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title="Widget Library">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto p-1">
-        {AVAILABLE_WIDGETS.map(w => {
-          const dim = WIDGET_DIMENSIONS[w.type] || { minW: 2, minH: 2 };
-          return (
-            <div key={w.type} className="flex flex-col border border-line rounded-[var(--radius-card)] bg-surface p-4 hover:border-accent-soft transition-colors group">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="text-sm font-medium text-fg">{w.name}</h4>
-                <button 
-                  onClick={() => { onAdd(w.type); onClose(); }}
-                  className="bg-accent/10 text-accent p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Plus size={16} weight="bold" />
-                </button>
-              </div>
-              <p className="text-xs text-fg-subtle mb-3">{w.desc}</p>
-              <div className="mt-auto flex items-center gap-2">
-                <span className="text-[10px] font-mono text-fg-faint bg-base px-1.5 py-0.5 rounded border border-line">
-                  Min: {dim.minW}x{dim.minH}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+      <div className="space-y-4">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search widgets"
+          icon={<MagnifyingGlass />}
+          aria-label="Search widgets"
+          autoFocus
+        />
+
+        {matches.length === 0 ? (
+          <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface/30 p-10 text-center">
+            <p className="text-sm font-medium text-fg-muted">No widgets match &ldquo;{query}&rdquo;</p>
+            <p className="mt-1 text-xs text-fg-subtle">Try a different term, or clear the search.</p>
+          </div>
+        ) : (
+          <div className="max-h-[60vh] space-y-5 overflow-y-auto p-1">
+            {grouped.map(({ cat, items }) => (
+              <section key={cat} className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">{cat}</h4>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {items.map((w) => {
+                    const dim = WIDGET_DIMENSIONS[w.type] || { minW: 2, minH: 2 };
+                    return (
+                      <button
+                        key={w.type}
+                        type="button"
+                        onClick={() => { onAdd(w.type); onClose(); }}
+                        className="group flex flex-col rounded-[var(--radius-card)] border border-line bg-surface p-4 text-left transition-colors hover:border-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <h5 className="text-sm font-medium text-fg">{w.name}</h5>
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent/10 text-accent transition-colors group-hover:bg-accent group-hover:text-[var(--color-on-accent)]">
+                            <Plus size={14} weight="bold" />
+                          </span>
+                        </div>
+                        <p className="mb-3 text-xs text-fg-subtle">{w.desc}</p>
+                        <span className="tnum mt-auto w-fit rounded border border-line bg-base px-1.5 py-0.5 font-mono text-[10px] text-fg-faint">
+                          Min {dim.minW}x{dim.minH}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
     </Dialog>
   );

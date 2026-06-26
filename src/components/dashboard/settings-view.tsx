@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar, DeviceMobile, Globe } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -93,9 +93,10 @@ type NotificationSettings = {
 import { generateMcpKey, toggleAsxMarket, verifyBrokerConnection, getSecurityActivity, generateReferralCode, type SecurityEvent } from "@/app/dashboard/settings/actions";
 import { usePrivacy } from "@/components/privacy-provider";
 import { useDisplayMode } from "@/components/display-provider";
-import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown, Question } from "@phosphor-icons/react";
+import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown, Question, LockKey } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import { Dropdown } from "@/components/ui/dropdown";
+import { DangerActionDialog } from "@/components/dashboard/danger-action-dialog";
 
 function InfoTooltip({ text }: { text: React.ReactNode }) {
   if (!text) return null;
@@ -248,21 +249,25 @@ export function SettingsView({
           <Card className="border-negative/40 p-5">
             <CardTitle>Danger zone</CardTitle>
             <div className="mt-4 space-y-3">
-              <DangerAction
+              <DangerActionDialog
+                triggerLabel="Reset"
                 title="Reset paper account"
-                desc="Clear all paper trades and reset the balance to $10,000."
-                label="Reset"
+                description="Clear all paper trades and reset the balance to $10,000."
+                consequence="Every paper trade, daily summary, and agent event is permanently erased and the balance resets to $10,000. Live broker accounts are never touched. This cannot be undone."
+                actionLabel="Reset account"
+                verifyWord="RESET"
                 run={resetPaperAccount}
                 onSuccess={() => router.refresh()}
-                verifyWord="RESET"
               />
-              <DangerAction
+              <DangerActionDialog
+                triggerLabel="Delete"
                 title="Delete account"
-                desc="Permanently remove your account and all data."
-                label="Delete"
+                description="Permanently remove your account and all data."
+                consequence="Your account, every connected broker, bot, strategy, and all trade history are permanently deleted. You will be signed out immediately. This cannot be undone."
+                actionLabel="Delete account"
+                verifyWord="DELETE"
                 run={deleteUserAccount}
                 onSuccess={() => signOut({ redirectUrl: marketingUrl() })}
-                verifyWord="DELETE"
               />
             </div>
           </Card>
@@ -271,6 +276,8 @@ export function SettingsView({
 
       {activeTab === "SECURITY" && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <PasswordSettings />
+
           <McpSettings mcpKey={mcpKey} />
           
           <Card className="p-5">
@@ -613,76 +620,124 @@ function Threshold({
   );
 }
 
-function DangerAction({
-  title,
-  desc,
-  label,
-  run,
-  onSuccess,
-  verifyWord,
-}: {
-  title: string;
-  desc: string;
-  label: string;
-  run: () => Promise<{ ok: boolean; error?: string }>;
-  onSuccess?: () => void;
-  verifyWord?: string;
-}) {
-  const [armed, setArmed] = useState(false);
-  const [verifyInput, setVerifyInput] = useState("");
-  const [pending, startTransition] = useTransition();
+function PasswordSettings() {
+  const { user, isLoaded } = useUser();
+  const hasPassword = Boolean(user?.passwordEnabled);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  function handleClick() {
+  async function handleSave() {
+    if (!user) return;
     setError(null);
-    if (!verifyWord && !armed) {
-      setArmed(true);
-      timer.current = setTimeout(() => setArmed(false), 4000);
+    setSuccess(false);
+    if (next.length < 8) {
+      setError("Use at least 8 characters for your new password.");
       return;
     }
-    
-    if (timer.current) clearTimeout(timer.current);
-    setArmed(false);
-    startTransition(async () => {
-      const res = await run();
-      if (!res.ok) setError(res.error ?? "Something went wrong.");
-      else onSuccess?.();
-    });
+    if (next !== confirm) {
+      setError("New password and confirmation do not match.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await user.updatePassword({
+        newPassword: next,
+        ...(hasPassword ? { currentPassword: current } : {}),
+        signOutOfOtherSessions: true,
+      });
+      setSuccess(true);
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setTimeout(() => setSuccess(false), 4000);
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { message?: string; longMessage?: string }[] };
+      setError(clerkErr?.errors?.[0]?.longMessage || clerkErr?.errors?.[0]?.message || "Could not update your password. Check your current password and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="rounded-[var(--radius-control)] border border-line bg-base/40 px-4 py-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-fg">{title}</p>
-          <p className="text-xs text-fg-subtle">{desc}</p>
-          {verifyWord && (
-             <div className="mt-3">
-               <Input 
-                 placeholder={`Type ${verifyWord} to confirm`} 
-                 value={verifyInput} 
-                 onChange={e => setVerifyInput(e.target.value)} 
-                 className="h-8 text-xs max-w-[200px]"
-               />
-             </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleClick}
-          disabled={pending || (verifyWord ? verifyInput !== verifyWord : false)}
-          className="shrink-0 rounded-[var(--radius-control)] border border-negative/50 px-3 py-1.5 text-sm font-medium text-negative transition-colors hover:bg-negative-soft active:scale-[0.97] disabled:opacity-50"
-        >
-          {pending ? "Working…" : (!verifyWord && armed) ? "Click to confirm" : label}
-        </button>
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <LockKey size={20} className="text-accent" weight="duotone" />
+        <CardTitle>{hasPassword ? "Change password" : "Set a password"}</CardTitle>
       </div>
-      {error ? (
-        <p className="mt-2 text-xs text-negative" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </div>
+      <p className="mt-1 mb-5 text-sm text-fg-subtle">
+        {hasPassword
+          ? "Update the password you use to sign in. Other sessions will be signed out."
+          : "You signed up with a social login. Set a password to also sign in with email."}
+      </p>
+
+      {!isLoaded ? (
+        <div className="h-10 w-full animate-pulse rounded-[var(--radius-control)] bg-surface/40" />
+      ) : (
+        <div className="space-y-4">
+          {hasPassword && (
+            <div className="space-y-1.5">
+              <Label htmlFor="current-password">Current password</Label>
+              <Input
+                id="current-password"
+                type={show ? "text" : "password"}
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">New password</Label>
+              <Input
+                id="new-password"
+                type={show ? "text" : "password"}
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-password">Confirm new password</Label>
+              <Input
+                id="confirm-password"
+                type={show ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShow((s) => !s)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-subtle transition-colors hover:text-fg"
+          >
+            {show ? <EyeSlash size={14} /> : <Eye size={14} />}
+            {show ? "Hide passwords" : "Show passwords"}
+          </button>
+
+          {error && <p className="text-sm text-negative" role="alert">{error}</p>}
+
+          <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
+            {success && <span className="text-xs font-medium text-profit">Password updated</span>}
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || !next || !confirm || (hasPassword && !current)}
+            >
+              {saving ? "Saving…" : hasPassword ? "Update password" : "Set password"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

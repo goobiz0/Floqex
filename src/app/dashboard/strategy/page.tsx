@@ -8,9 +8,10 @@ import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
 import { DashboardError } from "@/components/dashboard/states";
 import Link from "next/link";
-import { Robot, Flask, Plus, MagicWand, ArrowLeft } from "@phosphor-icons/react/dist/ssr";
+import { Robot, Flask, MagicWand, ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import AIStrategyBuilder from "@/components/dashboard/ai-strategy-builder";
 import { StrategyDeleteButton } from "@/components/dashboard/strategy-delete-button";
+import { NewStrategyButton } from "@/components/dashboard/new-strategy-button";
 
 export const metadata: Metadata = { title: "Strategy Management" };
 
@@ -33,7 +34,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
 
   // If view is 'edit', render the specific strategy lab
   if (searchParams.view === 'edit') {
-    const data = await getStrategyData(searchParams.account);
+    const data = await getStrategyData(searchParams.account, searchParams.strategyId);
     return (
       <div className="space-y-6 max-w-5xl mx-auto p-6 lg:p-10">
         <Link href="/dashboard/strategy" className="inline-flex items-center gap-2 text-sm font-medium text-fg-subtle hover:text-fg transition-colors">
@@ -58,6 +59,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             autoAdjustmentsUsed={data.autoAdjustmentsUsed}
             plan={data.plan}
             accountId={data.accountId}
+            strategyId={data.strategyId}
           />
         ) : (
           <Card className="p-10 text-center">
@@ -91,10 +93,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             <MagicWand size={16} weight="fill" />
             AI Generate
           </Link>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-fg rounded-[var(--radius-pill)] text-sm font-bold text-base hover:bg-fg/90 transition-all hover:-translate-y-[1px]">
-            <Plus size={16} weight="bold" />
-            New Strategy
-          </button>
+          <NewStrategyButton />
         </div>
       </div>
 
@@ -141,8 +140,8 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             </div>
 
             <div className="relative z-10 mt-auto pt-4 border-t border-line/50">
-              <Link 
-                href={`/dashboard/strategy?view=edit${strategy.bots[0] ? `&account=${strategy.bots[0].accountId}` : ''}`} 
+              <Link
+                href={`/dashboard/strategy?view=edit${strategy.bots[0] ? `&account=${strategy.bots[0].accountId}` : `&strategyId=${strategy.id}`}`}
                 className="block w-full text-center py-2.5 text-sm font-semibold bg-surface-hover hover:bg-base rounded-[var(--radius-control)] transition-all hover:-translate-y-[1px] text-fg border border-transparent hover:border-line"
               >
                 Tune Parameters

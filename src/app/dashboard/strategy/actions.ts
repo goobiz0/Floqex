@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { summaryMetrics } from "@/lib/metrics";
-import { parseStrategyParams, coerceStrategyParams, applyRawParam, type StrategyParams } from "@/lib/strategy-schema";
+import { parseStrategyParams, coerceStrategyParams, applyRawParam, DEFAULT_PARAMS, type StrategyParams } from "@/lib/strategy-schema";
 import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
@@ -75,7 +75,44 @@ export async function runAiOptimization(accountId: string) {
   return { ok: true };
 }
 
-export async function saveStrategy(params: StrategyParams, accountId?: string) {
+/**
+ * Create a brand-new strategy for the signed-in user with safe default
+ * parameters. Returns the new strategy id so the caller can deep-link into the
+ * tuning view. This is what the "New Strategy" button on the hub builds.
+ */
+export async function createStrategy(name: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return { ok: false, error: "Give your strategy a name." };
+  if (trimmed.length > 60) return { ok: false, error: "Keep the name under 60 characters." };
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, _count: { select: { strategies: true } } },
+  });
+  if (!user) return { ok: false, error: "User not found" };
+
+  // A generous ceiling so the hub never grows unbounded, well above real use.
+  if (user._count.strategies >= 50) {
+    return { ok: false, error: "You have reached the maximum number of strategies." };
+  }
+
+  const strategy = await prisma.strategy.create({
+    data: {
+      userId: user.id,
+      name: trimmed,
+      kind: "ORB",
+      params: DEFAULT_PARAMS as unknown as Prisma.InputJsonValue,
+    },
+  });
+
+  revalidatePath("/dashboard/strategy");
+  return { ok: true, id: strategy.id };
+}
+
+export async function saveStrategy(params: StrategyParams, accountId?: string, strategyId?: string) {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -96,19 +133,26 @@ export async function saveStrategy(params: StrategyParams, accountId?: string) {
   // accountId), not just the first account — otherwise tuning one bot's
   // strategy could silently overwrite another's.
   const account = accountId ? user.accounts.find((a) => a.id === accountId) : user.accounts[0];
-  const bot = account?.bot ?? user.accounts[0]?.bot ?? null;
-  const strategyId = bot ? bot.strategyId : user.strategies[0]?.id;
+  const bot = account?.bot ?? (accountId ? null : user.accounts[0]?.bot) ?? null;
+  // An explicit strategyId (a botless strategy opened from the hub) wins, then
+  // the edited bot's strategy, then the user's first strategy as a fallback.
+  const explicit = strategyId
+    ? user.strategies.find((s) => s.id === strategyId)?.id
+    : undefined;
+  const targetStrategyId = explicit ?? (bot ? bot.strategyId : user.strategies[0]?.id);
 
-  if (!strategyId) return { ok: false, error: "Strategy not found" };
+  if (!targetStrategyId) return { ok: false, error: "Strategy not found" };
 
   await prisma.strategy.update({
-    where: { id: strategyId },
+    where: { id: targetStrategyId },
     data: { params: parsed.params as unknown as Prisma.InputJsonValue },
   });
 
   // A running bot reads its strategy fresh on every tick, so the change takes
-  // effect immediately. Surface that in the live feed so the user can see it.
-  if (bot && bot.status === "RUNNING") {
+  // effect immediately. Only surface it when the strategy we just saved is
+  // actually the one this bot runs (a botless strategy edited from the hub must
+  // not claim an unrelated bot picked it up).
+  if (bot && bot.status === "RUNNING" && bot.strategyId === targetStrategyId) {
     await prisma.agentEvent.create({
       data: {
         botId: bot.id,
