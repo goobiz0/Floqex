@@ -489,7 +489,7 @@ export function DashboardPageClient({
       {/* Header Row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Image src={avatarUrl} alt={nickname} width={40} height={40} className="rounded-full border border-line object-cover" />
+          <Image src={avatarUrl} alt={nickname} width={40} height={40} className="privacy-blur-avatar rounded-full border border-line object-cover" />
           <h1 className="text-lg font-medium tracking-tight text-fg">Dashboard</h1>
         </div>
 

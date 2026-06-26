@@ -259,15 +259,15 @@ function UserProfileBlock() {
     <div className="rounded-[var(--radius-card)] bg-surface p-3">
       <div className="flex items-center gap-3">
         {user.imageUrl ? (
-          <Image src={user.imageUrl} alt={name} width={40} height={40} className="rounded-full object-cover shadow-[var(--shadow-sm)]" />
+          <Image src={user.imageUrl} alt={name} width={40} height={40} className="privacy-blur-avatar rounded-full object-cover shadow-[var(--shadow-sm)]" />
         ) : (
-          <div className="h-10 w-10 rounded-full bg-accent-soft flex items-center justify-center text-accent font-medium text-sm">
+          <div className="privacy-blur-avatar h-10 w-10 rounded-full bg-accent-soft flex items-center justify-center text-accent font-medium text-sm">
             {name.charAt(0).toUpperCase()}
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-bold text-fg">{name}</p>
-          <p className="truncate text-[11px] text-fg-subtle">{user.primaryEmailAddress?.emailAddress}</p>
+          <p className="privacy-blur truncate text-[13px] font-bold text-fg">{name}</p>
+          <p className="privacy-blur truncate text-[11px] text-fg-subtle">{user.primaryEmailAddress?.emailAddress}</p>
         </div>
       </div>
     </div>

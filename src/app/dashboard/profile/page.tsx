@@ -48,16 +48,16 @@ export default async function ProfilePage() {
             <img
               src={user.imageUrl}
               alt={name}
-              className="h-16 w-16 rounded-full object-cover ring-1 ring-line"
+              className="privacy-blur-avatar h-16 w-16 rounded-full object-cover ring-1 ring-line"
             />
           ) : (
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-2xl font-semibold text-accent">
+            <span className="privacy-blur-avatar flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft text-2xl font-semibold text-accent">
               {initial}
             </span>
           )}
           <div className="min-w-0">
-            <p className="truncate text-lg font-semibold text-fg">{name}</p>
-            {email && <p className="truncate text-sm text-fg-subtle">{email}</p>}
+            <p className="privacy-blur truncate text-lg font-semibold text-fg">{name}</p>
+            {email && <p className="privacy-blur truncate text-sm text-fg-subtle">{email}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge tone="accent">{plan.name} plan</Badge>
               {memberSince && (

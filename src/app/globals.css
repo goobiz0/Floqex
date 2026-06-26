@@ -376,6 +376,27 @@
   opacity: 1;
 }
 
+/* Privacy mode also redacts identity: names, emails, and avatars. Mark any
+   sensitive element with `.privacy-blur` (text) or `.privacy-blur-avatar`
+   (images). Hovering reveals it briefly for the owner. */
+.privacy-mode .privacy-blur {
+  filter: blur(5px);
+  user-select: none;
+  opacity: 0.75;
+  transition: filter 0.2s, opacity 0.2s;
+}
+.privacy-mode .privacy-blur:hover {
+  filter: blur(0px);
+  opacity: 1;
+}
+.privacy-mode .privacy-blur-avatar {
+  filter: blur(8px);
+  transition: filter 0.2s;
+}
+.privacy-mode .privacy-blur-avatar:hover {
+  filter: blur(0px);
+}
+
 /* Display Modes */
 .display-mode-money .display-value-wrapper::after {
   content: none;
