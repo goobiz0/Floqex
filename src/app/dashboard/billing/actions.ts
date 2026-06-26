@@ -2,9 +2,11 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
+import type Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
-import { PLANS, type Plan } from "@/lib/plans";
+import { PLANS, planFromPriceId, isPaidPriceId, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
 
 type Result = { ok: boolean; url?: string; error?: string };
@@ -62,7 +64,12 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
       success_url: absolute(successUrl, await requestOrigin()),
       cancel_url: absolute(cancelUrl, await requestOrigin()),
       allow_promotion_codes: true,
-      subscription_data: { metadata: { plan } },
+      // Stamp our user id on both the session and the subscription so the
+      // webhook can always resolve the right account, even if the customer
+      // mapping somehow lags.
+      client_reference_id: customer.id,
+      metadata: { userId: customer.id, plan },
+      subscription_data: { metadata: { userId: customer.id, plan } },
     });
     return session.url ? { ok: true, url: session.url } : { ok: false, error: "Could not start checkout." };
   } catch (err) {
@@ -86,5 +93,75 @@ export async function openBillingPortal(): Promise<Result> {
   } catch (err) {
     console.error("[openBillingPortal] Stripe error:", err);
     return { ok: false, error: "Could not open the billing portal." };
+  }
+}
+
+/** Resolve the plan a subscription grants from its line items + metadata. */
+function planForSubscription(sub: Stripe.Subscription): Plan {
+  const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
+  if (!active) return "FREE";
+  const priceId =
+    sub.items.data.map((i) => i.price?.id).find((id) => isPaidPriceId(id)) ??
+    sub.items.data[0]?.price?.id;
+  return (sub.metadata?.plan as Plan) || planFromPriceId(priceId);
+}
+
+/**
+ * Pull the customer's current subscription straight from Stripe and mirror it
+ * onto the user row. Called when the user returns from Checkout so the plan
+ * flips immediately, instead of waiting on (or depending on) the webhook, which
+ * can be delayed or unconfigured. Safe to call repeatedly; it is idempotent.
+ */
+export async function reconcileSubscription(): Promise<{ ok: boolean; plan?: Plan; error?: string }> {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return { ok: false, error: "You are not signed in." };
+
+  const user = await prisma.user.findUnique({ where: { clerkId } });
+  if (!user || !user.stripeCustomerId) return { ok: false, error: "No billing customer yet." };
+
+  try {
+    const subs = await getStripe().subscriptions.list({
+      customer: user.stripeCustomerId,
+      status: "all",
+      limit: 10,
+    });
+
+    // Prefer a live subscription; fall back to the most recent one so a cancel
+    // correctly drops the user back to FREE.
+    const live = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
+    const sub = live ?? subs.data.sort((a, b) => b.created - a.created)[0];
+
+    if (!sub) {
+      if (user.plan !== "FREE") {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { plan: "FREE", stripeSubscriptionId: null, stripeSubStatus: null, stripeCurrentPeriodEnd: null },
+        });
+      }
+      revalidatePath("/dashboard/billing");
+      return { ok: true, plan: "FREE" };
+    }
+
+    const plan = planForSubscription(sub);
+    const periodEnd =
+      (sub.items.data[0] as { current_period_end?: number } | undefined)?.current_period_end ??
+      (sub as unknown as { current_period_end?: number }).current_period_end;
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        plan,
+        stripeSubscriptionId: sub.id,
+        stripeSubStatus: sub.status,
+        stripeCurrentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
+      },
+    });
+
+    revalidatePath("/dashboard/billing");
+    revalidatePath("/dashboard");
+    return { ok: true, plan };
+  } catch (err) {
+    console.error("[reconcileSubscription] Stripe error:", err);
+    return { ok: false, error: "Could not refresh your subscription." };
   }
 }

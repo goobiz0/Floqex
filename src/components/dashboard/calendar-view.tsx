@@ -12,6 +12,10 @@ type ViewMode = "DAILY" | "MONTHLY" | "YEARLY";
 export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; trades: TradeRow[] }) {
   const [viewMode, setViewMode] = useState<ViewMode>("DAILY");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // Drill-down selections for the Monthly and Yearly views, mirroring the Daily
+  // view's click-to-detail interaction.
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
 
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date();
@@ -20,18 +24,24 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
     return d;
   });
 
+  const clearSelections = () => {
+    setSelectedDate(null);
+    setSelectedMonth(null);
+    setSelectedYear(null);
+  };
+
   const shiftMonth = (delta: number) => {
     const next = new Date(currentMonth);
     next.setMonth(next.getMonth() + delta);
     setCurrentMonth(next);
-    setSelectedDate(null);
+    clearSelections();
   };
 
   const shiftYear = (delta: number) => {
     const next = new Date(currentMonth);
     next.setFullYear(next.getFullYear() + delta);
     setCurrentMonth(next);
-    setSelectedDate(null);
+    clearSelections();
   };
 
   const goToToday = () => {
@@ -39,7 +49,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
     d.setDate(1);
     d.setHours(0, 0, 0, 0);
     setCurrentMonth(d);
-    setSelectedDate(null);
+    clearSelections();
   };
 
   // Days for the current month (with leading spacers so weekdays line up).
@@ -105,6 +115,76 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
     return trades.filter((t) => t.openedAt.startsWith(selectedDate));
   }, [selectedDate, trades]);
 
+  // Active days within the selected month, for the Monthly detail panel.
+  const selectedMonthDays = useMemo(() => {
+    if (selectedMonth === null) return [];
+    const year = currentMonth.getFullYear();
+    const prefix = `${year}-${String(selectedMonth + 1).padStart(2, "0")}`;
+    return summaries
+      .filter((s) => s.date.startsWith(prefix) && s.tradeCount > 0)
+      .map((s) => ({ dateStr: s.date, pnl: Number(s.netPnl), tradeCount: s.tradeCount, startBalance: s.startBalance }))
+      .sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  }, [selectedMonth, currentMonth, summaries]);
+
+  const selectedMonthMeta = useMemo(() => {
+    if (selectedMonth === null) return null;
+    const row = monthlyForYear.find((m) => m.month === selectedMonth);
+    return {
+      label: new Date(currentMonth.getFullYear(), selectedMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      pnl: row?.pnl ?? 0,
+      tradeCount: row?.tradeCount ?? 0,
+    };
+  }, [selectedMonth, currentMonth, monthlyForYear]);
+
+  // Per-month breakdown within the selected year, for the Yearly detail panel.
+  const selectedYearMonths = useMemo(() => {
+    if (!selectedYear) return [];
+    const totals = new Map<number, { pnl: number; tradeCount: number }>();
+    for (const s of summaries) {
+      if (s.date.slice(0, 4) !== selectedYear) continue;
+      const m = Number(s.date.slice(5, 7)) - 1;
+      const cur = totals.get(m) ?? { pnl: 0, tradeCount: 0 };
+      cur.pnl += Number(s.netPnl);
+      cur.tradeCount += s.tradeCount;
+      totals.set(m, cur);
+    }
+    return Array.from(totals.entries())
+      .map(([month, v]) => ({
+        month,
+        label: new Date(Number(selectedYear), month, 1).toLocaleDateString("en-US", { month: "long" }),
+        ...v,
+      }))
+      .filter((m) => m.tradeCount > 0)
+      .sort((a, b) => a.month - b.month);
+  }, [selectedYear, summaries]);
+
+  const selectedYearMeta = useMemo(() => {
+    if (!selectedYear) return null;
+    const row = yearlyGrid.find((y) => y.yearStr === selectedYear);
+    return { pnl: row?.pnl ?? 0, tradeCount: row?.tradeCount ?? 0 };
+  }, [selectedYear, yearlyGrid]);
+
+  // Jump from a Monthly day cell into the Daily view for that exact date.
+  const openDayFromMonth = (dateStr: string) => {
+    const d = new Date(dateStr + "T12:00:00");
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    setCurrentMonth(d);
+    setSelectedMonth(null);
+    setSelectedDate(dateStr);
+    setViewMode("DAILY");
+  };
+
+  // Jump from a Yearly month cell into the Monthly view for that month.
+  const openMonthFromYear = (month: number) => {
+    const d = new Date(Number(selectedYear), month, 1);
+    d.setHours(0, 0, 0, 0);
+    setCurrentMonth(d);
+    setSelectedYear(null);
+    setSelectedMonth(month);
+    setViewMode("MONTHLY");
+  };
+
   const todayStr = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -120,7 +200,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
           {(["DAILY", "MONTHLY", "YEARLY"] as const).map((mode) => (
             <button
               key={mode}
-              onClick={() => { setViewMode(mode); setSelectedDate(null); }}
+              onClick={() => { setViewMode(mode); clearSelections(); }}
               className={cn(
                 "relative rounded-[var(--radius-pill)] px-4 py-1.5 text-xs font-semibold transition-colors",
                 viewMode === mode ? "text-fg" : "text-fg-subtle hover:text-fg",
@@ -327,59 +407,226 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {monthlyForYear.map(({ month, label, pnl, tradeCount }) => {
-              const active = tradeCount > 0;
-              return (
-                <div
-                  key={month}
-                  className={cn(
-                    "group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border bg-surface p-6 transition-colors",
-                    active ? "border-line hover:border-line-strong hover:-translate-y-0.5" : "border-line/60",
-                  )}
+          <div className={cn("grid items-start gap-6", selectedMonth !== null ? "lg:grid-cols-[minmax(0,1fr)_340px]" : "grid-cols-1")}>
+            <div className="min-w-0">
+              <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", selectedMonth === null && "lg:grid-cols-3")}>
+                {monthlyForYear.map(({ month, label, pnl, tradeCount }, i) => {
+                  const active = tradeCount > 0;
+                  const isSelected = selectedMonth === month;
+                  return (
+                    <motion.button
+                      key={month}
+                      type="button"
+                      initial={{ opacity: 0, scale: 0.97 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2), ease: "easeOut" }}
+                      onClick={() => setSelectedMonth(isSelected ? null : month)}
+                      className={cn(
+                        "group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border bg-surface p-6 text-left transition-all hover:-translate-y-0.5 active:scale-[0.98]",
+                        isSelected
+                          ? "border-fg shadow-[var(--shadow-md)] ring-1 ring-fg z-10"
+                          : active
+                            ? "border-line hover:border-line-strong"
+                            : "border-line/60",
+                      )}
+                    >
+                      {active && (
+                        <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-5 transition-opacity group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
+                      )}
+                      <span className="relative z-10 mb-3 text-xs font-bold uppercase tracking-widest text-fg-subtle">{label}</span>
+                      <span className={cn("relative z-10 mb-1 text-3xl font-bold tracking-tight tnum", active ? pnlTone(pnl) : "text-fg-faint")}>
+                        {active ? <DisplayValue type="PNL" money={pnl} /> : "$0.00"}
+                      </span>
+                      <span className="relative z-10 mt-auto flex items-center justify-between border-t border-line/50 pt-4 text-xs font-medium text-fg-muted">
+                        <span>Trades</span>
+                        <span className={active ? "text-fg" : "text-fg-faint"}>{tradeCount}</span>
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {selectedMonth !== null && selectedMonthMeta && (
+                <motion.div
+                  key={selectedMonth}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                  className="min-w-0 lg:sticky lg:top-6"
                 >
-                  {active && (
-                    <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-5 transition-opacity group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
-                  )}
-                  <span className="relative z-10 mb-3 text-xs font-bold uppercase tracking-widest text-fg-subtle">{label}</span>
-                  <span className={cn("relative z-10 mb-1 text-3xl font-bold tracking-tight tnum", active ? pnlTone(pnl) : "text-fg-faint")}>
-                    {active ? <DisplayValue type="PNL" money={pnl} /> : "$0.00"}
-                  </span>
-                  <span className="relative z-10 mt-auto flex items-center justify-between border-t border-line/50 pt-4 text-xs font-medium text-fg-muted">
-                    <span>Trades</span>
-                    <span className={active ? "text-fg" : "text-fg-faint"}>{tradeCount}</span>
-                  </span>
-                </div>
-              );
-            })}
+                  <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-[var(--shadow-lg)]">
+                    <div className="mb-6 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-fg">{selectedMonthMeta.label}</h3>
+                        <p className="mt-1 text-xs text-fg-subtle">Monthly overview</p>
+                      </div>
+                      <button onClick={() => setSelectedMonth(null)} aria-label="Close" className="rounded-[var(--radius-control)] p-1.5 text-fg-subtle transition-colors hover:bg-base hover:text-fg">
+                        <X size={18} weight="bold" />
+                      </button>
+                    </div>
+
+                    {selectedMonthDays.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <CalendarBlank size={32} className="mb-3 text-fg-faint" />
+                        <p className="text-sm font-medium text-fg">No trading activity</p>
+                        <p className="mt-1 text-xs text-fg-subtle">There were no trades executed this month.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-[var(--radius-control)] border border-line bg-base p-3">
+                            <p className="mb-1 text-xs text-fg-subtle">Total P/L</p>
+                            <p className={cn("text-lg font-bold tnum", pnlTone(selectedMonthMeta.pnl))}>
+                              <DisplayValue type="PNL" money={selectedMonthMeta.pnl} />
+                            </p>
+                          </div>
+                          <div className="rounded-[var(--radius-control)] border border-line bg-base p-3">
+                            <p className="mb-1 text-xs text-fg-subtle">Trades</p>
+                            <p className="text-lg font-bold text-fg tnum">{selectedMonthMeta.tradeCount}</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-fg">Active days</h4>
+                          <div className="custom-scrollbar max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                            {selectedMonthDays.map((d) => (
+                              <button
+                                key={d.dateStr}
+                                onClick={() => openDayFromMonth(d.dateStr)}
+                                className="flex w-full items-center justify-between rounded-[var(--radius-control)] border border-line bg-base p-3 text-left transition-colors hover:border-line-strong"
+                              >
+                                <div className="min-w-0">
+                                  <span className="block text-sm font-bold text-fg">
+                                    {new Date(d.dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                                  </span>
+                                  <span className="text-xs text-fg-subtle">{d.tradeCount} trade{d.tradeCount > 1 ? "s" : ""}</span>
+                                </div>
+                                <div className={cn("shrink-0 text-sm font-bold tnum", pnlTone(d.pnl))}>
+                                  <DisplayValue type="PNL" money={d.pnl} percent={d.startBalance ? (d.pnl / d.startBalance) * 100 : undefined} />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       )}
 
       {/* YEARLY */}
       {viewMode === "YEARLY" && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {yearlyGrid.map(({ yearStr, pnl, tradeCount }) => {
-            const active = tradeCount > 0;
-            return (
-              <div
-                key={yearStr}
-                className="group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface p-8 transition-colors hover:-translate-y-1 hover:border-line-strong"
+        <div className={cn("grid items-start gap-6", selectedYear !== null ? "lg:grid-cols-[minmax(0,1fr)_340px]" : "grid-cols-1")}>
+          <div className="min-w-0">
+            <div className={cn("grid grid-cols-1 gap-5 sm:grid-cols-2", selectedYear === null && "lg:grid-cols-3")}>
+              {yearlyGrid.map(({ yearStr, pnl, tradeCount }, i) => {
+                const active = tradeCount > 0;
+                const isSelected = selectedYear === yearStr;
+                return (
+                  <motion.button
+                    key={yearStr}
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.2), ease: "easeOut" }}
+                    onClick={() => setSelectedYear(isSelected ? null : yearStr)}
+                    className={cn(
+                      "group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border bg-surface p-8 text-left transition-all hover:-translate-y-1 active:scale-[0.98]",
+                      isSelected ? "border-fg shadow-[var(--shadow-md)] ring-1 ring-fg z-10" : "border-line hover:border-line-strong",
+                    )}
+                  >
+                    {active && (
+                      <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-5 transition-opacity group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
+                    )}
+                    <span className="relative z-10 mb-4 text-sm font-bold uppercase tracking-widest text-fg-subtle tnum">{yearStr}</span>
+                    <span className={cn("relative z-10 mb-2 text-4xl font-bold tracking-tight tnum", active ? pnlTone(pnl) : "text-fg-faint")}>
+                      {active ? <DisplayValue type="PNL" money={pnl} /> : "$0.00"}
+                    </span>
+                    <span className="relative z-10 mt-auto flex items-center justify-between border-t border-line/50 pt-6 text-sm font-medium text-fg-muted">
+                      <span>Total trades</span>
+                      <span className={active ? "text-fg" : "text-fg-faint"}>{tradeCount}</span>
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {selectedYear !== null && selectedYearMeta && (
+              <motion.div
+                key={selectedYear}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="min-w-0 lg:sticky lg:top-6"
               >
-                {active && (
-                  <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-5 transition-opacity group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
-                )}
-                <span className="relative z-10 mb-4 text-sm font-bold uppercase tracking-widest text-fg-subtle tnum">{yearStr}</span>
-                <span className={cn("relative z-10 mb-2 text-4xl font-bold tracking-tight tnum", active ? pnlTone(pnl) : "text-fg-faint")}>
-                  {active ? <DisplayValue type="PNL" money={pnl} /> : "$0.00"}
-                </span>
-                <span className="relative z-10 mt-auto flex items-center justify-between border-t border-line/50 pt-6 text-sm font-medium text-fg-muted">
-                  <span>Total trades</span>
-                  <span className={active ? "text-fg" : "text-fg-faint"}>{tradeCount}</span>
-                </span>
-              </div>
-            );
-          })}
+                <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-[var(--shadow-lg)]">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-fg tnum">{selectedYear}</h3>
+                      <p className="mt-1 text-xs text-fg-subtle">Yearly overview</p>
+                    </div>
+                    <button onClick={() => setSelectedYear(null)} aria-label="Close" className="rounded-[var(--radius-control)] p-1.5 text-fg-subtle transition-colors hover:bg-base hover:text-fg">
+                      <X size={18} weight="bold" />
+                    </button>
+                  </div>
+
+                  {selectedYearMonths.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <CalendarBlank size={32} className="mb-3 text-fg-faint" />
+                      <p className="text-sm font-medium text-fg">No trading activity</p>
+                      <p className="mt-1 text-xs text-fg-subtle">There were no trades executed this year.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-[var(--radius-control)] border border-line bg-base p-3">
+                          <p className="mb-1 text-xs text-fg-subtle">Total P/L</p>
+                          <p className={cn("text-lg font-bold tnum", pnlTone(selectedYearMeta.pnl))}>
+                            <DisplayValue type="PNL" money={selectedYearMeta.pnl} />
+                          </p>
+                        </div>
+                        <div className="rounded-[var(--radius-control)] border border-line bg-base p-3">
+                          <p className="mb-1 text-xs text-fg-subtle">Trades</p>
+                          <p className="text-lg font-bold text-fg tnum">{selectedYearMeta.tradeCount}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-fg">Active months</h4>
+                        <div className="custom-scrollbar max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                          {selectedYearMonths.map((m) => (
+                            <button
+                              key={m.month}
+                              onClick={() => openMonthFromYear(m.month)}
+                              className="flex w-full items-center justify-between rounded-[var(--radius-control)] border border-line bg-base p-3 text-left transition-colors hover:border-line-strong"
+                            >
+                              <div className="min-w-0">
+                                <span className="block text-sm font-bold text-fg">{m.label}</span>
+                                <span className="text-xs text-fg-subtle">{m.tradeCount} trade{m.tradeCount > 1 ? "s" : ""}</span>
+                              </div>
+                              <div className={cn("shrink-0 text-sm font-bold tnum", pnlTone(m.pnl))}>
+                                <DisplayValue type="PNL" money={m.pnl} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>

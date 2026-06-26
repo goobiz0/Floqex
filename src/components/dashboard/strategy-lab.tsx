@@ -60,6 +60,7 @@ export function StrategyLab({
   autoAdjustmentsUsed,
   plan,
   accountId = null,
+  strategyId = null,
 }: {
   initialParams: StrategyParams;
   changeLog: AdjustmentRow[];
@@ -67,6 +68,7 @@ export function StrategyLab({
   autoAdjustmentsUsed: number;
   plan: string;
   accountId?: string | null;
+  strategyId?: string | null;
 }) {
   const [params, setParams] = useState<StrategyParams>(initialParams);
   const [saved, setSaved] = useState<StrategyParams>(initialParams);
@@ -145,7 +147,7 @@ export function StrategyLab({
     const prev = saved;
     setError(null);
     startTransition(async () => {
-      const res = await saveStrategy(snapshot, accountId ?? undefined);
+      const res = await saveStrategy(snapshot, accountId ?? undefined, strategyId ?? undefined);
       if (!res.ok) {
         setError(res.error ?? "Could not save changes.");
         return;

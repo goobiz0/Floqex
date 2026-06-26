@@ -26,6 +26,11 @@ const COMPARISON_ROWS: { label: string; get: (p: Plan) => string | boolean }[] =
   { label: "Priority support", get: (p) => p !== "FREE" },
 ];
 
+// Only paid tiers get a pricing card. Showing Free too made four cards spill
+// out of the three-column row; Free still lives in the comparison table below
+// and in the "Current plan" summary at the top of the page.
+const PAID_PLAN_ORDER = PLAN_ORDER.filter((id) => PLANS[id].price > 0);
+
 export function BillingPlans({
   currentPlan,
   hasCustomer,
@@ -55,6 +60,13 @@ export function BillingPlans({
     });
   }
 
+  // Engine-action usage for the active plan, shown for everyone (including Free)
+  // so it no longer depends on the current plan having a card in the grid.
+  const usageLimit = ACTION_LIMIT[currentPlan];
+  const usagePct = Number.isFinite(usageLimit)
+    ? Math.min(100, (monthlyUsage / usageLimit) * 100)
+    : Math.min(100, monthlyUsage / 50_000);
+
   return (
     <div className="space-y-4">
       {error && (
@@ -62,11 +74,24 @@ export function BillingPlans({
           {error}
         </p>
       )}
+
+      <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-5">
+        <p className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-fg">
+          <span>Engine actions this month</span>
+          <span className="tnum text-fg-subtle">
+            {monthlyUsage.toLocaleString()} / {Number.isFinite(usageLimit) ? usageLimit.toLocaleString() : "Unlimited"}
+          </span>
+        </p>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+          <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${usagePct}%` }} />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {PLAN_ORDER.map((id, i) => {
+        {PAID_PLAN_ORDER.map((id) => {
           const plan = PLANS[id];
           const isCurrent = id === currentPlan;
-          const isUpgrade = i > currentIndex;
+          const isUpgrade = PLAN_ORDER.indexOf(id) > currentIndex;
           return (
             <div
               key={id}
@@ -92,39 +117,21 @@ export function BillingPlans({
 
               <div className="mt-5">
                 {isCurrent ? (
-                  <div className="space-y-4">
-                    {hasCustomer && plan.price > 0 ? (
-                      <Button
-                        variant="secondary"
-                        size="md"
-                        className="w-full relative z-10"
-                        disabled={pending}
-                        onClick={() => go(openBillingPortal)}
-                      >
-                        Manage billing
-                      </Button>
-                    ) : (
-                      <Button variant="secondary" size="md" className="w-full relative z-10" disabled>
-                        Current plan
-                      </Button>
-                    )}
-                    
-                    {(() => {
-                      const limit = ACTION_LIMIT[id];
-                      const pct = Number.isFinite(limit) ? Math.min(100, (monthlyUsage / limit) * 100) : Math.min(100, monthlyUsage / 50_000);
-                      return (
-                        <div className="relative z-10 rounded-[var(--radius-control)] border border-line bg-base/40 p-3">
-                          <p className="mb-2 flex items-center justify-between text-xs font-medium text-fg">
-                            <span>Engine actions this month</span>
-                            <span className="tnum">{monthlyUsage.toLocaleString()} / {Number.isFinite(limit) ? limit.toLocaleString() : "Unlimited"}</span>
-                          </p>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
-                            <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  hasCustomer ? (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      className="w-full relative z-10"
+                      disabled={pending}
+                      onClick={() => go(openBillingPortal)}
+                    >
+                      Manage billing
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" size="md" className="w-full relative z-10" disabled>
+                      Current plan
+                    </Button>
+                  )
                 ) : isUpgrade ? (
                   <Button
                     size="md"

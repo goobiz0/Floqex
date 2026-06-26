@@ -53,9 +53,17 @@ export const WIDGET_CONFIGURABLE: Record<string, boolean> = {
   "agent-feed": true,
 };
 
-const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
-const COLS = { lg: 12, md: 12, sm: 6, xs: 4, xxs: 2 };
+// The authored grid is 12 columns and is treated as "desktop". Because the
+// dashboard content column is capped (~1100px) and sits behind a 256px sidebar,
+// a perfectly normal small-desktop window can leave the grid container well
+// under 1000px. We therefore keep the canonical 12-column layout for any
+// container down to ~660px so every desktop sees the same arrangement, and only
+// reflow into fewer columns on genuinely phone-sized widths.
+const BREAKPOINTS = { lg: 960, md: 660, sm: 480, xs: 0 };
+const COLS = { lg: 12, md: 12, sm: 4, xs: 2 };
 const BASE_COLS = 12;
+// Both lg and md render the identical 12-column desktop layout.
+const DESKTOP_BREAKPOINTS = new Set(["lg", "md"]);
 
 function constraintsFor(type: string) {
   return WIDGET_DIMENSIONS[type] || { minW: 2, minH: 2, maxW: 12, maxH: 12 };
@@ -136,7 +144,6 @@ function buildLayouts(items: WidgetItem[], editable: boolean): Layouts {
     md: desktopLayout(items, editable),
     sm: reflowLayout(items, COLS.sm),
     xs: reflowLayout(items, COLS.xs),
-    xxs: reflowLayout(items, COLS.xxs),
   };
 }
 
@@ -162,10 +169,24 @@ export function WidgetGrid({
   }
 
   const layouts = buildLayouts(items, isEditMode);
-  const isDesktop = breakpoint === "lg" || breakpoint === "md";
+  const isDesktop = DESKTOP_BREAKPOINTS.has(breakpoint);
 
   return (
     <div className={cn("relative min-h-[400px] w-full", isEditMode && "p-2 bg-surface/10 rounded-lg border border-line border-dashed")}>
+
+      {/* Edit toolbar: always-available "Add widget" entry on desktop. */}
+      {isEditMode && isDesktop && items.length > 0 && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-line bg-surface/60 px-3 py-2">
+          <span className="text-xs text-fg-subtle">Drag to rearrange, drag a corner to resize.</span>
+          <button
+            onClick={onAddWidgetRequest}
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent hover:text-[var(--color-on-accent)]"
+          >
+            <Plus size={14} weight="bold" />
+            Add widget
+          </button>
+        </div>
+      )}
 
       {items.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-12">
@@ -188,7 +209,7 @@ export function WidgetGrid({
       {isEditMode && !isDesktop && (
         <div className="mb-3 flex items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface/60 px-3 py-2 text-xs text-fg-subtle">
           <Info size={14} weight="bold" className="shrink-0 text-accent" />
-          Widgets stack into one column on narrow screens. Switch to a wider screen to rearrange your layout.
+          Widgets stack on phone-sized screens. Open the dashboard on a wider screen to rearrange your layout.
         </div>
       )}
 
@@ -206,7 +227,7 @@ export function WidgetGrid({
           // mobile/tablet layouts are display-only single-column stacks, so their
           // coordinates are never written back.
           if (!isEditMode) return;
-          if (breakpoint === "lg" || breakpoint === "md") onLayoutChange(currentLayout);
+          if (DESKTOP_BREAKPOINTS.has(breakpoint)) onLayoutChange(currentLayout);
         }}
         isDraggable={isEditMode && isDesktop}
         isResizable={isEditMode && isDesktop}
