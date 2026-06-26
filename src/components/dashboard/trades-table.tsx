@@ -65,7 +65,7 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
                   {trade.entryPrice.toFixed(2)}
                 </td>
                 <td className="py-3 px-3 text-right tnum text-fg-subtle text-[13px]">
-                  {trade.exitPrice ? trade.exitPrice.toFixed(2) : "—"}
+                  {trade.exitPrice ? trade.exitPrice.toFixed(2) : "·"}
                 </td>
                 <td className={`py-3 px-3 text-right tnum font-medium text-[13px] ${pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg-subtle"}`}>
                   <DisplayValue type="PNL" money={pnl} />

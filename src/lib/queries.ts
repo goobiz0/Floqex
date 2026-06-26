@@ -530,6 +530,66 @@ export async function getRecentNotifications(): Promise<NotificationRow[]> {
   }
 }
 
+export type InstrumentActivity = {
+  instrument: string;
+  trades: TradeRow[];
+  openTrades: TradeRow[];
+  netUnits: number;       // signed holding: +long, -short
+  realizedPnl: number;    // sum of closed netPnl
+  tradeCount: number;
+  winCount: number;
+  hasAccount: boolean;
+};
+
+/**
+ * What the user's bots have done with a specific instrument: open positions
+ * (current holding), recent fills (buys/sells), and realized P&L. Powers the
+ * per-stock activity panel in the markets/stock-search view.
+ */
+export async function getInstrumentActivity(instrument: string): Promise<InstrumentActivity> {
+  const sym = instrument.trim().toUpperCase();
+  const EMPTY: InstrumentActivity = {
+    instrument: sym, trades: [], openTrades: [], netUnits: 0, realizedPnl: 0,
+    tradeCount: 0, winCount: 0, hasAccount: false,
+  };
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY;
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { accounts: { select: { id: true } } },
+    });
+    const accountIds = user?.accounts.map((a) => a.id) ?? [];
+    if (accountIds.length === 0) return EMPTY;
+
+    const rows = await prisma.trade.findMany({
+      where: { accountId: { in: accountIds }, instrument: sym },
+      orderBy: [{ openedAt: "desc" }],
+      take: 200,
+    });
+
+    const trades = rows.map(serializeTrade);
+    const openTrades = trades.filter((t) => t.status === "OPEN");
+    const closed = trades.filter((t) => t.status === "CLOSED");
+    const netUnits = openTrades.reduce(
+      (acc, t) => acc + (t.direction === "LONG" ? 1 : -1) * Math.abs(num(rows.find((r) => r.id === t.id)?.sizeUnits)),
+      0,
+    );
+    return {
+      instrument: sym,
+      trades,
+      openTrades,
+      netUnits,
+      realizedPnl: closed.reduce((s, t) => s + (t.netPnl ?? 0), 0),
+      tradeCount: closed.length,
+      winCount: closed.filter((t) => (t.netPnl ?? 0) > 0).length,
+      hasAccount: true,
+    };
+  } catch {
+    return EMPTY;
+  }
+}
+
 export type NavAccount = { id: string; nickname: string; balance: number; mode: string };
 
 /** Minimal account list for the sidebar accounts section (real balances). */
