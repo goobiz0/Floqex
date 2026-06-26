@@ -235,20 +235,26 @@ export function DashboardPageClient({
     if (item.type === "equity-hero") {
       const isProfit = todayPnl >= 0;
       return (
-        <div className="relative flex h-full w-full flex-col justify-between p-6">
-          <div className={cn("absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-60 pointer-events-none", isProfit ? "from-profit/5" : "from-negative/5")} />
-          <div className="relative z-10 flex items-start justify-between">
-            <span className="text-[28px] font-medium tracking-tight text-fg tnum">
+        <div className="relative flex h-full w-full flex-col justify-between p-6 overflow-hidden">
+          <div className={cn("absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl opacity-40 pointer-events-none", isProfit ? "bg-accent/20" : "bg-negative/15")} />
+          <div className="relative z-10 flex items-center gap-2 text-fg-subtle">
+            <Wallet size={15} weight="fill" className="text-accent" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Active Capital</span>
+          </div>
+          <div className="relative z-10 mt-3">
+            <span className="text-[34px] font-semibold leading-none tracking-tight text-fg tnum">
               {hasAccount ? <DisplayValue type="BALANCE" money={balance} /> : "$0.00"}
             </span>
-            <span className="text-sm font-medium text-fg-subtle">Active Capital</span>
           </div>
-          <div className="relative z-10 mt-auto">
-            <p className="text-sm font-medium text-fg-subtle mb-1">24h PnL</p>
-            <div className="flex items-center gap-2">
+          <div className="relative z-10 mt-auto pt-4 flex items-center justify-between border-t border-line/60">
+            <span className="text-xs font-medium text-fg-subtle">24h PnL</span>
+            <div className="flex items-center gap-1.5">
               {!hasAccount ? <span className="text-sm font-semibold text-fg-subtle">No Account</span>
               : todayPnl === 0 ? <span className="text-sm font-semibold text-fg-subtle">Awaiting Trades</span>
-              : <span className={cn("text-sm font-semibold tnum", isProfit ? "text-profit" : "text-negative")}><DisplayValue type="PNL" money={todayPnl} percent={balance ? (todayPnl / balance) * 100 : undefined} /></span>}
+              : <span className={cn("inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2.5 py-1 text-sm font-semibold tnum", isProfit ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
+                  {isProfit ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}
+                  <DisplayValue type="PNL" money={todayPnl} percent={balance ? (todayPnl / balance) * 100 : undefined} />
+                </span>}
             </div>
           </div>
         </div>

@@ -188,7 +188,7 @@ export function DashboardMockup() {
             >
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.26" />
+                  <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.4" />
                   <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
                 </linearGradient>
               </defs>
