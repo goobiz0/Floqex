@@ -52,8 +52,26 @@ model User {
   accounts           Account[]
   strategies         Strategy[]
   dashboardTemplates DashboardTemplate[]
+  mochiUsage         MochiUsage[]
 
   @@map("users")
+}
+
+// One Mochi (AI copilot) request's token usage, so we can meter per-plan limits
+// over rolling windows (per 5 hours and per week) and show the user what they
+// have spent.
+model MochiUsage {
+  id               String   @id @default(cuid())
+  userId           String
+  ts               DateTime @default(now())
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, ts])
+  @@map("mochi_usage")
 }
 
 // ─────────────────────── Dashboards ───────────────────────────

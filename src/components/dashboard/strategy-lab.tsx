@@ -7,6 +7,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
+import { InfoTip } from "@/components/ui/info-tip";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -212,28 +213,29 @@ export function StrategyLab({
           </div>
         )}
 
-        <Group title="Entry & exit">
+        <Group title="Entry & exit" tip="When the bot enters and how far it targets profit relative to the risk on each trade.">
           <NumberField bound={PARAM_BOUNDS.rangeMinutes} value={params.rangeMinutes} onChange={(v) => set("rangeMinutes", v)} />
           <NumberField bound={PARAM_BOUNDS.rrTarget} value={params.rrTarget} onChange={(v) => set("rrTarget", v)} />
         </Group>
 
-        <Group title="Range filters" premium>
+        <Group title="Range filters" premium tip="Skip sessions that are too quiet or too wild. The day's range is measured against a normal ~1% day.">
           <NumberField bound={PARAM_BOUNDS.minRange} value={params.minRange} onChange={(v) => set("minRange", v)} />
           <NumberField bound={PARAM_BOUNDS.maxRange} value={params.maxRange} onChange={(v) => set("maxRange", v)} />
         </Group>
 
-        <Group title="Risk controls">
+        <Group title="Risk controls" tip="How much you risk per trade, plus the daily limits that stop the bot to protect the account.">
           <NumberField bound={PARAM_BOUNDS.riskPct} value={params.riskPct} onChange={(v) => set("riskPct", v)} />
           <NumberField bound={PARAM_BOUNDS.dailyLoss} value={params.dailyLoss} onChange={(v) => set("dailyLoss", v)} />
           <NumberField bound={PARAM_BOUNDS.maxTrades} value={params.maxTrades} onChange={(v) => set("maxTrades", v)} premium />
         </Group>
 
-        <Group title="Filters" premium>
+        <Group title="Filters" premium tip="Optional confirmations that must agree before a trade is taken.">
           <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Only take trades that agree with the 20-period trend." />
           <ToggleField label={PARAM_LABELS.reEntry} value={params.reEntry} onChange={(v) => set("reEntry", v)} help="Wait for a pullback inside the range before re-entering." />
         </Group>
 
-        <Group title="Custom parameters">
+        <Group title="Custom parameters" tip="Advanced extra values stored with your strategy for custom logic. Leave empty if unsure.">
+
             <div className="space-y-4">
             {customKeys.map((k) => (
               <div key={k} className="flex items-end gap-3">
@@ -503,11 +505,14 @@ export function StrategyLab({
   );
 }
 
-function Group({ title, children, premium }: { title: string; children: React.ReactNode; premium?: boolean }) {
+function Group({ title, children, premium, tip }: { title: string; children: React.ReactNode; premium?: boolean; tip?: string }) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-2">
-        <CardTitle>{title}</CardTitle>
+        <span className="inline-flex items-center gap-1.5">
+          <CardTitle>{title}</CardTitle>
+          {tip && <InfoTip text={tip} />}
+        </span>
         {premium && (
           <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
             <Star size={10} weight="fill" /> Premium

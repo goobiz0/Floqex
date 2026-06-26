@@ -52,6 +52,7 @@ const NAVIGATE: NavItem[] = [
 const MORE: NavItem[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Gear },
   { href: "/dashboard/profile", label: "Preferences", icon: UserCircle },
+  { href: "/dashboard/usage", label: "Usage", icon: ChartBar },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/docs", label: "Help Center", icon: Question },
 ];
