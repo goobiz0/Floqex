@@ -9,7 +9,6 @@ import { usePathname } from "next/navigation";
 import {
   SquaresFour,
   Robot,
-  Notebook,
   Flask,
   ChartBar,
   Wallet,
@@ -45,7 +44,6 @@ const NAVIGATE: NavItem[] = [
   { href: "/dashboard/markets", label: "Markets", icon: MagnifyingGlass },
   { href: "/dashboard/trades", label: "Trades", icon: ChartLineUp },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarBlank },
-  { href: "/dashboard/analytics/playbook", label: "God Mode Playbook", icon: Notebook },
   { href: "/dashboard/strategy", label: "Strategy Lab", icon: Flask },
 ];
 

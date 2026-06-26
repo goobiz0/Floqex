@@ -75,7 +75,7 @@ export async function runAiOptimization(accountId: string) {
   return { ok: true };
 }
 
-export async function saveStrategy(params: StrategyParams) {
+export async function saveStrategy(params: StrategyParams, accountId?: string) {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -85,14 +85,18 @@ export async function saveStrategy(params: StrategyParams) {
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
     include: {
-      accounts: { include: { bot: true } },
-      strategies: true,
+      accounts: { orderBy: { createdAt: "asc" }, include: { bot: true } },
+      strategies: { orderBy: { createdAt: "asc" } },
     },
   });
 
   if (!user) return { ok: false, error: "User not found" };
 
-  const bot = user.accounts[0]?.bot;
+  // Target the account actually being edited (the strategy lab passes its
+  // accountId), not just the first account — otherwise tuning one bot's
+  // strategy could silently overwrite another's.
+  const account = accountId ? user.accounts.find((a) => a.id === accountId) : user.accounts[0];
+  const bot = account?.bot ?? user.accounts[0]?.bot ?? null;
   const strategyId = bot ? bot.strategyId : user.strategies[0]?.id;
 
   if (!strategyId) return { ok: false, error: "Strategy not found" };
@@ -102,7 +106,21 @@ export async function saveStrategy(params: StrategyParams) {
     data: { params: parsed.params as unknown as Prisma.InputJsonValue },
   });
 
+  // A running bot reads its strategy fresh on every tick, so the change takes
+  // effect immediately. Surface that in the live feed so the user can see it.
+  if (bot && bot.status === "RUNNING") {
+    await prisma.agentEvent.create({
+      data: {
+        botId: bot.id,
+        accountId: bot.accountId,
+        kind: "ADJUST",
+        message: "Strategy parameters updated. The running bot will apply the new settings on its next check.",
+      },
+    });
+  }
+
   revalidatePath("/dashboard/strategy");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

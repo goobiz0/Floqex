@@ -3,6 +3,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { WIDGET_CONFIGURABLE } from "./widget-grid";
 
 type WidgetConfigDialogProps = {
   isOpen: boolean;
@@ -30,40 +31,28 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
 
   if (!widgetType) return null;
 
-  return (
-    <Dialog isOpen={isOpen} onClose={onClose} title={`Configure Widget`}>
-      <div className="space-y-4">
-        {widgetType === "equity-hero" && (
-          <div className="space-y-2">
-            <Label>Timeframe</Label>
-            <select 
-              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
-              value={String(localConfig.timeframe) || "1M"}
-              onChange={e => setLocalConfig({ ...localConfig, timeframe: e.target.value })}
-            >
-              <option value="1W">1 Week</option>
-              <option value="1M">1 Month</option>
-              <option value="3M">3 Months</option>
-              <option value="ALL">All Time</option>
-            </select>
-          </div>
-        )}
+  // The grid only ever opens this dialog for configurable widgets, but guard
+  // anyway so we never show an empty "nothing to configure" modal.
+  const isConfigurable = WIDGET_CONFIGURABLE[widgetType] === true;
 
+  return (
+    <Dialog isOpen={isOpen} onClose={onClose} title="Configure Widget">
+      <div className="space-y-4">
         {widgetType === "recent-operations" && (
           <div className="space-y-2">
             <Label>Row Count</Label>
-            <Input 
-              type="number" 
-              min={3} 
-              max={15} 
-              value={String(localConfig.limit) || "6"}
+            <Input
+              type="number"
+              min={3}
+              max={15}
+              value={String(localConfig.limit ?? "6")}
               onChange={e => setLocalConfig({ ...localConfig, limit: Number(e.target.value) })}
             />
-            
+
             <Label className="mt-4 block">Filter</Label>
-            <select 
+            <select
               className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
-              value={String(localConfig.filter) || "ALL"}
+              value={String(localConfig.filter ?? "ALL")}
               onChange={e => setLocalConfig({ ...localConfig, filter: e.target.value })}
             >
               <option value="ALL">All Trades</option>
@@ -73,8 +62,21 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
           </div>
         )}
 
-        {/* Generic fallback for widgets with no specific config yet */}
-        {!["equity-hero", "recent-operations"].includes(widgetType) && (
+        {widgetType === "agent-feed" && (
+          <div className="space-y-2">
+            <Label>Events Shown</Label>
+            <Input
+              type="number"
+              min={5}
+              max={30}
+              value={String(localConfig.limit ?? "10")}
+              onChange={e => setLocalConfig({ ...localConfig, limit: Number(e.target.value) })}
+            />
+            <p className="text-xs text-fg-subtle">How many of the most recent feed entries to keep on screen.</p>
+          </div>
+        )}
+
+        {!isConfigurable && (
           <div className="p-4 border border-line rounded-[var(--radius-control)] bg-surface text-sm text-fg-subtle text-center">
             No configurable options available for this widget yet.
           </div>

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PLANS, PLAN_ORDER, type Plan } from "@/lib/plans";
+import { PLANS, PLAN_ORDER, formatAccountLimit, type Plan } from "@/lib/plans";
 import { startCheckout, openBillingPortal } from "@/app/dashboard/billing/actions";
 
 // Monthly engine-action allowance per plan (real usage is metered against this).
@@ -14,6 +14,17 @@ const ACTION_LIMIT: Record<Plan, number> = {
   PRO: 1_000_000,
   ELITE: Infinity,
 };
+
+// Driven off the real plan catalogue so the table can never drift out of sync
+// with the cards above (a boolean renders as Yes/No, a string renders as-is).
+const COMPARISON_ROWS: { label: string; get: (p: Plan) => string | boolean }[] = [
+  { label: "Max accounts / bots", get: (p) => formatAccountLimit(PLANS[p].accountLimit) },
+  { label: "Live market trading", get: (p) => PLANS[p].liveTrading },
+  { label: "Copy trading", get: (p) => PLANS[p].copyTrading },
+  { label: "Engine actions / month", get: (p) => (Number.isFinite(ACTION_LIMIT[p]) ? ACTION_LIMIT[p].toLocaleString() : "Unlimited") },
+  { label: "Strategy sandbox & backtest", get: () => true },
+  { label: "Priority support", get: (p) => p !== "FREE" },
+];
 
 export function BillingPlans({
   currentPlan,
@@ -151,47 +162,38 @@ export function BillingPlans({
 
       {/* Detailed Feature Comparison Table */}
       <div className="mt-16 overflow-x-auto rounded-[var(--radius-card)] border border-line bg-elevated p-6">
-        <h3 className="mb-6 text-lg font-semibold text-fg">Compare Plans</h3>
-        <table className="w-full text-left text-sm text-fg-subtle">
+        <h3 className="mb-6 text-lg font-semibold text-fg">Compare plans</h3>
+        <table className="w-full min-w-[640px] text-left text-sm text-fg-subtle">
           <thead>
             <tr className="border-b border-line">
-              <th className="py-4 font-medium text-fg w-1/4">Features</th>
-              {PLAN_ORDER.map(id => (
-                <th key={id} className="px-4 py-4 font-medium text-fg w-1/4">{PLANS[id].name}</th>
+              <th className="py-4 font-medium text-fg">Features</th>
+              {PLAN_ORDER.map((id) => (
+                <th key={id} className={cn("px-4 py-4 font-medium", id === currentPlan ? "text-accent" : "text-fg")}>
+                  {PLANS[id].name}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            <tr>
-              <td className="py-4 text-fg">Max Trading Accounts</td>
-              <td className="px-4 py-4">{PLANS.FREE.accountLimit}</td>
-              <td className="px-4 py-4">{PLANS.PRO.accountLimit}</td>
-              <td className="px-4 py-4">Unlimited</td>
-            </tr>
-            <tr>
-              <td className="py-4 text-fg">Live Market Trading</td>
-              <td className="px-4 py-4"><span className="text-negative font-medium">No</span></td>
-              <td className="px-4 py-4"><span className="text-profit font-medium">Yes</span></td>
-              <td className="px-4 py-4"><span className="text-profit font-medium">Yes</span></td>
-            </tr>
-            <tr>
-              <td className="py-4 text-fg">Mochi AI Access</td>
-              <td className="px-4 py-4">Basic</td>
-              <td className="px-4 py-4">Advanced</td>
-              <td className="px-4 py-4">Priority</td>
-            </tr>
-            <tr>
-              <td className="py-4 text-fg">Market Data Ingestion</td>
-              <td className="px-4 py-4">1-minute polling</td>
-              <td className="px-4 py-4 text-fg font-medium">Real-time WebSockets</td>
-              <td className="px-4 py-4 text-fg font-medium">Real-time WebSockets</td>
-            </tr>
-            <tr>
-              <td className="py-4 text-fg">Max Daily Drawdown</td>
-              <td className="px-4 py-4">Fixed (1%)</td>
-              <td className="px-4 py-4">Customizable</td>
-              <td className="px-4 py-4">Uncapped</td>
-            </tr>
+            {COMPARISON_ROWS.map((row) => (
+              <tr key={row.label}>
+                <td className="py-4 text-fg">{row.label}</td>
+                {PLAN_ORDER.map((id) => {
+                  const v = row.get(id);
+                  return (
+                    <td key={id} className="px-4 py-4">
+                      {v === true ? (
+                        <span className="font-medium text-profit">Yes</span>
+                      ) : v === false ? (
+                        <span className="font-medium text-fg-faint">No</span>
+                      ) : (
+                        <span className={cn(id === currentPlan && "font-medium text-fg")}>{v}</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

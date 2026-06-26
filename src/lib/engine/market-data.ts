@@ -1,5 +1,13 @@
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 import { getYahooSymbol, getMarketForInstrument, isInstrumentTradeable, type MarketKind } from '@/lib/market';
+
+// yahoo-finance2 v3 ships the API as a CLASS that must be instantiated — calling
+// the methods statically (the v2 style) throws "Call `new YahooFinance()`
+// first.". That single mistake silently broke every quote/historical lookup,
+// which is why both the live engine and the market search returned no data. We
+// instantiate one client per process and suppress the noisy survey/deprecation
+// notices.
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 
 // In-memory caches. The engine is a single long-running worker, so an in-memory
 // cache is effective and avoids a hard Redis dependency. Quotes are cached for a
@@ -119,5 +127,92 @@ export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapsho
   } catch (error) {
     console.error(`Quote snapshot error for ${symbol}:`, error);
     return null;
+  }
+}
+
+// Daily OHLC bars for the strategy backtest/sandbox. Real Yahoo history, mapped
+// to a compact shape and cached briefly so repeated previews are cheap.
+export interface HistoryBar {
+  date: string; // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+const historyCache: Record<string, { bars: HistoryBar[]; expiresAt: number }> = {};
+const HISTORY_TTL_MS = 1000 * 60 * 30; // 30 minutes
+
+export async function getHistoryBars(instrument: string, days = 180): Promise<HistoryBar[]> {
+  const symbol = getYahooSymbol(instrument);
+  const cacheKey = `${symbol}:${days}`;
+  const cached = historyCache[cacheKey];
+  if (cached && cached.expiresAt > Date.now()) return cached.bars;
+
+  try {
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    const rows = (await yahooFinance.historical(symbol, {
+      period1: start.toISOString().split("T")[0],
+      period2: new Date().toISOString().split("T")[0],
+    })) as unknown as Array<{ date: Date | string; open: number; high: number; low: number; close: number }>;
+
+    const bars: HistoryBar[] = (rows ?? [])
+      .filter((r) => r && r.open != null && r.high != null && r.low != null && r.close != null)
+      .map((r) => ({
+        date: (r.date instanceof Date ? r.date.toISOString() : String(r.date)).slice(0, 10),
+        open: Number(r.open),
+        high: Number(r.high),
+        low: Number(r.low),
+        close: Number(r.close),
+      }));
+
+    historyCache[cacheKey] = { bars, expiresAt: Date.now() + HISTORY_TTL_MS };
+    return bars;
+  } catch (error) {
+    console.error(`History fetch error for ${symbol}:`, error);
+    return [];
+  }
+}
+
+// Symbol autocomplete for the market search. Lets a user find *any* listed
+// instrument by name or ticker (e.g. "apple", "GOOGL", "uranium") rather than
+// only the handful of suggestion chips, then resolves it to a tradeable symbol.
+export interface SymbolSearchResult {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+  market: MarketKind;
+}
+
+export async function searchSymbols(query: string, limit = 8): Promise<SymbolSearchResult[]> {
+  const q = query.trim();
+  if (q.length < 1) return [];
+  try {
+    const res = (await yahooFinance.search(q, { newsCount: 0, quotesCount: limit + 4 })) as {
+      quotes?: Array<Record<string, unknown>>;
+    };
+    const quotes = res?.quotes ?? [];
+    const seen = new Set<string>();
+    const out: SymbolSearchResult[] = [];
+    for (const item of quotes) {
+      const symbol = typeof item.symbol === "string" ? item.symbol : null;
+      // Skip news hits and anything without a real tradeable symbol.
+      if (!symbol || item.isYahooFinance === false || seen.has(symbol)) continue;
+      seen.add(symbol);
+      out.push({
+        symbol,
+        name: (item.shortname as string) || (item.longname as string) || symbol,
+        exchange: (item.exchange as string) || "",
+        type: (item.quoteType as string) || "",
+        market: getMarketForInstrument(symbol),
+      });
+      if (out.length >= limit) break;
+    }
+    return out;
+  } catch (error) {
+    console.error(`Symbol search error for "${q}":`, error);
+    return [];
   }
 }

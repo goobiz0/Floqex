@@ -139,7 +139,7 @@ function BotCard({ bot }: { bot: BotRow }) {
             {isRunning ? "Stop" : "Start"}
           </Button>
         ) : (
-          <Link href={dashboardUrl("/accounts")} className="text-sm font-medium text-accent hover:text-accent-hover">
+          <Link href={dashboardUrl("/bots/new")} className="text-sm font-medium text-accent hover:text-accent-hover">
             Attach a bot
           </Link>
         )}

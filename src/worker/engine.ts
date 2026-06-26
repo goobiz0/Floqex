@@ -4,6 +4,7 @@ import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit } from "../li
 import { executeTrade, closeTrade } from "../lib/engine/execution-router";
 import { validateRisk } from "../lib/engine/risk-engine";
 import { BrokerNotConfiguredError } from "../lib/engine/live-broker";
+import { recordBotStatus, RISK_REASON_TEXT } from "../lib/engine/feedback";
 import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
 
@@ -44,21 +45,16 @@ async function tick() {
 
       const instrument = params.instrument || "NQ";
       const marketData = await getRealMarketData(instrument);
-      
-      if (!marketData) {
-        continue;
-      }
 
-      // Log info event occasionally to prove the engine is listening
-      if (Math.random() > 0.8 && !openTrade) {
-        await prisma.agentEvent.create({
-          data: {
-            botId: bot.id,
-            accountId: bot.accountId,
-            kind: "INFO",
-            message: `Market pulse: ${instrument} @ ${marketData.price.toFixed(2)}. Day range: ${marketData.dayLow.toFixed(2)} - ${marketData.dayHigh.toFixed(2)}.`,
-          }
+      if (!marketData) {
+        await recordBotStatus({
+          botId: bot.id,
+          accountId: bot.accountId,
+          kind: "INFO",
+          message: `Couldn't fetch a live price for ${instrument} this tick. The bot will keep retrying.`,
+          throttleMs: 10 * 60 * 1000,
         });
+        continue;
       }
 
       if (openTrade) {
@@ -99,16 +95,13 @@ async function tick() {
       } else {
         // Only open new positions while the instrument's market is in session.
         if (!isInstrumentTradeable(instrument)) {
-          if (Math.random() > 0.95) {
-            await prisma.agentEvent.create({
-              data: {
-                botId: bot.id,
-                accountId: bot.accountId,
-                kind: "INFO",
-                message: `${marketLabel(getMarketForInstrument(instrument))} is closed. Holding flat on ${instrument} until the next session.`,
-              }
-            });
-          }
+          await recordBotStatus({
+            botId: bot.id,
+            accountId: bot.accountId,
+            kind: "INFO",
+            message: `${marketLabel(getMarketForInstrument(instrument))} is closed right now. Holding flat on ${instrument}. The bot will look for entries when the market reopens.`,
+            throttleMs: 30 * 60 * 1000,
+          });
           continue;
         }
 
@@ -118,13 +111,35 @@ async function tick() {
         } else {
           entrySignal = evaluateOrbStrategy(params, marketData, null);
         }
-        if (entrySignal) {
+        if (!entrySignal) {
+          // Alive and scanning — no qualifying setup yet. Static copy so the
+          // de-dupe in recordBotStatus can throttle the feed.
+          const detail = bot.strategy.kind === 'CUSTOM'
+            ? "the strategy conditions haven't all been met yet"
+            : "price hasn't pushed to the edge of the day's range yet";
+          await recordBotStatus({
+            botId: bot.id,
+            accountId: bot.accountId,
+            kind: "INFO",
+            message: `Scanning ${instrument} for a setup. No entry yet (${detail}). Holding flat.`,
+            throttleMs: 15 * 60 * 1000,
+          });
+        } else {
           console.log(`[ENTRY SIGNAL] ${entrySignal.direction} on bot ${bot.id}`);
 
-          const risk = await validateRisk(bot.id, bot.accountId, entrySignal);
+          const risk = await validateRisk(bot.id, bot.accountId, entrySignal, params);
           if (!risk.passed) {
             console.warn(`[RISK REJECTED] Bot ${bot.id} trade rejected: ${risk.reason}`);
-            
+
+            const reason = risk.reason ?? "RISK_BLOCKED";
+            await recordBotStatus({
+              botId: bot.id,
+              accountId: bot.accountId,
+              kind: "RISK",
+              message: `Setup found on ${instrument} but the trade was blocked: ${RISK_REASON_TEXT[reason] ?? reason}`,
+              throttleMs: 10 * 60 * 1000,
+            });
+
             if (risk.reason === "GLOBAL_HARD_STOP_BALANCE_TOO_LOW" || risk.reason === "CIRCUIT_BREAKER_TRIPPED") {
               await sendUrgentAlert(bot.account.userId, "RISK", "Risk Engine Tripped", `Trade rejected due to risk constraints.`, { botId: bot.id, reason: risk.reason });
             }

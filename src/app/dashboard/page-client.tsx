@@ -278,6 +278,7 @@ export function DashboardPageClient({
 
     // --- Live Execution Feed ---
     if (item.type === "agent-feed") {
+      const feedLimit = Math.min(30, Math.max(5, Number(item.config.limit) || 10));
       return (
         <div className="relative flex h-full w-full flex-col p-6">
           <div className="flex items-center justify-between mb-4 shrink-0">
@@ -306,7 +307,7 @@ export function DashboardPageClient({
               <div className="flex items-center justify-center h-full"><p className="text-xs text-fg-subtle text-center">Listening...</p></div>
             ) : (
               <div className="flex flex-col gap-3 justify-end min-h-full">
-                {liveEvents.slice(-10).map((event, i) => (
+                {liveEvents.slice(-feedLimit).map((event, i) => (
                   <motion.div 
                     key={event.id}
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}

@@ -5,7 +5,8 @@ import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit } from "@/lib
 import { executeTrade, closeTrade } from "@/lib/engine/execution-router";
 import { validateRisk } from "@/lib/engine/risk-engine";
 import { BrokerNotConfiguredError } from "@/lib/engine/live-broker";
-import { isInstrumentTradeable } from "@/lib/market";
+import { recordBotStatus, RISK_REASON_TEXT } from "@/lib/engine/feedback";
+import { isInstrumentTradeable, getMarketForInstrument, marketLabel } from "@/lib/market";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,18 @@ export async function GET(req: Request) {
 
       const openTrade = await prisma.trade.findFirst({ where: { botId: bot.id, status: "OPEN" } });
       const marketData = await getRealMarketData(instrument);
-      if (!marketData) continue;
+      if (!marketData) {
+        // Be explicit: the bot is running but can't see a price feed for this
+        // instrument, so the user knows it isn't silently broken.
+        await recordBotStatus({
+          botId: bot.id,
+          accountId: bot.accountId,
+          kind: "INFO",
+          message: `Couldn't fetch a live price for ${instrument} this tick. The bot will keep retrying.`,
+          throttleMs: 10 * 60 * 1000,
+        });
+        continue;
+      }
       processed++;
 
       if (openTrade) {
@@ -69,15 +81,47 @@ export async function GET(req: Request) {
       }
 
       // New entries only while the instrument's market is open.
-      if (!isInstrumentTradeable(instrument)) continue;
+      if (!isInstrumentTradeable(instrument)) {
+        const market = marketLabel(getMarketForInstrument(instrument));
+        await recordBotStatus({
+          botId: bot.id,
+          accountId: bot.accountId,
+          kind: "INFO",
+          message: `${market} is closed right now. Holding flat on ${instrument}. The bot will look for entries when the market reopens.`,
+          throttleMs: 30 * 60 * 1000,
+        });
+        continue;
+      }
 
       const entrySignal = bot.strategy.kind === "CUSTOM"
         ? evaluateCustomStrategy(params, marketData, null)
         : evaluateOrbStrategy(params, marketData, null);
-      if (!entrySignal) continue;
+      if (!entrySignal) {
+        // Alive and scanning — just no qualifying setup yet. Keep the copy static
+        // (no live price) so the de-dupe in recordBotStatus can throttle it.
+        const detail = bot.strategy.kind === "CUSTOM"
+          ? "the strategy conditions haven't all been met yet"
+          : "price hasn't pushed to the edge of the day's range yet";
+        await recordBotStatus({
+          botId: bot.id,
+          accountId: bot.accountId,
+          kind: "INFO",
+          message: `Scanning ${instrument} for a setup. No entry yet (${detail}). Holding flat.`,
+          throttleMs: 15 * 60 * 1000,
+        });
+        continue;
+      }
 
-      const risk = await validateRisk(bot.id, bot.accountId, entrySignal);
+      const risk = await validateRisk(bot.id, bot.accountId, entrySignal, params);
       if (!risk.passed) {
+        const reason = risk.reason ?? "RISK_BLOCKED";
+        await recordBotStatus({
+          botId: bot.id,
+          accountId: bot.accountId,
+          kind: "RISK",
+          message: `Setup found on ${instrument} but the trade was blocked: ${RISK_REASON_TEXT[reason] ?? reason}`,
+          throttleMs: 10 * 60 * 1000,
+        });
         if (risk.reason === "GLOBAL_HARD_STOP_BALANCE_TOO_LOW") {
           await prisma.bot.update({ where: { id: bot.id }, data: { status: "STOPPED" } });
         }
