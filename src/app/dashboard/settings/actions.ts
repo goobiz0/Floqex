@@ -23,7 +23,7 @@ export type NotificationPrefs = {
   drawdownAlertPct: number;
   globalKillSwitch: boolean;
   maxGlobalDrawdown: number;
-  marketAsxEnabled: boolean;
+
 };
 
 const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
@@ -65,7 +65,7 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
         drawdownAlertPct: clampPct(prefs.drawdownAlertPct, 0, 100),
         globalKillSwitch: prefs.globalKillSwitch,
         maxGlobalDrawdown: clampPct(prefs.maxGlobalDrawdown, 0, 100),
-        marketAsxEnabled: prefs.marketAsxEnabled,
+
       },
     });
     return { ok: true };
@@ -228,3 +228,24 @@ export async function generateMcpKey(): Promise<Result & { key?: string }> {
   }
 }
 
+
+
+export async function toggleAsxMarket(enabled: boolean): Promise<{ ok: boolean }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false };
+  try {
+    const client = await clerkClient();
+    const current = await client.users.getUser(userId);
+    await client.users.updateUserMetadata(userId, {
+      privateMetadata: {
+        ...current.privateMetadata,
+        marketAsxEnabled: enabled,
+      },
+    });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}

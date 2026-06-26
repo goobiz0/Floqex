@@ -27,8 +27,32 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
       const clerkUser = await client.users.getUser(userId);
       userNickname = clerkUser.firstName || clerkUser.emailAddresses[0]?.emailAddress.split('@')[0] || "User";
       userAvatarUrl = clerkUser.imageUrl || userAvatarUrl;
-      const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { plan: true } });
-      if (dbUser) userPlan = dbUser.plan;
+
+      const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } });
+      if (dbUser) {
+        userPlan = dbUser.plan;
+
+        // Active checking to ensure plan sync
+        if (dbUser.stripeSubscriptionId) {
+          try {
+            const { getStripe } = await import("@/lib/stripe");
+            const sub = await getStripe().subscriptions.retrieve(dbUser.stripeSubscriptionId);
+            const { isPaidPriceId, planFromPriceId } = await import("@/lib/plans");
+
+            const priceId = sub.items.data.map((i) => i.price?.id).find((id) => isPaidPriceId(id)) ?? sub.items.data[0]?.price?.id;
+            const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
+            const syncedPlan = active ? ((sub.metadata?.plan as any) || planFromPriceId(priceId)) : "FREE";
+
+            if (dbUser.plan !== syncedPlan) {
+               await prisma.user.update({ where: { id: dbUser.id }, data: { plan: syncedPlan } });
+               userPlan = syncedPlan;
+            }
+          } catch (e) {
+             console.error("Failed to sync stripe plan on load:", e);
+          }
+        }
+      }
+
     } catch {}
   }
 
