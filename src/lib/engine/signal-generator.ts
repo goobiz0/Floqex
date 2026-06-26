@@ -1,5 +1,8 @@
 import { MarketData } from './market-data';
 import type { Trade } from '@prisma/client';
+import { evaluateBuilder, type ConditionGroup } from '../custom-strategy';
+import { runStrategyCode } from './sandbox';
+import type { IndicatorContext } from './indicators';
 
 export type Signal = {
   direction: 'LONG' | 'SHORT';
@@ -67,60 +70,107 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
   return null;
 }
 
-export function evaluateCustomStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null): Signal {
-  if (openTrade) return null;
-  if (!params || !params.conditions || !Array.isArray(params.conditions)) return null;
+/**
+ * Build the indicator evaluation context for a tick. Prefers the rich indicator
+ * set the market-data layer computes from history; falls back to a minimal
+ * context (so legacy strategies that only reference price/sma50/day high/low keep
+ * working even when the full indicator set is unavailable).
+ */
+function contextFromMarketData(marketData: MarketData): IndicatorContext {
+  if (marketData.indicators) return marketData.indicators;
+  const range = marketData.dayHigh - marketData.dayLow;
+  return {
+    price: marketData.price,
+    prevClose: null,
+    changePct: null,
+    dayHigh: marketData.dayHigh,
+    dayLow: marketData.dayLow,
+    rangePosition: range > 0 ? ((marketData.price - marketData.dayLow) / range) * 100 : null,
+    sma20: null,
+    sma50: marketData.sma50,
+    sma200: null,
+    ema12: null,
+    ema26: null,
+    macd: null,
+    rsi14: null,
+    atr14: null,
+    atrPct: null,
+    volume: null,
+  };
+}
 
+/** Construct a stop/target signal for a side from the configured risk settings. */
+function buildSignal(side: 'LONG' | 'SHORT', price: number, stopLossPct: number, targetRatio: number): Signal {
+  if (side === 'LONG') {
+    const stopPrice = price * (1 - stopLossPct / 100);
+    const riskAmt = price - stopPrice;
+    return { direction: 'LONG', entryPrice: price, stopPrice, targetPrice: price + riskAmt * targetRatio };
+  }
+  const stopPrice = price * (1 + stopLossPct / 100);
+  const riskAmt = stopPrice - price;
+  return { direction: 'SHORT', entryPrice: price, stopPrice, targetPrice: price - riskAmt * targetRatio };
+}
+
+/** Legacy flat-condition evaluation, kept so bots created before the rule-group
+ * upgrade keep trading unchanged. */
+function evaluateLegacyConditions(params: Record<string, unknown>, marketData: MarketData): boolean {
+  if (!Array.isArray(params.conditions)) return false;
   const getValue = (val: string | number) => {
     if (typeof val === 'number') return val;
     if (val in marketData) return (marketData as unknown as Record<string, number>)[val as string] || 0;
     return Number(val);
   };
-
-  let allTrue = true;
   for (const conditionObj of params.conditions as Record<string, unknown>[]) {
     const condition = conditionObj as Record<string, string | number>;
     const lhs = getValue(condition.indicator as string);
     const rhs = getValue(condition.value);
-    
     switch (condition.operator) {
-      case '>': if (!(lhs > rhs)) allTrue = false; break;
-      case '<': if (!(lhs < rhs)) allTrue = false; break;
-      case '>=': if (!(lhs >= rhs)) allTrue = false; break;
-      case '<=': if (!(lhs <= rhs)) allTrue = false; break;
-      case '==': if (!(lhs == rhs)) allTrue = false; break;
-      default: allTrue = false;
+      case '>': if (!(lhs > rhs)) return false; break;
+      case '<': if (!(lhs < rhs)) return false; break;
+      case '>=': if (!(lhs >= rhs)) return false; break;
+      case '<=': if (!(lhs <= rhs)) return false; break;
+      case '==': if (!(lhs == rhs)) return false; break;
+      default: return false;
     }
-    if (!allTrue) break;
+  }
+  return true;
+}
+
+export function evaluateCustomStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null): Signal {
+  if (openTrade) return null;
+  if (!params) return null;
+
+  const ctx = contextFromMarketData(marketData);
+  const direction = params.direction === 'SHORT' ? 'SHORT' : 'LONG';
+  const stopLossPct = Number(params.stopLossPct) || 0.5;
+  const targetRatio = Number(params.targetRatio) || 2.0;
+
+  // Code mode: run the user's sandboxed JavaScript. Beta languages do not execute
+  // live yet, so the bot simply holds flat for those until the runtime ships.
+  if (params.mode === 'CODE') {
+    if (params.language && params.language !== 'javascript') return null;
+    const code = typeof params.code === 'string' ? params.code : '';
+    if (!code.trim()) return null;
+    const run = runStrategyCode(code, ctx);
+    if (!run.ok || !run.decision) return null;
+    return buildSignal(
+      run.decision.side,
+      marketData.price,
+      run.decision.stopLossPct ?? stopLossPct,
+      run.decision.targetRatio ?? targetRatio,
+    );
   }
 
-  if (allTrue) {
-    // If the strategy can go BOTH ways, we would need more logic. 
-    // For simplicity, assume the user explicitly stated LONG or SHORT in the AST.
-    const direction = params.direction === 'SHORT' ? 'SHORT' : 'LONG';
-    const price = marketData.price;
-    const stopLossPct = Number(params.stopLossPct) || 0.5;
-    const targetRatio = Number(params.targetRatio) || 2.0;
+  // Rule-builder groups (AND across groups, ALL/ANY within).
+  if (Array.isArray(params.groups)) {
+    if (!evaluateBuilder(params.groups as ConditionGroup[], ctx)) return null;
+    return buildSignal(direction, marketData.price, stopLossPct, targetRatio);
+  }
 
-    if (direction === 'LONG') {
-      const stopPrice = price * (1 - (stopLossPct / 100));
-      const riskAmt = price - stopPrice;
-      return {
-        direction: 'LONG',
-        entryPrice: price,
-        stopPrice,
-        targetPrice: price + (riskAmt * targetRatio),
-      };
-    } else {
-      const stopPrice = price * (1 + (stopLossPct / 100));
-      const riskAmt = stopPrice - price;
-      return {
-        direction: 'SHORT',
-        entryPrice: price,
-        stopPrice,
-        targetPrice: price - (riskAmt * targetRatio),
-      };
-    }
+  // Legacy flat conditions.
+  if (Array.isArray(params.conditions)) {
+    if (!evaluateLegacyConditions(params, marketData)) return null;
+    return buildSignal(direction, marketData.price, stopLossPct, targetRatio);
   }
 
   return null;

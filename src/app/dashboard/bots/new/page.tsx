@@ -44,7 +44,9 @@ export default async function NewBotPage() {
         </p>
       </div>
 
-      <BotsNewClient availableAccounts={availableAccounts.map(a => ({
+      <BotsNewClient
+        plan={user.plan}
+        availableAccounts={availableAccounts.map(a => ({
         ...a,
         balance: Number(a.balance)
       }))} />

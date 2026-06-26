@@ -1,17 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { Robot, CaretLeft, Wallet, Sliders, TrendUp, TrendDown, ShieldCheck, Plus, X, Star } from "@phosphor-icons/react/dist/ssr";
+import {
+  Robot,
+  CaretLeft,
+  Wallet,
+  Sliders,
+  TrendUp,
+  ShieldCheck,
+  Star,
+  Code,
+  Lightning,
+  Stack,
+  Sparkle,
+} from "@phosphor-icons/react";
 import { createBot } from "../actions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
-import { SymbolSearchInput } from "@/components/dashboard/symbol-search-input";
+import { InfoTip } from "@/components/ui/tooltip";
+import { AssetMultiSelect } from "@/components/dashboard/asset-multi-select";
+import { CustomSignalBuilder } from "@/components/dashboard/custom-signal-builder";
+import { StrategyCodeEditor } from "@/components/dashboard/strategy-code-editor";
 import Link from "next/link";
 import { cn, formatUSD } from "@/lib/utils";
 import { DEFAULT_PARAMS, PARAM_BOUNDS, type Bound, type NumericParam } from "@/lib/strategy-schema";
+import {
+  defaultBuilderConfig,
+  defaultCodeConfig,
+  type ConditionGroup,
+  type StrategyLanguage,
+} from "@/lib/custom-strategy";
 
 type AccountProp = {
   id: string;
@@ -21,52 +42,98 @@ type AccountProp = {
   balance: number;
 };
 
+type StrategyMode = "ORB" | "BUILDER" | "CODE";
+
 // Premium parameters (live only on paid plans). Marked in the UI so users know
 // what they get for upgrading.
 const PREMIUM_PARAMS = new Set<string>(["minRange", "maxRange", "maxTrades", "trendFilter", "reEntry"]);
 
-const QUICK_SYMBOLS = ["NQ", "ES", "AAPL", "NVDA", "BTC", "BHP.AX"];
+const QUICK_SYMBOLS = ["NQ", "ES", "AAPL", "NVDA", "BTC", "SPY"];
 
-// Indicators the custom engine understands (must match MarketData keys).
-const INDICATORS = [
-  { key: "price", label: "Price" },
-  { key: "sma50", label: "50-day average" },
-  { key: "dayHigh", label: "Day high" },
-  { key: "dayLow", label: "Day low" },
+// Beginner-friendly presets for the rule builder.
+const BUILDER_PRESETS: { id: string; label: string; help: string; direction: "LONG" | "SHORT"; groups: ConditionGroup[] }[] = [
+  {
+    id: "trend-pullback",
+    label: "Trend pullback",
+    help: "Buy dips while the trend is up: price above the 50 SMA and RSI below 40.",
+    direction: "LONG",
+    groups: [
+      {
+        join: "ALL",
+        conditions: [
+          { left: "price", op: ">", right: { kind: "indicator", key: "sma50" } },
+          { left: "rsi14", op: "<", right: { kind: "value", value: 40 } },
+        ],
+      },
+    ],
+  },
+  {
+    id: "breakout",
+    label: "Momentum breakout",
+    help: "Enter strength: price at the day high with positive MACD momentum.",
+    direction: "LONG",
+    groups: [
+      {
+        join: "ALL",
+        conditions: [
+          { left: "rangePosition", op: ">", right: { kind: "value", value: 90 } },
+          { left: "macd", op: ">", right: { kind: "value", value: 0 } },
+        ],
+      },
+    ],
+  },
+  {
+    id: "mean-reversion",
+    label: "Mean reversion",
+    help: "Fade extremes: RSI deeply oversold while price holds above the 200 SMA.",
+    direction: "LONG",
+    groups: [
+      {
+        join: "ALL",
+        conditions: [
+          { left: "rsi14", op: "<", right: { kind: "value", value: 25 } },
+          { left: "price", op: ">", right: { kind: "indicator", key: "sma200" } },
+        ],
+      },
+    ],
+  },
 ];
-const OPERATORS = [
-  { key: ">", label: "is above" },
-  { key: "<", label: "is below" },
-  { key: ">=", label: "is at or above" },
-  { key: "<=", label: "is at or below" },
-];
 
-type Condition = { indicator: string; operator: string; value: number | string };
-
-export function BotsNewClient({ availableAccounts }: { availableAccounts: AccountProp[] }) {
+export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: AccountProp[]; plan: string }) {
   const router = useRouter();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(availableAccounts[0]?.id ?? "");
-  const [strategyKind, setStrategyKind] = useState<"ORB" | "CUSTOM">("ORB");
-  const [instrument, setInstrument] = useState<string>("NQ");
+  const [instruments, setInstruments] = useState<string[]>(["NQ"]);
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>("ORB");
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [loading, setLoading] = useState(false);
 
-  // Custom strategy state
-  const [direction, setDirection] = useState<"LONG" | "SHORT">("LONG");
-  const [conditions, setConditions] = useState<Condition[]>([{ indicator: "price", operator: ">", value: "sma50" }]);
+  // Builder strategy state.
+  const builderDefaults = useMemo(() => defaultBuilderConfig(), []);
+  const [direction, setDirection] = useState<"LONG" | "SHORT">(builderDefaults.direction);
+  const [groups, setGroups] = useState<ConditionGroup[]>(builderDefaults.groups);
+
+  // Code strategy state.
+  const codeDefaults = useMemo(() => defaultCodeConfig(), []);
+  const [language, setLanguage] = useState<StrategyLanguage>(codeDefaults.language);
+  const [code, setCode] = useState<string>(codeDefaults.code);
+
+  // Shared custom risk (used by builder + code).
   const [stopLossPct, setStopLossPct] = useState(0.5);
   const [targetRatio, setTargetRatio] = useState(2);
+
+  const isFree = plan === "FREE";
 
   function handleNumParam(key: NumericParam, value: number) {
     setParams((p) => ({ ...p, [key]: value }));
   }
-
   function handleBoolParam(key: "trendFilter" | "reEntry" | "newsPause", value: boolean) {
     setParams((p) => ({ ...p, [key]: value }));
   }
 
-  function updateCondition(idx: number, patch: Partial<Condition>) {
-    setConditions((cs) => cs.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  function applyPreset(preset: (typeof BUILDER_PRESETS)[number]) {
+    setDirection(preset.direction);
+    setGroups(preset.groups.map((g) => ({ ...g, conditions: g.conditions.map((c) => ({ ...c })) })));
+    toast.success(`Loaded the ${preset.label} preset.`);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,28 +142,42 @@ export function BotsNewClient({ availableAccounts }: { availableAccounts: Accoun
       toast.error("Please select an account.");
       return;
     }
-    const inst = instrument.trim().toUpperCase() || "NQ";
-
-    if (strategyKind === "CUSTOM" && conditions.length === 0) {
-      toast.error("Add at least one entry condition for a custom strategy.");
+    if (instruments.length === 0) {
+      toast.error("Choose at least one asset for the bot to trade.");
+      return;
+    }
+    if (strategyMode === "BUILDER" && groups.every((g) => g.conditions.length === 0)) {
+      toast.error("Add at least one entry condition.");
+      return;
+    }
+    if (strategyMode === "CODE" && !code.trim()) {
+      toast.error("Write some strategy code before deploying.");
       return;
     }
 
-    const finalParams = {
+    const strategyKind = strategyMode === "ORB" ? "ORB" : "CUSTOM";
+    const finalParams: Record<string, unknown> = {
       ...params,
-      instrument: inst,
-      ...(strategyKind === "CUSTOM"
-        ? { direction, conditions, stopLossPct, targetRatio }
-        : {}),
+      instruments,
+      instrument: instruments[0],
     };
 
+    if (strategyMode === "BUILDER") {
+      Object.assign(finalParams, { mode: "BUILDER", direction, groups, stopLossPct, targetRatio });
+    } else if (strategyMode === "CODE") {
+      Object.assign(finalParams, { mode: "CODE", language, code, direction: "LONG", stopLossPct, targetRatio });
+    }
+
+    const symbolSummary = `${instruments[0]}${instruments.length > 1 ? ` +${instruments.length - 1}` : ""}`;
+    const name =
+      strategyMode === "ORB"
+        ? `Opening Range Breakout · ${symbolSummary}`
+        : strategyMode === "BUILDER"
+          ? `Custom Signal · ${symbolSummary}`
+          : `Custom Code · ${symbolSummary}`;
+
     setLoading(true);
-    const res = await createBot({
-      accountId: selectedAccountId,
-      strategyName: strategyKind === "ORB" ? `Opening Range Breakout · ${inst}` : `Custom Alpha · ${inst}`,
-      strategyKind,
-      params: finalParams,
-    });
+    const res = await createBot({ accountId: selectedAccountId, strategyName: name, strategyKind, params: finalParams });
     setLoading(false);
 
     if (res.ok) {
@@ -133,7 +214,7 @@ export function BotsNewClient({ availableAccounts }: { availableAccounts: Accoun
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Step 1: Account Selection */}
-        <Section step={1} title="Target account">
+        <Section step={1} title="Target account" hint="The broker account this bot is attached to. Each account runs one bot.">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {availableAccounts.map((a) => (
               <button
@@ -155,182 +236,157 @@ export function BotsNewClient({ availableAccounts }: { availableAccounts: Accoun
           </div>
         </Section>
 
-        {/* Step 2: Instrument */}
-        <Section step={2} title="What should this bot trade?">
-          <SymbolSearchInput value={instrument} onSelect={(s) => setInstrument(s)} />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {QUICK_SYMBOLS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setInstrument(s)}
-                className={cn(
-                  "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
-                  instrument === s ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
-                )}
-              >
-                {s}
-              </button>
-            ))}
+        {/* Step 2: Instruments (multi-asset) */}
+        <Section
+          step={2}
+          title="What should this bot trade?"
+          hint="Search any stock, ETF, index or crypto. Add several and the bot manages each one independently with your risk limits."
+          badge={instruments.length > 1 ? <PaidPill label="Multi-asset" /> : undefined}
+        >
+          <AssetMultiSelect value={instruments} onChange={setInstruments} />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-fg-subtle">Quick add:</span>
+            {QUICK_SYMBOLS.map((s) => {
+              const active = instruments.includes(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setInstruments((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
+                  className={cn(
+                    "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
+                    active ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
+                  )}
+                >
+                  {s}
+                </button>
+              );
+            })}
           </div>
         </Section>
 
         {/* Step 3: Strategy Type */}
-        <Section step={3} title="Strategy type">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Section step={3} title="Strategy type" hint="Pick how this bot finds trades. Risk management below applies to all three.">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <StrategyCard
-              active={strategyKind === "ORB"}
-              onClick={() => setStrategyKind("ORB")}
+              active={strategyMode === "ORB"}
+              onClick={() => setStrategyMode("ORB")}
               icon={<TrendUp size={20} weight="bold" />}
               title="Opening Range Breakout"
-              desc="Captures momentum as price breaks the edge of the day's range. A proven, rules-based starting point."
+              desc="Captures momentum as price breaks the day's opening range. A proven, rules-based starting point."
             />
             <StrategyCard
-              active={strategyKind === "CUSTOM"}
-              onClick={() => setStrategyKind("CUSTOM")}
+              active={strategyMode === "BUILDER"}
+              onClick={() => setStrategyMode("BUILDER")}
               icon={<Sliders size={20} weight="bold" />}
               title="Custom signal"
-              desc="Build your own entry rules from live indicators. The engine supplies data and manages risk to your limits."
+              desc="Compose entry rules from 16 live indicators with AND / OR logic. No code needed."
+            />
+            <StrategyCard
+              active={strategyMode === "CODE"}
+              onClick={() => setStrategyMode("CODE")}
+              icon={<Code size={20} weight="bold" />}
+              title="Custom code"
+              desc="Write your own strategy in JavaScript, Python or Pine Script. Full control."
+              premium
             />
           </div>
         </Section>
 
         {/* Step 4: Logic */}
-        <Section step={4} title={strategyKind === "ORB" ? "Execution logic" : "Custom entry rules"}>
-          {strategyKind === "ORB" ? (
+        <Section
+          step={4}
+          title={strategyMode === "ORB" ? "Execution logic" : strategyMode === "BUILDER" ? "Custom entry rules" : "Strategy code"}
+          icon={strategyMode === "CODE" ? <Lightning size={16} className="text-accent" /> : undefined}
+        >
+          {strategyMode === "ORB" ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {(["rangeMinutes", "minRange", "maxRange", "minVolume"] as NumericParam[]).map((key) => (
-                  <SliderField
-                    key={key}
-                    bound={PARAM_BOUNDS[key]}
-                    value={params[key]}
-                    onChange={(v) => handleNumParam(key, v)}
-                    premium={PREMIUM_PARAMS.has(key)}
-                  />
+                  <SliderField key={key} bound={PARAM_BOUNDS[key]} value={params[key]} onChange={(v) => handleNumParam(key, v)} premium={PREMIUM_PARAMS.has(key)} />
                 ))}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-line">
-                <CheckField label="Trend filter" premium checked={params.trendFilter} onChange={(v) => handleBoolParam("trendFilter", v)} />
-                <CheckField label="Allow re-entries" premium checked={params.reEntry} onChange={(v) => handleBoolParam("reEntry", v)} />
-                <CheckField label="Pause on high-impact news" checked={params.newsPause} onChange={(v) => handleBoolParam("newsPause", v)} />
+                <CheckField label="Trend filter" premium checked={params.trendFilter} onChange={(v) => handleBoolParam("trendFilter", v)} help="Only take trades that agree with the longer-term trend." />
+                <CheckField label="Allow re-entries" premium checked={params.reEntry} onChange={(v) => handleBoolParam("reEntry", v)} help="Re-enter after a pullback inside the range." />
+                <CheckField label="Pause on high-impact news" checked={params.newsPause} onChange={(v) => handleBoolParam("newsPause", v)} help="Stand aside around scheduled high-impact news." />
               </div>
             </div>
-          ) : (
+          ) : strategyMode === "BUILDER" ? (
             <div className="space-y-6">
-              {/* Direction */}
+              {/* Presets */}
               <div>
-                <p className="mb-2 text-xs font-medium text-fg">Trade direction</p>
-                <div className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-line bg-surface p-1">
-                  {(["LONG", "SHORT"] as const).map((d) => (
+                <div className="mb-2 flex items-center gap-1.5">
+                  <Sparkle size={14} weight="fill" className="text-accent" />
+                  <p className="text-xs font-medium text-fg">Start from a preset</p>
+                  <InfoTip content="Presets fill in a sensible set of rules you can then tweak. A fast way to learn what each indicator does." />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {BUILDER_PRESETS.map((p) => (
                     <button
-                      key={d}
+                      key={p.id}
                       type="button"
-                      onClick={() => setDirection(d)}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] px-4 py-1.5 text-xs font-semibold transition-colors",
-                        direction === d ? "bg-base text-fg shadow-[var(--shadow-sm)]" : "text-fg-subtle hover:text-fg",
-                      )}
+                      onClick={() => applyPreset(p)}
+                      title={p.help}
+                      className="rounded-[var(--radius-pill)] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
                     >
-                      {d === "LONG" ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}
-                      {d === "LONG" ? "Go long" : "Go short"}
+                      {p.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Conditions */}
-              <div>
-                <p className="mb-2 text-xs font-medium text-fg">Enter when all of these are true</p>
-                <div className="space-y-3">
-                  {conditions.map((c, i) => {
-                    const compareKey = typeof c.value === "string" ? c.value : "__value";
-                    return (
-                      <div key={i} className="flex flex-wrap items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface p-3">
-                        <SelectBox value={c.indicator} onChange={(v) => updateCondition(i, { indicator: v })} options={INDICATORS} />
-                        <SelectBox value={c.operator} onChange={(v) => updateCondition(i, { operator: v })} options={OPERATORS} />
-                        <SelectBox
-                          value={compareKey}
-                          onChange={(v) => updateCondition(i, { value: v === "__value" ? 0 : v })}
-                          options={[...INDICATORS, { key: "__value", label: "a custom value" }]}
-                        />
-                        {compareKey === "__value" && (
-                          <ClampedNumberInput
-                            value={typeof c.value === "number" ? c.value : 0}
-                            onCommit={(v) => updateCondition(i, { value: v })}
-                            className="w-28"
-                            ariaLabel="Custom value"
-                            allowNegative
-                          />
-                        )}
-                        {conditions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setConditions((cs) => cs.filter((_, idx) => idx !== i))}
-                            className="ml-auto rounded-[var(--radius-control)] p-1.5 text-fg-subtle transition-colors hover:bg-base hover:text-negative"
-                            aria-label="Remove condition"
-                          >
-                            <X size={15} weight="bold" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => setConditions((cs) => [...cs, { indicator: "price", operator: ">", value: "dayHigh" }])}
-                >
-                  <Plus size={14} className="mr-1" /> Add condition
-                </Button>
-              </div>
+              <CustomSignalBuilder groups={groups} onGroupsChange={setGroups} direction={direction} onDirectionChange={setDirection} />
 
-              {/* Stop / target */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-line">
-                <div>
-                  <label className="text-xs font-medium text-fg">Stop loss distance</label>
-                  <div className="mt-1.5">
-                    <ClampedNumberInput value={stopLossPct} min={0.1} max={10} onCommit={setStopLossPct} trailing="%" className="w-28 tnum" ariaLabel="Stop loss distance" />
-                  </div>
-                  <p className="text-[11px] text-fg-muted mt-1">How far the stop sits from your entry.</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-fg">Reward to risk</label>
-                  <div className="mt-1.5">
-                    <ClampedNumberInput value={targetRatio} min={0.5} max={10} onCommit={setTargetRatio} trailing="R" className="w-28 tnum" ariaLabel="Reward to risk" />
-                  </div>
-                  <p className="text-[11px] text-fg-muted mt-1">Profit target as a multiple of the risk.</p>
-                </div>
-              </div>
+              <CustomRiskFields stopLossPct={stopLossPct} setStopLossPct={setStopLossPct} targetRatio={targetRatio} setTargetRatio={setTargetRatio} />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <StrategyCodeEditor
+                language={language}
+                onLanguageChange={setLanguage}
+                code={code}
+                onCodeChange={setCode}
+                sampleSymbol={instruments[0]}
+              />
+              <CustomRiskFields
+                stopLossPct={stopLossPct}
+                setStopLossPct={setStopLossPct}
+                targetRatio={targetRatio}
+                setTargetRatio={setTargetRatio}
+                note="These are the defaults. Your code can override them per signal by returning stopLossPct and targetRatio."
+              />
             </div>
           )}
         </Section>
 
         {/* Step 5: Risk */}
-        <Section step={5} title="Risk management" icon={<ShieldCheck size={16} className="text-warning" />}>
+        <Section step={5} title="Risk management" icon={<ShieldCheck size={16} className="text-warning" />} hint="Hard limits the engine enforces on every trade, no matter the strategy.">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {(["riskPct", "rrTarget", "trailingStopPct", "dailyLoss", "maxTrades"] as NumericParam[]).map((key) => (
-              <SliderField
-                key={key}
-                bound={PARAM_BOUNDS[key]}
-                value={params[key]}
-                onChange={(v) => handleNumParam(key, v)}
-                premium={PREMIUM_PARAMS.has(key)}
-              />
+              <SliderField key={key} bound={PARAM_BOUNDS[key]} value={params[key]} onChange={(v) => handleNumParam(key, v)} premium={PREMIUM_PARAMS.has(key)} />
             ))}
           </div>
+          {isFree && (
+            <p className="mt-5 flex items-start gap-2 rounded-[var(--radius-control)] border border-accent/20 bg-accent/5 px-3 py-2 text-xs text-fg-muted">
+              <Star size={14} weight="fill" className="mt-px shrink-0 text-accent" />
+              Premium features are fully active on your paper account so you can test them. Live trading and the marked Pro features require an upgrade.
+            </p>
+          )}
         </Section>
       </form>
 
-      {/* Sticky action bar */}
+      {/* Sticky action bar with live config summary */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-base/90 backdrop-blur lg:left-60">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-6 py-3">
-          <p className="hidden text-xs text-fg-subtle sm:block">
-            Trading <span className="font-semibold text-fg">{instrument || "NQ"}</span> with the {strategyKind === "ORB" ? "Opening Range Breakout" : "Custom"} strategy
-          </p>
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+          <div className="hidden min-w-0 flex-1 items-center gap-3 text-xs text-fg-subtle sm:flex">
+            <SummaryChip icon={<Stack size={13} weight="bold" />} label={`${instruments.length} asset${instruments.length === 1 ? "" : "s"}`} />
+            <SummaryChip
+              icon={strategyMode === "CODE" ? <Code size={13} weight="bold" /> : <Sliders size={13} weight="bold" />}
+              label={strategyMode === "ORB" ? "Breakout" : strategyMode === "BUILDER" ? "Custom signal" : "Custom code"}
+            />
+            <SummaryChip icon={<ShieldCheck size={13} weight="bold" />} label={`${params.riskPct}% risk · ${params.dailyLoss}% daily cap`} />
+          </div>
           <div className="flex items-center gap-3">
             <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
             <Button type="button" disabled={loading || !selectedAccountId} onClick={handleSubmit} className="px-8">
@@ -344,31 +400,97 @@ export function BotsNewClient({ availableAccounts }: { availableAccounts: Accoun
   );
 }
 
-function Section({ step, title, icon, children }: { step: number; title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+function CustomRiskFields({
+  stopLossPct,
+  setStopLossPct,
+  targetRatio,
+  setTargetRatio,
+  note,
+}: {
+  stopLossPct: number;
+  setStopLossPct: (v: number) => void;
+  targetRatio: number;
+  setTargetRatio: (v: number) => void;
+  note?: string;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-line">
+      <div>
+        <label className="text-xs font-medium text-fg inline-flex items-center gap-1.5">
+          Stop loss distance
+          <InfoTip content="How far the protective stop sits from your entry, as a percentage. A tighter stop means a larger position for the same dollar risk." />
+        </label>
+        <div className="mt-1.5">
+          <ClampedNumberInput value={stopLossPct} min={0.1} max={20} onCommit={setStopLossPct} trailing="%" className="w-28 tnum" ariaLabel="Stop loss distance" />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-fg inline-flex items-center gap-1.5">
+          Reward to risk
+          <InfoTip content="Profit target as a multiple of the risk. 2 means the target is twice as far as the stop." />
+        </label>
+        <div className="mt-1.5">
+          <ClampedNumberInput value={targetRatio} min={0.25} max={20} onCommit={setTargetRatio} trailing="R" className="w-28 tnum" ariaLabel="Reward to risk" />
+        </div>
+      </div>
+      {note && <p className="sm:col-span-2 text-[11px] leading-relaxed text-fg-faint">{note}</p>}
+    </div>
+  );
+}
+
+function SummaryChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-line bg-surface px-2.5 py-1 text-fg-muted">
+      <span className="text-fg-subtle">{icon}</span>
+      <span className="tnum">{label}</span>
+    </span>
+  );
+}
+
+function Section({
+  step,
+  title,
+  icon,
+  hint,
+  badge,
+  children,
+}: {
+  step: number;
+  title: string;
+  icon?: React.ReactNode;
+  hint?: string;
+  badge?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-[var(--radius-card)] border border-line bg-elevated overflow-hidden">
       <div className="p-6 border-b border-line bg-surface/50">
-        <h2 className="text-lg font-semibold tracking-tight text-fg flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-pill)] bg-accent/20 text-accent text-xs font-bold tnum">{step}</span>
-          {icon}
-          {title}
-        </h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-fg flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-pill)] bg-accent/20 text-accent text-xs font-bold tnum">{step}</span>
+            {icon}
+            {title}
+            {hint && <InfoTip content={hint} />}
+          </h2>
+          {badge}
+        </div>
       </div>
       <div className="p-6">{children}</div>
     </div>
   );
 }
 
-function StrategyCard({ active, onClick, icon, title, desc }: { active: boolean; onClick: () => void; icon: React.ReactNode; title: string; desc: string }) {
+function StrategyCard({ active, onClick, icon, title, desc, premium }: { active: boolean; onClick: () => void; icon: React.ReactNode; title: string; desc: string; premium?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-col items-start rounded-[var(--radius-control)] border p-5 text-left transition-colors",
+        "relative flex flex-col items-start rounded-[var(--radius-control)] border p-5 text-left transition-colors",
         active ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line bg-surface hover:border-fg-muted",
       )}
     >
+      {premium && <span className="absolute right-3 top-3"><PremiumTag /></span>}
       <div className="flex items-center gap-3 mb-3">
         <div className={cn("p-2 rounded-[8px]", active ? "bg-accent/20 text-accent" : "bg-elevated border border-line text-fg-subtle")}>{icon}</div>
         <span className="font-semibold text-fg">{title}</span>
@@ -381,7 +503,15 @@ function StrategyCard({ active, onClick, icon, title, desc }: { active: boolean;
 function PremiumTag() {
   return (
     <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
-      <Star size={9} weight="fill" /> Premium
+      <Star size={9} weight="fill" /> Pro
+    </span>
+  );
+}
+
+function PaidPill({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+      <Star size={10} weight="fill" /> {label}
     </span>
   );
 }
@@ -393,6 +523,7 @@ function SliderField({ bound, value, onChange, premium }: { bound: Bound; value:
         <label className="text-xs font-medium text-fg inline-flex items-center gap-1.5">
           {bound.label}
           {premium && <PremiumTag />}
+          <InfoTip content={bound.help} />
         </label>
         <ClampedNumberInput value={value} min={bound.min} max={bound.max} onCommit={onChange} trailing={bound.suffix || undefined} className="w-24 tnum" ariaLabel={bound.label} />
       </div>
@@ -411,28 +542,17 @@ function SliderField({ bound, value, onChange, premium }: { bound: Bound; value:
   );
 }
 
-function CheckField({ label, checked, onChange, premium }: { label: string; checked: boolean; onChange: (v: boolean) => void; premium?: boolean }) {
+function CheckField({ label, checked, onChange, premium, help }: { label: string; checked: boolean; onChange: (v: boolean) => void; premium?: boolean; help?: string }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-accent w-4 h-4" />
-      <span className="text-xs font-medium text-fg inline-flex items-center gap-1.5">
-        {label}
-        {premium && <PremiumTag />}
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-accent w-4 h-4 mt-0.5" />
+      <span className="text-xs font-medium text-fg">
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          {premium && <PremiumTag />}
+          {help && <InfoTip content={help} />}
+        </span>
       </span>
     </label>
-  );
-}
-
-function SelectBox({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { key: string; label: string }[] }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-[var(--radius-control)] border border-line bg-base px-2.5 text-xs text-fg focus:border-accent focus:outline-none"
-    >
-      {options.map((o) => (
-        <option key={o.key} value={o.key}>{o.label}</option>
-      ))}
-    </select>
   );
 }
