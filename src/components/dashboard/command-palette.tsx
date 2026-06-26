@@ -13,6 +13,7 @@ import {
   CreditCard,
   UserCircle,
   Bell,
+  Calculator,
   type Icon,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -26,6 +27,7 @@ const COMMANDS: Command[] = [
   { label: "Bots", href: "/dashboard/bots", icon: Robot, keywords: "start stop status" },
   { label: "Journal", href: "/dashboard/journal", icon: Notebook, keywords: "trades calendar history" },
   { label: "Strategy Lab", href: "/dashboard/strategy", icon: Flask, keywords: "parameters risk orb" },
+  { label: "Calculators", href: "/dashboard/calculators", icon: Calculator, keywords: "position size risk reward kelly monte carlo leverage expectancy compounding" },
   { label: "Analytics", href: "/dashboard/analytics", icon: ChartBar, keywords: "performance metrics" },
   { label: "Accounts", href: "/dashboard/accounts", icon: Wallet, keywords: "broker connect balance" },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard, keywords: "plan upgrade invoice" },
