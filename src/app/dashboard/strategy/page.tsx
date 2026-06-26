@@ -10,6 +10,7 @@ import { DashboardError } from "@/components/dashboard/states";
 import Link from "next/link";
 import { Robot, Flask, Plus, MagicWand, ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import AIStrategyBuilder from "@/components/dashboard/ai-strategy-builder";
+import { StrategyDeleteButton } from "@/components/dashboard/strategy-delete-button";
 
 export const metadata: Metadata = { title: "Strategy Management" };
 
@@ -111,6 +112,11 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
                   <p className="text-xs text-fg-subtle uppercase tracking-widest">{strategy.kind} • v{strategy.version}</p>
                 </div>
               </div>
+              <StrategyDeleteButton
+                strategyId={strategy.id}
+                strategyName={strategy.name}
+                hasBots={strategy.bots.length > 0}
+              />
             </div>
             
             <div className="relative z-10 flex-1 mt-2 mb-6">
