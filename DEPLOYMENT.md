@@ -70,16 +70,30 @@ npm run start
 
 ## Trading engine (cron)
 
-The engine runs as a Next route at `/api/cron/engine`, driven by a scheduler. Wire it
-with a Vercel Cron in `vercel.json` and protect it with a `CRON_SECRET` checked in the
-route before enabling:
+The engine runs as a Next route at `/api/cron/engine`. It is protected by `CRON_SECRET`
+(Vercel attaches `Authorization: Bearer $CRON_SECRET` automatically) and also accepts an
+external `?secret=$API_SECRET` (or `x-api-secret` header). Set `CRON_SECRET` in the
+project env or the route returns 401 and the engine never ticks.
+
+`vercel.json` ships a once-daily cron so the deploy is valid on **every** Vercel tier:
 
 ```json
-{ "crons": [{ "path": "/api/cron/engine", "schedule": "*/5 * * * *" }] }
+{ "crons": [{ "path": "/api/cron/engine", "schedule": "0 13 * * *" }] }
 ```
 
-It writes the same shapes the app reads (trades, daily summaries, bot heartbeat). The
-standalone Python worker in `engine/` remains available for local experimentation.
+A trading engine needs to tick far more often than once a day, but **Vercel Hobby only
+permits daily crons** (a sub-daily schedule like `*/1 * * * *` makes the deploy fail).
+To run the engine at a useful cadence, pick one:
+
+1. **Vercel Pro** — change the schedule to `*/1 * * * *` (or `*/5`) and redeploy.
+2. **External scheduler** (works on Hobby) — point cron-job.org / GitHub Actions / Upstash
+   at `https://<app>/api/cron/engine?secret=$API_SECRET` every 1–5 minutes.
+3. **Bundled worker** — run the long-running Node worker (`npm run worker`, see
+   `ecosystem.config.js` / `docker-compose.yml`); it ticks every 2s and mirrors the route.
+
+All paths write the same shapes the app reads (trades, daily summaries, bot heartbeat,
+agent-feed events). The standalone Python worker in `engine/` remains available for local
+experimentation.
 
 ## CI
 
