@@ -176,3 +176,27 @@ export async function rejectSuggestion(id: string) {
   revalidatePath("/dashboard/strategy");
   return { ok: true };
 }
+
+export async function deleteStrategy(strategyId: string) {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const strategy = await prisma.strategy.findUnique({
+    where: { id: strategyId },
+    include: { user: true, bots: true },
+  });
+
+  if (!strategy || strategy.user.clerkId !== userId) {
+    return { ok: false, error: "Strategy not found" };
+  }
+
+  // Delete bots first since there is no cascade from Strategy -> Bot
+  await prisma.$transaction([
+    prisma.bot.deleteMany({ where: { strategyId } }),
+    prisma.strategy.delete({ where: { id: strategyId } }),
+  ]);
+
+  revalidatePath("/dashboard/strategy");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
