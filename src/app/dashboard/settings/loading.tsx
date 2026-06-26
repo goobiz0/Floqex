@@ -1,7 +1,18 @@
+import { LemniscateLoader } from "@/components/lemniscate-loader";
+
 export default function Loading() {
   return (
-    <div className="flex h-64 w-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-surface border-t-accent" />
+    <div className="flex min-h-[360px] w-full items-center justify-center">
+      <div
+        style={{
+          width: "min(28vmin, 148px)",
+          aspectRatio: "1",
+          color: "var(--color-accent)",
+        }}
+      >
+        <LemniscateLoader />
+      </div>
     </div>
   );
 }
+
