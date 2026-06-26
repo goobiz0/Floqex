@@ -18,7 +18,7 @@ export default async function TradesPage(props: { searchParams: Promise<{ accoun
     <div className="max-w-7xl mx-auto p-6 lg:p-10 space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-fg">Trade History</h1>
-        <p className="text-fg-muted mt-1 text-sm">Every execution across your active strategies. Turn on live view to watch fills land in real time.</p>
+        <p className="text-fg-muted mt-1 text-sm">Every execution across your active strategies, streaming live as fills land. Tap any trade for the full breakdown.</p>
       </div>
 
       <TradesView initialTrades={trades} accountId={accountId} />

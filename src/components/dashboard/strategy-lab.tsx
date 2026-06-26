@@ -1,14 +1,15 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, X, Plus } from "@phosphor-icons/react";
+import { Check, X, Plus, Spinner, Star } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { EquityCurve } from "./equity-curve";
 import {
   PARAM_BOUNDS,
@@ -20,6 +21,7 @@ import {
   type StrategyParams,
 } from "@/lib/strategy-schema";
 import type { AdjustmentRow } from "@/lib/queries";
+import { backtestStrategy, type Bar } from "@/lib/engine/backtest";
 import {
   saveStrategy,
   approveSuggestion,
@@ -57,12 +59,14 @@ export function StrategyLab({
   pending,
   autoAdjustmentsUsed,
   plan,
+  accountId = null,
 }: {
   initialParams: StrategyParams;
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
   autoAdjustmentsUsed: number;
   plan: string;
+  accountId?: string | null;
 }) {
   const [params, setParams] = useState<StrategyParams>(initialParams);
   const [saved, setSaved] = useState<StrategyParams>(initialParams);
@@ -82,21 +86,43 @@ export function StrategyLab({
     [params]
   );
 
-  const simulatedSeries = useMemo(() => {
-    let equity = 10000;
-    const series = [{ date: "Start", equity }];
-    const trades = 30;
-    // Basic deterministic simulation logic based on strategy params
-    const winRate = Math.max(0.2, 0.8 - (params.rrTarget * 0.1)); 
-    for(let i=0; i<trades; i++) {
-       // deterministic mock based on index and winRate
-       const win = (i % 10) < (winRate * 10);
-       if (win) equity += equity * (params.riskPct / 100) * params.rrTarget;
-       else equity -= equity * (params.riskPct / 100);
-       series.push({ date: `Trade ${i+1}`, equity });
-    }
-    return series;
-  }, [params]);
+  // Backtest the strategy over real historical bars for its instrument. The bars
+  // are fetched once; the simulation re-runs instantly as parameters change, so
+  // the sandbox reflects the actual breakout logic instead of a fabricated curve.
+  const instrument = typeof params.instrument === "string" && params.instrument ? params.instrument : "NQ";
+  const [bars, setBars] = useState<Bar[] | null>(null);
+  const [barsError, setBarsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setBars(null);
+      setBarsError(null);
+      try {
+        const res = await fetch(`/api/market/history?symbol=${encodeURIComponent(instrument)}&days=180`);
+        if (!res.ok) throw new Error("history unavailable");
+        const data = await res.json();
+        if (cancelled) return;
+        const fetched: Bar[] = data.bars ?? [];
+        if (fetched.length < 5) setBarsError(`Not enough historical data for ${instrument} to backtest.`);
+        setBars(fetched);
+      } catch {
+        if (!cancelled) setBarsError("Couldn't load historical data for the backtest.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [instrument]);
+
+  const backtest = useMemo(() => {
+    if (!bars || bars.length < 5) return null;
+    return backtestStrategy(bars, {
+      riskPct: params.riskPct,
+      rrTarget: params.rrTarget,
+      stopLossPct: typeof params.stopLossPct === "number" ? params.stopLossPct : undefined,
+      trendFilter: params.trendFilter,
+      direction: params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH",
+    });
+  }, [bars, params]);
 
   const activePaidFeatures = useMemo(() => {
     const features = [];
@@ -119,7 +145,7 @@ export function StrategyLab({
     const prev = saved;
     setError(null);
     startTransition(async () => {
-      const res = await saveStrategy(snapshot);
+      const res = await saveStrategy(snapshot, accountId ?? undefined);
       if (!res.ok) {
         setError(res.error ?? "Could not save changes.");
         return;
@@ -191,7 +217,7 @@ export function StrategyLab({
           <NumberField bound={PARAM_BOUNDS.rrTarget} value={params.rrTarget} onChange={(v) => set("rrTarget", v)} />
         </Group>
 
-        <Group title="Range filters">
+        <Group title="Range filters" premium>
           <NumberField bound={PARAM_BOUNDS.minRange} value={params.minRange} onChange={(v) => set("minRange", v)} />
           <NumberField bound={PARAM_BOUNDS.maxRange} value={params.maxRange} onChange={(v) => set("maxRange", v)} />
         </Group>
@@ -199,11 +225,11 @@ export function StrategyLab({
         <Group title="Risk controls">
           <NumberField bound={PARAM_BOUNDS.riskPct} value={params.riskPct} onChange={(v) => set("riskPct", v)} />
           <NumberField bound={PARAM_BOUNDS.dailyLoss} value={params.dailyLoss} onChange={(v) => set("dailyLoss", v)} />
-          <NumberField bound={PARAM_BOUNDS.maxTrades} value={params.maxTrades} onChange={(v) => set("maxTrades", v)} />
+          <NumberField bound={PARAM_BOUNDS.maxTrades} value={params.maxTrades} onChange={(v) => set("maxTrades", v)} premium />
         </Group>
 
-        <Group title="Filters">
-          <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Log whether each trade agreed with the 20-period trend." />
+        <Group title="Filters" premium>
+          <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Only take trades that agree with the 20-period trend." />
           <ToggleField label={PARAM_LABELS.reEntry} value={params.reEntry} onChange={(v) => set("reEntry", v)} help="Wait for a pullback inside the range before re-entering." />
         </Group>
 
@@ -213,12 +239,13 @@ export function StrategyLab({
               <div key={k} className="flex items-end gap-3">
                 <div className="flex-1 space-y-1.5">
                   <Label htmlFor={`custom-${k}`}>{k}</Label>
-                  <Input
+                  <ClampedNumberInput
                     id={`custom-${k}`}
-                    type="number"
-                    value={params[k as keyof StrategyParams] as number}
-                    onChange={(e) => set(k as keyof StrategyParams, Number(e.target.value) as StrategyParams[keyof StrategyParams])}
+                    value={Number(params[k as keyof StrategyParams]) || 0}
+                    onCommit={(v) => set(k as keyof StrategyParams, v as StrategyParams[keyof StrategyParams])}
                     className="w-full"
+                    ariaLabel={k}
+                    allowNegative
                   />
                 </div>
                 <Button 
@@ -252,9 +279,42 @@ export function StrategyLab({
       {/* Side: change log + learning */}
       <div className="space-y-4">
         <Card className="p-5">
-          <CardTitle>Sandbox Preview</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Sandbox backtest</CardTitle>
+            <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+              {instrument} · 180d
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-fg-subtle">
+            Your rules run over real historical bars. An estimate, not a guarantee.
+          </p>
           <div className="mt-4">
-            <EquityCurve series={simulatedSeries} />
+            {barsError ? (
+              <div className="flex h-[200px] items-center justify-center text-center text-sm text-fg-subtle">
+                {barsError}
+              </div>
+            ) : !backtest ? (
+              <div className="flex h-[200px] items-center justify-center text-fg-subtle">
+                <Spinner size={20} className="animate-spin" />
+              </div>
+            ) : (
+              <>
+                <EquityCurve series={backtest.series} />
+                <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { k: "Return", v: `${backtest.totalReturnPct >= 0 ? "+" : ""}${backtest.totalReturnPct.toFixed(1)}%`, tone: backtest.totalReturnPct >= 0 ? "text-profit" : "text-negative" },
+                    { k: "Win rate", v: `${backtest.winRate.toFixed(0)}%`, tone: "text-fg" },
+                    { k: "Max DD", v: `-${backtest.maxDrawdownPct.toFixed(1)}%`, tone: "text-negative" },
+                    { k: "Trades", v: String(backtest.trades), tone: "text-fg" },
+                  ].map((s) => (
+                    <div key={s.k} className="rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-center">
+                      <dt className="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">{s.k}</dt>
+                      <dd className={cn("mt-0.5 text-sm font-semibold tnum", s.tone)}>{s.v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </>
+            )}
           </div>
         </Card>
 
@@ -443,10 +503,17 @@ export function StrategyLab({
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function Group({ title, children, premium }: { title: string; children: React.ReactNode; premium?: boolean }) {
   return (
     <Card className="p-5">
-      <CardTitle>{title}</CardTitle>
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle>{title}</CardTitle>
+        {premium && (
+          <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+            <Star size={10} weight="fill" /> Premium
+          </span>
+        )}
+      </div>
       <div className="mt-4 space-y-5">{children}</div>
     </Card>
   );
@@ -456,30 +523,39 @@ function NumberField({
   bound,
   value,
   onChange,
+  premium,
 }: {
   bound: Bound;
   value: number;
   onChange: (v: number) => void;
+  premium?: boolean;
 }) {
   const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>{bound.label}</Label>
-      <Input
+      <Label htmlFor={id}>
+        <span className="inline-flex items-center gap-1.5">
+          {bound.label}
+          {premium && (
+            <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+              <Star size={9} weight="fill" /> Premium
+            </span>
+          )}
+        </span>
+      </Label>
+      <ClampedNumberInput
         id={id}
-        type="number"
         value={value}
         min={bound.min}
         max={bound.max}
-        step={bound.step}
+        onCommit={onChange}
         trailing={bound.suffix || undefined}
         className="tnum w-32"
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          onChange(Math.min(bound.max, Math.max(bound.min, Number.isNaN(v) ? bound.min : v)));
-        }}
+        ariaLabel={bound.label}
       />
-      <p className="text-xs leading-relaxed text-fg-subtle">{bound.help}</p>
+      <p className="text-xs leading-relaxed text-fg-subtle">
+        {bound.help} <span className="text-fg-faint">Range {bound.min} to {bound.max}{bound.suffix ?? ""}.</span>
+      </p>
     </div>
   );
 }

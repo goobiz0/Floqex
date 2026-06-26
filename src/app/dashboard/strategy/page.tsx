@@ -56,6 +56,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             pending={data.pending}
             autoAdjustmentsUsed={data.autoAdjustmentsUsed}
             plan={data.plan}
+            accountId={data.accountId}
           />
         ) : (
           <Card className="p-10 text-center">

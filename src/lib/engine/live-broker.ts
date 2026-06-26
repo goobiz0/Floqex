@@ -220,6 +220,14 @@ export async function verifyConnection(broker: string, creds: BrokerCreds): Prom
   }
 }
 
+// True when we can route a real live order to this broker. Paper accounts never
+// need an adapter (they simulate). Used to warn the user up-front instead of
+// only discovering it on the first signal.
+export function hasLiveAdapter(broker: string): boolean {
+  const b = broker.toLowerCase();
+  return CCXT_BROKERS.includes(b) || b === "alpaca" || b === "ibkr" || b === "asx";
+}
+
 export function brokerSupportsInstrument(broker: string, instrument: string): boolean {
   const market = getMarketForInstrument(instrument);
   const b = broker.toLowerCase();

@@ -38,8 +38,23 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
     const user = await getOrCreateUser();
     if (!user) return { ok: false, error: "You are not signed in." };
 
-    // Create the first account only if the user has none (idempotent).
+    // Hard guard: onboarding runs exactly once. If the user has already been
+    // onboarded (and provisioned an account), short-circuit so a repeat call
+    // cannot create a second account or re-fire the notifications below.
     const accountCount = await prisma.account.count({ where: { userId: user.id } });
+    let alreadyOnboarded = false;
+    try {
+      const existing = await clerkClient();
+      const cu = await existing.users.getUser(clerkId);
+      alreadyOnboarded = Boolean((cu.privateMetadata as Record<string, unknown>)?.onboardedAt);
+    } catch {
+      // Ignore — the account-count check still guards against duplicates.
+    }
+    if (alreadyOnboarded && accountCount > 0) {
+      return { ok: true };
+    }
+
+    // Create the first account only if the user has none (idempotent).
     if (accountCount === 0) {
       const mode = input.apiKey && input.apiSecret ? "LIVE" : "PAPER";
       // Currently defaulting to ALPACA for live accounts if keys are provided

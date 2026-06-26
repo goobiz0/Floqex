@@ -7,6 +7,8 @@ import { PLANS, type Plan } from "@/lib/plans";
 import { getOrCreateUser } from "@/lib/user";
 import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
 import { encrypt } from "@/lib/crypto";
+import { getMarketForInstrument, marketLabel, isInstrumentTradeable } from "@/lib/market";
+import { hasLiveAdapter } from "@/lib/engine/live-broker";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
 
 export async function connectAccount({
@@ -126,7 +128,7 @@ export async function toggleBotStatus(accountId: string) {
 
     const account = await prisma.account.findUnique({
       where: { id: accountId },
-      include: { bot: true },
+      include: { bot: { include: { strategy: true } } },
     });
 
     if (!account || account.userId !== user.id) {
@@ -159,8 +161,69 @@ export async function toggleBotStatus(accountId: string) {
 
     await prisma.bot.update({
       where: { id: account.bot.id },
-      data: { status: newStatus },
+      data: {
+        status: newStatus,
+        // Reset the heartbeat on start so the dashboard shows the engine coming
+        // online rather than carrying a stale "offline" estimate from last run.
+        ...(newStatus === "RUNNING" ? { lastHeartbeat: new Date() } : {}),
+      },
     });
+
+    // Write immediate feedback to the live feed so the user sees the bot react
+    // the instant they press Start/Stop — the engine cron only ticks once a
+    // minute, and this explains exactly what the bot is doing (or waiting on).
+    try {
+      if (newStatus === "RUNNING") {
+        const params = (account.bot.strategy?.params ?? {}) as Record<string, unknown>;
+        const instrument = typeof params.instrument === "string" && params.instrument ? params.instrument : "NQ";
+        const market = marketLabel(getMarketForInstrument(instrument));
+        const modeLabel = account.mode === "LIVE" ? "Live" : "Paper";
+
+        await prisma.agentEvent.create({
+          data: {
+            botId: account.bot.id,
+            accountId: account.id,
+            kind: "INFO",
+            message: `Bot started in ${modeLabel} mode on ${account.broker}. Watching ${instrument} (${market}) for setups.`,
+          },
+        });
+
+        if (!isInstrumentTradeable(instrument)) {
+          await prisma.agentEvent.create({
+            data: {
+              botId: account.bot.id,
+              accountId: account.id,
+              kind: "INFO",
+              message: `${market} is closed right now. The bot is armed and will place its first trade when the market reopens.`,
+            },
+          });
+        }
+
+        // Live account on a broker we can't route real orders to yet: warn now
+        // rather than letting the user wait for a fill that will never come.
+        if (account.mode === "LIVE" && !hasLiveAdapter(account.broker)) {
+          await prisma.agentEvent.create({
+            data: {
+              botId: account.bot.id,
+              accountId: account.id,
+              kind: "RISK",
+              message: `Live execution isn't available for ${account.broker} yet, so real orders will be blocked. Switch this account to Paper to trade the strategy in simulation.`,
+            },
+          });
+        }
+      } else {
+        await prisma.agentEvent.create({
+          data: {
+            botId: account.bot.id,
+            accountId: account.id,
+            kind: "INFO",
+            message: "Bot stopped. No new trades will be opened until you start it again.",
+          },
+        });
+      }
+    } catch (e) {
+      console.error("toggleBotStatus feedback event failed", e);
+    }
 
     revalidatePath("/dashboard");
     return { ok: true, status: newStatus };

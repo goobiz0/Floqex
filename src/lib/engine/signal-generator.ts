@@ -29,8 +29,15 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
   const isHighBreakout = price >= dayHigh - (range * 0.05); // within top 5% of day's range
   const isLowBreakout = price <= dayLow + (range * 0.05);   // within bottom 5% of day's range
 
-  // Prevent entering trades if there isn't enough range (avoids flat market chops)
-  if (range / price < 0.001) return null;
+  // Apply the user's range filters. minRange/maxRange are multiples of a ~1%
+  // "normal" daily range: a 0.3x floor skips sessions quieter than 0.3% (flat
+  // chop), and a 3x ceiling skips abnormally wide, usually news-driven, days.
+  const NORMAL_RANGE = 0.01; // 1% reference daily range
+  const dayRangePct = price > 0 ? range / price : 0;
+  const minRange = params && params.minRange != null ? Number(params.minRange) : 0.1;
+  const maxRange = params && params.maxRange != null ? Number(params.maxRange) : 5;
+  if (dayRangePct < NORMAL_RANGE * minRange) return null;
+  if (dayRangePct > NORMAL_RANGE * maxRange) return null;
 
   // The Strategy Lab params define user preferences
   const targetRatio = params && params.rrTarget ? Number(params.rrTarget) : 2.0;

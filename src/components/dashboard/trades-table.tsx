@@ -1,16 +1,22 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import type { TradeRow } from "@/lib/queries";
-import { MagnifyingGlass, Swap } from "@phosphor-icons/react";
+import { Swap, CaretRight } from "@phosphor-icons/react";
+
+const fmtDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export function TradesTable({ trades }: { trades: TradeRow[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   if (trades.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 border border-dashed border-line rounded-[var(--radius-card)] bg-surface/30">
-        <div className="h-12 w-12 rounded-full bg-surface border border-line flex items-center justify-center text-fg-subtle mb-4">
+        <div className="h-12 w-12 rounded-[var(--radius-pill)] bg-surface border border-line flex items-center justify-center text-fg-subtle mb-4">
           <Swap size={24} />
         </div>
         <h3 className="text-sm font-medium text-fg">No trades executed</h3>
@@ -39,45 +45,93 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
           {trades.map((trade, i) => {
             const pnl = Number(trade.netPnl);
             const rMult = Number(trade.rMultiple);
-            const isWin = pnl > 0;
             const dateObj = new Date(trade.openedAt);
-            
+            const open = expandedId === trade.id;
+
             return (
-              <motion.tr 
+              <motion.tr
                 key={trade.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.03, ease: [0.23, 1, 0.32, 1] }}
-                className="group hover:bg-base/50 transition-colors"
+                transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.3), ease: [0.23, 1, 0.32, 1] }}
+                onClick={() => setExpandedId(open ? null : trade.id)}
+                className="group cursor-pointer hover:bg-base/50 transition-colors"
               >
                 <td className="py-3 pl-6 pr-3 text-fg-muted text-[13px]">
-                  {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })} <span className="text-fg-faint">{dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <CaretRight size={12} weight="bold" className={cn("text-fg-faint transition-transform", open && "rotate-90 text-fg-subtle")} />
+                    {dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
+                    <span className="text-fg-faint">{dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </span>
                 </td>
-                <td className="py-3 px-3 font-medium text-fg text-[13px]">
-                  {trade.instrument}
-                </td>
+                <td className="py-3 px-3 font-medium text-fg text-[13px]">{trade.instrument}</td>
                 <td className="py-3 px-3">
-                  <span className={`inline-flex items-center rounded-[var(--radius-pill)] px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${trade.direction === "LONG" ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative"}`}>
+                  <span className={cn("inline-flex items-center rounded-[var(--radius-pill)] px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase", trade.direction === "LONG" ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
                     {trade.direction}
                   </span>
                 </td>
-                <td className="py-3 px-3 text-right tnum text-fg-subtle text-[13px]">
-                  {trade.entryPrice.toFixed(2)}
-                </td>
-                <td className="py-3 px-3 text-right tnum text-fg-subtle text-[13px]">
-                  {trade.exitPrice ? trade.exitPrice.toFixed(2) : "·"}
-                </td>
-                <td className={`py-3 px-3 text-right tnum font-medium text-[13px] ${pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg-subtle"}`}>
+                <td className="py-3 px-3 text-right tnum text-fg-subtle text-[13px]">{trade.entryPrice.toFixed(2)}</td>
+                <td className="py-3 px-3 text-right tnum text-fg-subtle text-[13px]">{trade.exitPrice ? trade.exitPrice.toFixed(2) : "·"}</td>
+                <td className={cn("py-3 px-3 text-right tnum font-medium text-[13px]", pnl > 0 ? "text-profit" : pnl < 0 ? "text-negative" : "text-fg-subtle")}>
                   <DisplayValue type="PNL" money={pnl} />
                 </td>
-                <td className={`py-3 pl-3 pr-6 text-right tnum text-[13px] ${rMult >= 1 ? "text-profit" : rMult <= -1 ? "text-negative" : "text-fg-subtle"}`}>
-                  {rMult.toFixed(2)}R
+                <td className={cn("py-3 pl-3 pr-6 text-right tnum text-[13px]", rMult >= 1 ? "text-profit" : rMult <= -1 ? "text-negative" : "text-fg-subtle")}>
+                  {Number.isFinite(rMult) ? `${rMult.toFixed(2)}R` : "·"}
                 </td>
               </motion.tr>
             );
           })}
         </tbody>
       </table>
+
+      {/* Expanded detail, rendered outside the table grid so it can flow full-width */}
+      <AnimatePresence>
+        {expandedId && (() => {
+          const trade = trades.find((t) => t.id === expandedId);
+          if (!trade) return null;
+          const hasStop = trade.stopPrice > 0;
+          const hasTarget = trade.targetPrice > 0;
+          return (
+            <motion.div
+              key={expandedId}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="overflow-hidden border-t border-line bg-base/40"
+            >
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-6 sm:grid-cols-3 lg:grid-cols-4">
+                <Detail label="Status" value={trade.status === "OPEN" ? "Open" : "Closed"} />
+                <Detail label="Session" value={trade.session} />
+                <Detail label="Opened" value={fmtDateTime(trade.openedAt)} />
+                <Detail label="Closed" value={trade.closedAt ? fmtDateTime(trade.closedAt) : "Still open"} />
+                <Detail label="Entry" value={trade.entryPrice.toFixed(2)} mono />
+                <Detail label="Exit" value={trade.exitPrice ? trade.exitPrice.toFixed(2) : "·"} mono />
+                {hasStop && <Detail label="Stop" value={trade.stopPrice.toFixed(2)} mono />}
+                {hasTarget && <Detail label="Target" value={trade.targetPrice.toFixed(2)} mono />}
+                {trade.grossPnl != null && <Detail label="Gross P/L" value={`$${trade.grossPnl.toFixed(2)}`} mono />}
+                <Detail label="Net P/L" value={`$${Number(trade.netPnl ?? 0).toFixed(2)}`} mono />
+                <Detail label="R-multiple" value={Number.isFinite(Number(trade.rMultiple)) ? `${Number(trade.rMultiple).toFixed(2)}R` : "·"} mono />
+              </div>
+              {trade.narrative && (
+                <div className="border-t border-line/60 px-6 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Bot narrative</p>
+                  <p className="mt-1 text-sm text-fg-muted">{trade.narrative}</p>
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Detail({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">{label}</p>
+      <p className={cn("mt-1 text-sm font-medium text-fg", mono && "tnum")}>{value}</p>
     </div>
   );
 }

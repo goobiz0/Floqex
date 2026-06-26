@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Broadcast, Funnel, Pulse } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
+import { Funnel, Pulse } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import type { TradeRow } from "@/lib/queries";
@@ -30,11 +30,12 @@ function liveToRow(t: LiveTrade): TradeRow {
 }
 
 export function TradesView({ initialTrades, accountId }: { initialTrades: TradeRow[]; accountId: string | null }) {
-  const [liveOn, setLiveOn] = useState(false);
+  // Live by default so fills land in real time. Users can pause the stream.
+  const [liveOn, setLiveOn] = useState(true);
   const [instrument, setInstrument] = useState<string>("ALL");
 
-  // Live view is opt-in and ephemeral: it defaults off and resets on refresh.
   const live = useLiveStream(accountId, liveOn && Boolean(accountId));
+  const isLive = liveOn && live.connected;
 
   const instruments = useMemo(() => {
     const set = new Set(initialTrades.map((t) => t.instrument));
@@ -56,6 +57,22 @@ export function TradesView({ initialTrades, accountId }: { initialTrades: TradeR
     () => (instrument === "ALL" ? trades : trades.filter((t) => t.instrument === instrument)),
     [trades, instrument],
   );
+
+  // Tick a clock once a second while live so the "updated" label stays honest.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isLive) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isLive]);
+
+  const updatedLabel = (() => {
+    if (!isLive || !live.lastUpdate) return null;
+    const secs = Math.max(0, Math.round((now - live.lastUpdate) / 1000));
+    if (secs < 2) return "just now";
+    if (secs < 60) return `${secs}s ago`;
+    return `${Math.floor(secs / 60)}m ago`;
+  })();
 
   return (
     <div className="space-y-5">
@@ -79,27 +96,34 @@ export function TradesView({ initialTrades, accountId }: { initialTrades: TradeR
           ))}
         </div>
 
-        {/* Live toggle */}
-        <button
-          onClick={() => setLiveOn((v) => !v)}
-          aria-pressed={liveOn}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] border px-3.5 py-2 text-sm font-medium transition-colors",
-            liveOn
-              ? "border-accent/40 bg-accent-soft text-accent"
-              : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
+        {/* Live control: on by default, clearly streaming, pause to freeze. */}
+        <div className="flex shrink-0 items-center gap-3">
+          {updatedLabel && (
+            <span className="hidden text-xs text-fg-subtle sm:inline">Updated {updatedLabel}</span>
           )}
-        >
-          {liveOn ? (
-            <span className="relative flex h-2 w-2">
-              {live.connected && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />}
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          <button
+            onClick={() => setLiveOn((v) => !v)}
+            aria-pressed={liveOn}
+            title={liveOn ? "Pause live updates" : "Resume live updates"}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-[var(--radius-control)] border px-3.5 py-2 text-sm font-medium transition-colors",
+              isLive
+                ? "border-accent/40 bg-accent-soft text-accent"
+                : liveOn
+                  ? "border-warning/40 bg-warning/10 text-warning"
+                  : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
+            )}
+          >
+            <span className="relative flex h-2 w-2" aria-hidden>
+              {isLive && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />}
+              <span className={cn(
+                "relative inline-flex h-2 w-2 rounded-full",
+                isLive ? "bg-accent" : liveOn ? "bg-warning" : "bg-fg-faint",
+              )} />
             </span>
-          ) : (
-            <Broadcast size={15} />
-          )}
-          {liveOn ? (live.connected ? "Live" : "Connecting...") : "Go live"}
-        </button>
+            {isLive ? "Live" : liveOn ? "Connecting" : "Paused"}
+          </button>
+        </div>
       </div>
 
       {/* Open position banner (live only) */}
@@ -125,11 +149,26 @@ export function TradesView({ initialTrades, accountId }: { initialTrades: TradeR
       <TradesTable trades={filtered} />
 
       {filtered.length > 0 && (
-        <div className="flex items-center justify-end gap-2 text-xs text-fg-subtle">
-          <span>{filtered.length} trades</span>
-          <span className="text-fg-faint">·</span>
-          <span className="tnum">
-            Net <DisplayValue type="PNL" money={filtered.reduce((s, t) => s + (t.netPnl ?? 0), 0)} />
+        <div className="flex items-center justify-between gap-2 text-xs text-fg-subtle">
+          <span className="inline-flex items-center gap-1.5">
+            {isLive ? (
+              <>
+                <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+                </span>
+                <span className="font-medium text-accent">Streaming live</span>
+              </>
+            ) : (
+              <span className="text-fg-faint">Live updates paused</span>
+            )}
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span>{filtered.length} trades</span>
+            <span className="text-fg-faint">·</span>
+            <span className="tnum">
+              Net <DisplayValue type="PNL" money={filtered.reduce((s, t) => s + (t.netPnl ?? 0), 0)} />
+            </span>
           </span>
         </div>
       )}

@@ -278,6 +278,7 @@ export function DashboardPageClient({
 
     // --- Live Execution Feed ---
     if (item.type === "agent-feed") {
+      const feedLimit = Math.min(30, Math.max(5, Number(item.config.limit) || 10));
       return (
         <div className="relative flex h-full w-full flex-col p-6">
           <div className="flex items-center justify-between mb-4 shrink-0">
@@ -306,7 +307,7 @@ export function DashboardPageClient({
               <div className="flex items-center justify-center h-full"><p className="text-xs text-fg-subtle text-center">Listening...</p></div>
             ) : (
               <div className="flex flex-col gap-3 justify-end min-h-full">
-                {liveEvents.slice(-10).map((event, i) => (
+                {liveEvents.slice(-feedLimit).map((event, i) => (
                   <motion.div 
                     key={event.id}
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -488,7 +489,7 @@ export function DashboardPageClient({
       {/* Header Row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Image src={avatarUrl} alt={nickname} width={40} height={40} className="rounded-full border border-line object-cover" />
+          <Image src={avatarUrl} alt={nickname} width={40} height={40} className="privacy-blur-avatar rounded-full border border-line object-cover" />
           <h1 className="text-lg font-medium tracking-tight text-fg">Dashboard</h1>
         </div>
 
