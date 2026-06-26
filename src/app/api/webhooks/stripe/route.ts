@@ -15,7 +15,7 @@ async function syncSubscription(customerId: string, sub: Stripe.Subscription) {
     sub.items.data.map((i) => i.price?.id).find((id) => isPaidPriceId(id)) ??
     sub.items.data[0]?.price?.id;
   const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
-  const plan: Plan = active ? planFromPriceId(priceId) : "FREE";
+  const plan: Plan = active ? ((sub.metadata?.plan as Plan) || planFromPriceId(priceId)) : "FREE";
 
   // current_period_end lives on the subscription (older API) or its items (newer).
   const periodEnd =

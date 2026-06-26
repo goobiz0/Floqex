@@ -32,6 +32,16 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
     } catch {}
   }
 
+
+  let marketAsxEnabled = true;
+  if (userId) {
+    try {
+      const clerkUser = await client.users.getUser(userId);
+      const m = (clerkUser.privateMetadata ?? {}) as Record<string, unknown>;
+      marketAsxEnabled = m.marketAsxEnabled !== false;
+    } catch {}
+  }
+
   const templates = await getDashboardTemplates();
 
   if (data.error) return <DashboardError title="Dashboard unavailable" message="We couldn't load your active bots or recent activity." />;
@@ -56,6 +66,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
     accountId={data.account?.id ?? null}
     initialTemplates={templates}
     userPlan={userPlan}
+    marketAsxEnabled={marketAsxEnabled}
   />;
 }
 

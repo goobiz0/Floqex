@@ -62,7 +62,8 @@ export function DashboardPageClient({
   lastHeartbeat = null,
   accountId = null,
   initialTemplates = [],
-  userPlan = "FREE"
+  userPlan = "FREE",
+  marketAsxEnabled = true
 }: { 
   balance: number;
   nickname: string;
@@ -78,6 +79,7 @@ export function DashboardPageClient({
   accountId?: string | null;
   initialTemplates?: DashboardTemplate[];
   userPlan?: string;
+  marketAsxEnabled?: boolean;
 }) {
 
   // State
@@ -423,7 +425,18 @@ export function DashboardPageClient({
       return (
         <div className="relative flex h-full w-full flex-col p-5">
           <div className="flex items-center gap-2 mb-4"><ClockCounterClockwise size={16} className="text-accent" /><h3 className="text-xs font-medium text-fg">Next Session</h3></div>
-          <div className="mt-auto"><p className="text-[11px] text-fg-subtle mb-1">New York Open</p><div className="flex items-end gap-2"><div className="flex flex-col"><span className="text-xl font-bold text-fg tnum">04</span></div><span className="text-lg font-bold text-line-strong pb-1">:</span><div className="flex flex-col"><span className="text-xl font-bold text-fg tnum">23</span></div></div></div>
+          <div className="mt-auto space-y-2">
+            <div>
+              <p className="text-[11px] text-fg-subtle mb-1">New York Open</p>
+              <div className="flex items-end gap-2"><div className="flex flex-col"><span className="text-xl font-bold text-fg tnum">04</span></div><span className="text-lg font-bold text-line-strong pb-1">:</span><div className="flex flex-col"><span className="text-xl font-bold text-fg tnum">23</span></div></div>
+            </div>
+            {marketAsxEnabled && (
+              <div>
+                <p className="text-[11px] text-fg-subtle mb-1">Sydney Open (ASX)</p>
+                <div className="flex items-end gap-2"><div className="flex flex-col"><span className="text-xl font-bold text-fg tnum">14</span></div><span className="text-lg font-bold text-line-strong pb-1">:</span><div className="flex flex-col"><span className="text-xl font-bold text-fg tnum">00</span></div></div>
+              </div>
+            )}
+          </div>
         </div>
       );
     }

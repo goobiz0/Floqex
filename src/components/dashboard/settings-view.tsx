@@ -87,6 +87,7 @@ type NotificationSettings = {
   drawdownAlertPct: number;
   globalKillSwitch: boolean;
   maxGlobalDrawdown: number;
+  marketAsxEnabled: boolean;
 };
 
 import { generateMcpKey } from "@/app/dashboard/settings/actions";
@@ -139,6 +140,7 @@ export function SettingsView({
   const [drawdown, setDrawdown] = useState(String(settings.drawdownAlertPct));
   const [globalKillSwitch, setGlobalKillSwitch] = useState(settings.globalKillSwitch);
   const [maxGlobalDrawdown, setMaxGlobalDrawdown] = useState(String(settings.maxGlobalDrawdown));
+  const [marketAsxEnabled, setMarketAsxEnabled] = useState(settings.marketAsxEnabled);
   const [saving, startSaving] = useTransition();
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -167,6 +169,7 @@ export function SettingsView({
         drawdownAlertPct: Number(drawdown),
         globalKillSwitch,
         maxGlobalDrawdown: Number(maxGlobalDrawdown),
+        marketAsxEnabled,
       });
       if (res.ok) {
         setSaved(true);
@@ -360,6 +363,14 @@ export function SettingsView({
                     </button>
                   }
                 />
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-center">
+                  <p className="text-sm font-medium text-fg">Enable ASX Trading</p>
+                  <InfoTooltip text="Allow bots to trade Australian Securities Exchange (ASX) instruments and show market open times." />
+                </div>
+                <Switch checked={marketAsxEnabled} onChange={setMarketAsxEnabled} label="ASX Enabled" />
               </div>
               <div className="flex items-center justify-between py-4">
                 <div className="flex items-center">
