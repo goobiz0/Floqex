@@ -4,6 +4,7 @@ import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow
 export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
+import { getMarketForInstrument, type MarketKind } from "./market";
 
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.
@@ -567,51 +568,98 @@ export async function getRecentNotifications(): Promise<NotificationRow[]> {
   }
 }
 
+/**
+ * One account's slice of activity in a single instrument. When an asset is
+ * traded across multiple bots/accounts, the per-stock view splits the numbers
+ * out by account so each account's own activity is visible.
+ */
+export type AssetAccountActivity = {
+  accountId: string;
+  nickname: string;
+  broker: string;
+  mode: string;          // PAPER | LIVE
+  executions: number;    // total fills (trade rows) on this account
+  closedCount: number;
+  openCount: number;
+  winCount: number;
+  realizedPnl: number;
+  netUnits: number;      // signed open holding on this account
+};
+
 export type InstrumentActivity = {
   instrument: string;
   trades: TradeRow[];
   openTrades: TradeRow[];
   netUnits: number;       // signed holding: +long, -short
   realizedPnl: number;    // sum of closed netPnl
-  tradeCount: number;
+  tradeCount: number;     // closed count (win-rate denominator)
+  executions: number;     // total fills (all trade rows)
   winCount: number;
+  accounts: AssetAccountActivity[];  // per-account split, descending by executions
   hasAccount: boolean;
 };
 
 /**
  * What the user's bots have done with a specific instrument: open positions
- * (current holding), recent fills (buys/sells), and realized P&L. Powers the
- * per-stock activity panel in the markets/stock-search view.
+ * (current holding), recent fills (buys/sells), realized P&L, and a per-account
+ * breakdown. Powers the per-stock activity panel in the markets view.
  */
 export async function getInstrumentActivity(instrument: string): Promise<InstrumentActivity> {
   const sym = instrument.trim().toUpperCase();
   const EMPTY: InstrumentActivity = {
     instrument: sym, trades: [], openTrades: [], netUnits: 0, realizedPnl: 0,
-    tradeCount: 0, winCount: 0, hasAccount: false,
+    tradeCount: 0, executions: 0, winCount: 0, accounts: [], hasAccount: false,
   };
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY;
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      select: { accounts: { select: { id: true } } },
+      select: { accounts: { select: { id: true, nickname: true, broker: true, mode: true } } },
     });
-    const accountIds = user?.accounts.map((a) => a.id) ?? [];
-    if (accountIds.length === 0) return EMPTY;
+    const accounts = user?.accounts ?? [];
+    if (accounts.length === 0) return EMPTY;
+    const accMeta = new Map(accounts.map((a) => [a.id, a]));
 
     const rows = await prisma.trade.findMany({
-      where: { accountId: { in: accountIds }, instrument: sym },
+      where: { accountId: { in: accounts.map((a) => a.id) }, instrument: sym },
       orderBy: [{ openedAt: "desc" }],
-      take: 200,
+      take: 500,
     });
 
     const trades = rows.map(serializeTrade);
     const openTrades = trades.filter((t) => t.status === "OPEN");
     const closed = trades.filter((t) => t.status === "CLOSED");
-    const netUnits = openTrades.reduce(
-      (acc, t) => acc + (t.direction === "LONG" ? 1 : -1) * Math.abs(num(rows.find((r) => r.id === t.id)?.sizeUnits)),
-      0,
-    );
+    const sizeById = new Map(rows.map((r) => [r.id, num(r.sizeUnits)]));
+    const signedUnits = (t: TradeRow) =>
+      (t.direction === "LONG" ? 1 : -1) * Math.abs(sizeById.get(t.id) ?? 0);
+    const netUnits = openTrades.reduce((acc, t) => acc + signedUnits(t), 0);
+
+    // Split the same instrument's activity by account/bot.
+    const byAccount = new Map<string, AssetAccountActivity>();
+    for (const r of rows) {
+      const meta = accMeta.get(r.accountId);
+      if (!meta) continue;
+      let a = byAccount.get(r.accountId);
+      if (!a) {
+        a = {
+          accountId: meta.id, nickname: meta.nickname, broker: meta.broker, mode: meta.mode,
+          executions: 0, closedCount: 0, openCount: 0, winCount: 0, realizedPnl: 0, netUnits: 0,
+        };
+        byAccount.set(r.accountId, a);
+      }
+      a.executions += 1;
+      if (r.status === "CLOSED") {
+        a.closedCount += 1;
+        const pnl = numOrNull(r.netPnl) ?? 0;
+        a.realizedPnl += pnl;
+        if (pnl > 0) a.winCount += 1;
+      } else {
+        a.openCount += 1;
+        a.netUnits += (r.direction === "LONG" ? 1 : -1) * Math.abs(num(r.sizeUnits));
+      }
+    }
+
     return {
       instrument: sym,
       trades,
@@ -619,11 +667,145 @@ export async function getInstrumentActivity(instrument: string): Promise<Instrum
       netUnits,
       realizedPnl: closed.reduce((s, t) => s + (t.netPnl ?? 0), 0),
       tradeCount: closed.length,
+      executions: rows.length,
       winCount: closed.filter((t) => (t.netPnl ?? 0) > 0).length,
+      accounts: Array.from(byAccount.values()).sort((x, y) => y.executions - x.executions),
       hasAccount: true,
     };
   } catch {
     return EMPTY;
+  }
+}
+
+export type AssetActivity = {
+  instrument: string;
+  market: MarketKind;
+  executions: number;     // total fills (trade rows) for this asset
+  closedCount: number;
+  openCount: number;
+  winCount: number;
+  realizedPnl: number;
+  activityPct: number;    // share of all fills across every asset (0-100)
+  netUnits: number;       // signed open holding
+  lastTradedAt: string | null;
+  accounts: AssetAccountActivity[];  // per-account split, descending by executions
+};
+
+export type BotActivityOverview = {
+  assets: AssetActivity[];       // descending by executions
+  totalExecutions: number;
+  totalRealizedPnl: number;
+  instrumentCount: number;
+  hasAccount: boolean;
+  error: boolean;
+};
+
+/**
+ * Every instrument the user's bots have traded, ranked by activity. Powers the
+ * markets landing view (shown before an asset is picked) and the side panel once
+ * one is selected: activity share, realized P&L, fill count, win rate, and a
+ * per-account split for assets traded across multiple bots/accounts.
+ */
+export async function getBotActivityOverview(): Promise<BotActivityOverview> {
+  const EMPTY: BotActivityOverview = {
+    assets: [], totalExecutions: 0, totalRealizedPnl: 0, instrumentCount: 0,
+    hasAccount: false, error: false,
+  };
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY;
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { accounts: { select: { id: true, nickname: true, broker: true, mode: true } } },
+    });
+    const accounts = user?.accounts ?? [];
+    if (accounts.length === 0) return EMPTY;
+    const accMeta = new Map(accounts.map((a) => [a.id, a]));
+
+    const rows = await prisma.trade.findMany({
+      where: { accountId: { in: accounts.map((a) => a.id) } },
+      select: {
+        accountId: true, instrument: true, direction: true, status: true,
+        netPnl: true, sizeUnits: true, openedAt: true,
+      },
+      orderBy: { openedAt: "desc" },
+      take: 5000,
+    });
+    if (rows.length === 0) return { ...EMPTY, hasAccount: true };
+
+    type Bucket = AssetActivity & { _accts: Map<string, AssetAccountActivity> };
+    const byInstrument = new Map<string, Bucket>();
+    let totalRealizedPnl = 0;
+
+    for (const r of rows) {
+      const sym = r.instrument.toUpperCase();
+      let b = byInstrument.get(sym);
+      if (!b) {
+        b = {
+          instrument: sym, market: getMarketForInstrument(sym),
+          executions: 0, closedCount: 0, openCount: 0, winCount: 0,
+          realizedPnl: 0, activityPct: 0, netUnits: 0, lastTradedAt: null,
+          accounts: [], _accts: new Map(),
+        };
+        byInstrument.set(sym, b);
+      }
+      b.executions += 1;
+      const openedAt = r.openedAt.toISOString();
+      if (!b.lastTradedAt || openedAt > b.lastTradedAt) b.lastTradedAt = openedAt;
+
+      const meta = accMeta.get(r.accountId);
+      let a = b._accts.get(r.accountId);
+      if (!a && meta) {
+        a = {
+          accountId: meta.id, nickname: meta.nickname, broker: meta.broker, mode: meta.mode,
+          executions: 0, closedCount: 0, openCount: 0, winCount: 0, realizedPnl: 0, netUnits: 0,
+        };
+        b._accts.set(r.accountId, a);
+      }
+      if (a) a.executions += 1;
+
+      if (r.status === "CLOSED") {
+        b.closedCount += 1;
+        const pnl = numOrNull(r.netPnl) ?? 0;
+        b.realizedPnl += pnl;
+        totalRealizedPnl += pnl;
+        if (pnl > 0) b.winCount += 1;
+        if (a) {
+          a.closedCount += 1;
+          a.realizedPnl += pnl;
+          if (pnl > 0) a.winCount += 1;
+        }
+      } else {
+        b.openCount += 1;
+        const signed = (r.direction === "LONG" ? 1 : -1) * Math.abs(num(r.sizeUnits));
+        b.netUnits += signed;
+        if (a) {
+          a.openCount += 1;
+          a.netUnits += signed;
+        }
+      }
+    }
+
+    const totalExecutions = rows.length;
+    const assets: AssetActivity[] = Array.from(byInstrument.values())
+      .map(({ _accts, ...rest }) => ({
+        ...rest,
+        activityPct: totalExecutions > 0 ? (rest.executions / totalExecutions) * 100 : 0,
+        accounts: Array.from(_accts.values()).sort((x, y) => y.executions - x.executions),
+      }))
+      .sort((x, y) => y.executions - x.executions || y.realizedPnl - x.realizedPnl);
+
+    return {
+      assets,
+      totalExecutions,
+      totalRealizedPnl,
+      instrumentCount: assets.length,
+      hasAccount: true,
+      error: false,
+    };
+  } catch (err) {
+    console.error("Error in getBotActivityOverview:", err);
+    return { ...EMPTY, error: true };
   }
 }
 

@@ -20,6 +20,18 @@ async function requestOrigin(): Promise<string> {
 
 const absolute = (url: string, base: string) => (url.startsWith("http") ? url : `${base}${url}`);
 
+/**
+ * True when a Stripe error means the configured price id does not exist in this
+ * account (env drift, a deleted price, or a placeholder default). When this
+ * happens we rebuild the checkout from an inline price so the plan still works.
+ */
+function isMissingPriceError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string; raw?: { code?: string; message?: string } };
+  const code = e?.code ?? e?.raw?.code;
+  const msg = (e?.message ?? e?.raw?.message ?? "").toLowerCase();
+  return code === "resource_missing" || msg.includes("no such price") || msg.includes("no such plan");
+}
+
 /** Find (or lazily create) the Stripe customer for the signed-in user. */
 async function ensureCustomer(): Promise<{ id: string; customerId: string } | null> {
   const { userId: clerkId } = await auth();
@@ -47,30 +59,61 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
   // Server actions receive arbitrary client input; guard before indexing PLANS.
   const cfg = PLANS[plan];
   if (!cfg) return { ok: false, error: "Invalid plan." };
-  if (!cfg.priceId) return { ok: false, error: "That plan does not require checkout." };
+  if (cfg.price <= 0) return { ok: false, error: "That plan does not require checkout." };
 
-  const billing = absolute(dashboardUrl("/billing"), await requestOrigin());
-  const successUrl = returnUrls ? returnUrls.success : `${billing}?status=success`;
-  const cancelUrl = returnUrls ? returnUrls.cancel : `${billing}?status=cancelled`;
+  const origin = await requestOrigin();
+  const billing = absolute(dashboardUrl("/billing"), origin);
+  const successUrl = absolute(returnUrls ? returnUrls.success : `${billing}?status=success`, origin);
+  const cancelUrl = absolute(returnUrls ? returnUrls.cancel : `${billing}?status=cancelled`, origin);
 
   try {
     const customer = await ensureCustomer();
     if (!customer) return { ok: false, error: "You are not signed in." };
 
-    const session = await getStripe().checkout.sessions.create({
-      mode: "subscription",
+    // Shared session config. The plan is stamped on both the session and the
+    // subscription metadata so the webhook (and reconcile) always resolve the
+    // right tier even when checkout falls back to an inline price below.
+    const base = {
+      mode: "subscription" as const,
       customer: customer.customerId,
-      line_items: [{ price: cfg.priceId, quantity: 1 }],
-      success_url: absolute(successUrl, await requestOrigin()),
-      cancel_url: absolute(cancelUrl, await requestOrigin()),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       allow_promotion_codes: true,
-      // Stamp our user id on both the session and the subscription so the
-      // webhook can always resolve the right account, even if the customer
-      // mapping somehow lags.
       client_reference_id: customer.id,
       metadata: { userId: customer.id, plan },
       subscription_data: { metadata: { userId: customer.id, plan } },
-    });
+    };
+
+    // Inline price built from the plan catalogue. This is the fallback that
+    // keeps a tier working when its Stripe price id is missing or misconfigured
+    // (the bug that broke the Elite plan: its price env var was never set, so it
+    // fell back to a placeholder id that does not exist in Stripe).
+    const inlineLineItem = {
+      quantity: 1,
+      price_data: {
+        currency: "usd",
+        product_data: { name: `Floqex ${cfg.name}` },
+        unit_amount: Math.round(cfg.price * 100),
+        recurring: { interval: "month" as const },
+      },
+    };
+
+    const create = (lineItems: typeof inlineLineItem[] | { price: string; quantity: number }[]) =>
+      getStripe().checkout.sessions.create({ ...base, line_items: lineItems });
+
+    let session;
+    if (cfg.priceId) {
+      try {
+        session = await create([{ price: cfg.priceId, quantity: 1 }]);
+      } catch (err) {
+        if (!isMissingPriceError(err)) throw err;
+        console.warn(`[startCheckout] price ${cfg.priceId} missing for ${plan}; using inline price`);
+        session = await create([inlineLineItem]);
+      }
+    } else {
+      session = await create([inlineLineItem]);
+    }
+
     return session.url ? { ok: true, url: session.url } : { ok: false, error: "Could not start checkout." };
   } catch (err) {
     console.error("[startCheckout] Stripe error:", err);
