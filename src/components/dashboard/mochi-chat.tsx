@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { X, Robot, Check, Microphone, ArrowUp } from "@phosphor-icons/react";
+import { X, Robot, Check, Microphone, ArrowUp, Trash, StopCircle } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { applyStrategyChanges } from "@/app/dashboard/settings/actions";
 
@@ -14,7 +15,7 @@ const SUGGESTIONS = [
   "Lower my risk to 0.5%",
 ];
 
-const STORAGE_KEY = "mochi_chat_v1";
+const STORAGE_KEY = "mochi_chat_v2";
 
 type MochiUsage = {
   plan: string;
@@ -27,9 +28,12 @@ type MochiUsage = {
   window: "5h" | "week" | null;
 };
 
-const fmtTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+const fmtTokens = (n: number) =>
+  n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
 
-// Compact equity-path sparkline for a Monte Carlo result.
+const fmt$ = (n: number) =>
+  `${n >= 0 ? "+" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+
 function MonteCarloChart({ path }: { path: number[] }) {
   if (!path || path.length < 2) return null;
   const min = Math.min(...path);
@@ -73,11 +77,373 @@ function ThinkingDots() {
   );
 }
 
-// Format duration from seconds
+function LoadingChip({ label }: { label: string }) {
+  return (
+    <div className="mt-3 flex items-center gap-2 rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-accent">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+      {label}
+    </div>
+  );
+}
+
+function DoneChip({ label }: { label: string }) {
+  return (
+    <div className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
+      <Check size={12} weight="bold" className="text-profit" />
+      {label}
+    </div>
+  );
+}
+
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
   const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
+}
+
+type ToolPart = {
+  type: string;
+  toolCallId: string;
+  state: "input-streaming" | "input-available" | "output-available";
+  input: Record<string, unknown>;
+  output?: unknown;
+};
+
+function renderToolPart(
+  tp: ToolPart,
+  pendingToolId: string | null,
+  onAccept: (toolCallId: string, args: Record<string, unknown>) => void,
+  onDecline: (toolCallId: string) => void,
+) {
+  const toolName = tp.type.replace(/^tool-/, "");
+  const isDone = tp.state === "output-available";
+  const out = tp.output as Record<string, unknown> | undefined;
+
+  // updateStrategyParams — human-in-the-loop
+  if (toolName === "updateStrategyParams") {
+    if (!isDone) {
+      const busy = pendingToolId === tp.toolCallId;
+      return (
+        <div className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
+          <p className="mb-2 text-[12px] font-medium text-accent">Mochi proposes changes:</p>
+          <pre className="mb-3 overflow-x-auto rounded bg-base/50 p-2 text-[11px] text-accent/90">
+            {JSON.stringify(tp.input, null, 2)}
+          </pre>
+          <div className="flex gap-2">
+            <button
+              disabled={busy}
+              onClick={() => onAccept(tp.toolCallId, tp.input)}
+              className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? "Applying..." : "Accept & Apply"}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => onDecline(tp.toolCallId)}
+              className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      );
+    }
+    const ok = (out as { ok?: boolean } | undefined)?.ok;
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
+        {ok ? (
+          <Check size={12} weight="bold" className="text-profit" />
+        ) : (
+          <X size={12} weight="bold" className="text-negative" />
+        )}
+        {ok ? "Changes Applied" : "Changes Declined / Failed"}
+      </div>
+    );
+  }
+
+  // calculate
+  if (toolName === "calculate") {
+    if (!isDone) return <LoadingChip label="Calculating" />;
+    const calc = out as { expression?: string; result?: number; error?: string } | undefined;
+    return (
+      <div className="mt-3 rounded-[10px] border border-line bg-base px-3 py-2 font-mono text-[12px] text-fg">
+        {calc?.error ? (
+          <span className="text-negative">{calc.error}</span>
+        ) : (
+          <span>
+            <span className="text-fg-subtle">{calc?.expression} =</span>{" "}
+            <span className="font-semibold text-accent">{calc?.result}</span>
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // runMonteCarlo
+  if (toolName === "runMonteCarlo") {
+    if (!isDone) return <LoadingChip label="Running simulation" />;
+    const mc = out as {
+      startingBalance?: number;
+      trades?: number;
+      simulations?: number;
+      mean?: number;
+      p10?: number;
+      p50?: number;
+      p90?: number;
+      ruinProbability?: number;
+      samplePath?: number[];
+    };
+    const money = (n?: number) =>
+      `$${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    return (
+      <div className="mt-3 rounded-[12px] border border-line bg-base p-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+            Monte Carlo · {mc.simulations} runs · {mc.trades} trades
+          </p>
+          <span
+            className={cn(
+              "text-[11px] font-semibold",
+              (mc.ruinProbability ?? 0) > 25 ? "text-negative" : "text-fg-muted",
+            )}
+          >
+            {mc.ruinProbability}% ruin risk
+          </span>
+        </div>
+        <MonteCarloChart path={mc.samplePath ?? []} />
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-fg-subtle">
+          <div className="flex justify-between border-b border-line pb-1">
+            <span>Worst 10%</span>
+            <span className="font-semibold text-fg">{money(mc.p10)}</span>
+          </div>
+          <div className="flex justify-between border-b border-line pb-1">
+            <span>Median</span>
+            <span className="font-semibold text-fg">{money(mc.p50)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Top 10%</span>
+            <span className="font-semibold text-fg">{money(mc.p90)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Mean</span>
+            <span className="font-semibold text-fg">{money(mc.mean)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // getPerformance
+  if (toolName === "getPerformance") {
+    if (!isDone) return <LoadingChip label="Reading performance" />;
+    const perf = out as {
+      days?: number;
+      trades?: number;
+      winRate?: string;
+      netPnl?: string;
+      profitFactor?: string;
+      expectancy?: string;
+      avgWin?: string;
+      avgLoss?: string;
+      error?: string;
+    };
+    if (perf?.error) return <DoneChip label="Performance loaded" />;
+    return (
+      <div className="mt-3 rounded-[12px] border border-line bg-base p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+          Performance · {perf.days}d
+        </p>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[10px]">
+          {([
+            ["Trades", String(perf.trades ?? 0)],
+            ["Win rate", perf.winRate ?? "-"],
+            ["Net P/L", perf.netPnl ?? "-"],
+            ["Profit factor", perf.profitFactor ?? "-"],
+            ["Expectancy", perf.expectancy ?? "-"],
+            ["Avg win / loss", perf.avgWin && perf.avgLoss ? `${perf.avgWin} / ${perf.avgLoss}` : "-"],
+          ] as [string, string][]).map(([label, val]) => (
+            <div key={label} className="flex justify-between">
+              <span className="text-fg-subtle">{label}</span>
+              <span className="font-semibold text-fg">{val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // getBotStatus
+  if (toolName === "getBotStatus") {
+    if (!isDone) return <LoadingChip label="Checking bot status" />;
+    const bot = out as {
+      bots?: number;
+      running?: number;
+      openPositions?: number;
+      detail?: { account: string; status: string; strategy: string }[];
+    };
+    return (
+      <div className="mt-3 rounded-[12px] border border-line bg-base p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+          Bot Status
+        </p>
+        <div className="mb-2 flex items-center gap-4 text-[11px]">
+          <span>
+            <span className="font-semibold text-fg">{bot.bots ?? 0}</span>{" "}
+            <span className="text-fg-subtle">bots</span>
+          </span>
+          <span>
+            <span className="font-semibold text-profit">{bot.running ?? 0}</span>{" "}
+            <span className="text-fg-subtle">running</span>
+          </span>
+          <span>
+            <span className="font-semibold text-fg">{bot.openPositions ?? 0}</span>{" "}
+            <span className="text-fg-subtle">open</span>
+          </span>
+        </div>
+        {(bot.detail ?? []).map((d, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between border-t border-line/50 py-1 text-[10px]"
+          >
+            <span className="text-fg-subtle">{d.account}</span>
+            <span className={cn("font-semibold", d.status === "RUNNING" ? "text-profit" : "text-fg-muted")}>
+              {d.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // analyzeEdge
+  if (toolName === "analyzeEdge") {
+    if (!isDone) return <LoadingChip label="Analyzing edge" />;
+    const edge = out as {
+      trades?: number;
+      winRate?: string;
+      breakEvenWinRate?: string;
+      expectancyPerR?: string;
+      halfKellyPct?: string;
+      profitFactor?: string;
+      verdict?: string;
+      error?: string;
+    };
+    if (edge?.error) {
+      return (
+        <div className="mt-3 rounded-[10px] border border-line bg-base px-3 py-2 text-[12px] text-fg-subtle">
+          {edge.error}
+        </div>
+      );
+    }
+    const verdictColor = edge.verdict?.includes("detected")
+      ? "text-profit"
+      : edge.verdict?.includes("No edge")
+      ? "text-negative"
+      : "text-fg-subtle";
+    return (
+      <div className="mt-3 rounded-[12px] border border-line bg-base p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+          Edge Analysis · {edge.trades} trades
+        </p>
+        <p className={cn("mb-3 text-[12px] font-medium leading-snug", verdictColor)}>
+          {edge.verdict}
+        </p>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[10px]">
+          {([
+            ["Win rate", edge.winRate ?? "-"],
+            ["Break-even", edge.breakEvenWinRate ?? "-"],
+            ["Expectancy", edge.expectancyPerR ?? "-"],
+            ["Profit factor", edge.profitFactor ?? "-"],
+            ["Half-Kelly risk", edge.halfKellyPct ?? "-"],
+          ] as [string, string][]).map(([label, val]) => (
+            <div key={label} className="flex justify-between">
+              <span className="text-fg-subtle">{label}</span>
+              <span className="font-semibold text-fg">{val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // getBreakdown
+  if (toolName === "getBreakdown") {
+    if (!isDone) return <LoadingChip label="Loading breakdown" />;
+    const bd = out as {
+      byInstrument?: Record<string, number>;
+      bySession?: Record<string, number>;
+      byWeekday?: Record<string, number>;
+    };
+    const instruments = Object.entries(bd.byInstrument ?? {})
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 5);
+    return (
+      <div className="mt-3 space-y-3 rounded-[12px] border border-line bg-base p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+          Breakdown
+        </p>
+        {/* Session */}
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-wide text-fg-muted">Session</p>
+          {Object.entries(bd.bySession ?? {}).map(([k, v]) => (
+            <div key={k} className="flex justify-between py-0.5 text-[10px]">
+              <span className="text-fg-subtle">{k}</span>
+              <span className={cn("font-semibold", v >= 0 ? "text-profit" : "text-negative")}>
+                {fmt$(v)}
+              </span>
+            </div>
+          ))}
+        </div>
+        {/* Top instruments */}
+        {instruments.length > 0 && (
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-wide text-fg-muted">Instruments</p>
+            {instruments.map(([k, v]) => (
+              <div key={k} className="flex justify-between py-0.5 text-[10px]">
+                <span className="text-fg-subtle">{k}</span>
+                <span className={cn("font-semibold", v >= 0 ? "text-profit" : "text-negative")}>
+                  {fmt$(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Weekday */}
+        {Object.keys(bd.byWeekday ?? {}).length > 0 && (
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-wide text-fg-muted">Day of week</p>
+            <div className="flex gap-1">
+              {Object.entries(bd.byWeekday ?? {}).map(([day, v]) => (
+                <div key={day} className="flex-1 text-center">
+                  <p className="text-[9px] text-fg-muted">{day}</p>
+                  <p
+                    className={cn(
+                      "text-[10px] font-semibold",
+                      v > 0 ? "text-profit" : v < 0 ? "text-negative" : "text-fg-muted",
+                    )}
+                  >
+                    {v === 0 ? "-" : v > 0 ? `+${v.toFixed(0)}` : v.toFixed(0)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Generic fallback chip for any other tool
+  const labels: Record<string, [string, string]> = {
+    calculate: ["Calculating", "Calculated"],
+    runMonteCarlo: ["Running simulation", "Simulation complete"],
+    getPerformance: ["Reading performance", "Performance loaded"],
+    getBotStatus: ["Checking bot status", "Status loaded"],
+    analyzeEdge: ["Analyzing edge", "Edge analysis complete"],
+    getBreakdown: ["Loading breakdown", "Breakdown loaded"],
+  };
+  const [running, finished] = labels[toolName] ?? [`Running ${toolName}`, `${toolName} done`];
+  return isDone ? <DoneChip label={finished} /> : <LoadingChip label={running} />;
 }
 
 export function MochiChat() {
@@ -87,16 +453,16 @@ export function MochiChat() {
   const reduce = useReducedMotion();
   const [input, setInput] = useState("");
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
-  // @ts-ignore - Vercel AI SDK generic type mismatch for useChat return type
-  const { messages, append, isLoading, addToolResult, setMessages, error } = useChat({
-    api: "/api/chat",
-  } as any);
-  
+
+  const { messages, sendMessage, status, stop, addToolResult, setMessages, error } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
+
+  const isStreaming = status === "submitted" || status === "streaming";
+
   const [usage, setUsage] = useState<MochiUsage | null>(null);
   const restoredRef = useRef(false);
 
-  // Persist the conversation so switching dashboard pages, changing tabs, or a
-  // refresh never loses what Mochi was doing. Restore once on mount.
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
@@ -116,13 +482,10 @@ export function MochiChat() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
     } catch {
-      /* quota / serialization issues are non-fatal */
+      /* quota / serialization non-fatal */
     }
   }, [messages]);
 
-  // Refresh usage whenever the panel is open and the chat status changes (so it
-  // updates after each reply finishes). The fetch + setState live inside an
-  // async IIFE so nothing runs synchronously in the effect body.
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -131,63 +494,47 @@ export function MochiChat() {
         const res = await fetch("/api/mochi/usage");
         if (!cancelled && res.ok) setUsage(await res.json());
       } catch {
-        /* offline; keep last known usage */
+        /* offline */
       }
     })();
-    return () => { cancelled = true; };
-  }, [isOpen, isLoading]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isStreaming]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading, isOpen]);
+  }, [messages, isStreaming, isOpen]);
 
-  // Web Speech API setup
   useEffect(() => {
-    if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        let finalTranscript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        // Combine with existing input, ensuring we don't exceed 500 chars
-        setInput((prev) => {
-          const newVal = prev + finalTranscript;
-          return newVal.slice(0, 500);
-        });
-      };
-      
-      recognition.onerror = () => {
-        setIsListening(false);
-      };
-      
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      
-      recognitionRef.current = recognition;
-    }
-  }, [setInput]);
+    if (typeof window === "undefined") return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      let final = "";
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+      }
+      setInput((prev) => (prev + final).slice(0, 500));
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognitionRef.current = recognition;
+  }, []);
 
-  // Listening Timer
   useEffect(() => {
     if (isListening) {
-      timerRef.current = setInterval(() => {
-        setListenTime((t) => t + 1);
-      }, 1000);
+      timerRef.current = setInterval(() => setListenTime((t) => t + 1), 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
@@ -207,37 +554,36 @@ export function MochiChat() {
       setIsListening(true);
       setIsOpen(true);
     }
-  }, [isListening, setInput]);
+  }, [isListening]);
 
-  const onFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
     }
+    if (isStreaming) {
+      stop();
+      return;
+    }
     const text = input.trim();
     if (!text) return;
     setIsOpen(true);
-    // Optimistically clear the draft; restore it if the send rejects so the
-    // user doesn't lose their message. append is async in AI SDK v6.
     setInput("");
-    try {
-      await append({ role: 'user', content: text });
-    } catch (err) {
-      console.error("Chat submit error", err);
-      setInput(text);
-    }
+    sendMessage({ text });
   };
 
   const handleToolAccept = async (toolCallId: string, args: Record<string, unknown>) => {
-    if (pendingToolId) return; // ignore double-clicks / accept-vs-decline races
+    if (pendingToolId) return;
     setPendingToolId(toolCallId);
     try {
       const res = await applyStrategyChanges(args);
-      addToolResult({ toolCallId, result: res } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (addToolResult as any)({ toolCallId, output: res });
     } catch {
-      addToolResult({ toolCallId, result: { ok: false, message: "Server error" } } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (addToolResult as any)({ toolCallId, output: { ok: false, message: "Server error" } });
     } finally {
       setPendingToolId(null);
     }
@@ -245,16 +591,25 @@ export function MochiChat() {
 
   const handleToolDecline = (toolCallId: string) => {
     if (pendingToolId) return;
-    addToolResult({ toolCallId, result: { ok: false, message: "User declined the changes." } } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (addToolResult as any)({ toolCallId, output: { ok: false, message: "User declined the changes." } });
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* non-fatal */
+    }
   };
 
   const spring = { type: "spring" as const, damping: 26, stiffness: 280, mass: 0.6 };
-  const showDialog = isOpen;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       <AnimatePresence>
-        {showDialog && (
+        {isOpen && (
           <motion.div
             role="dialog"
             aria-label="Mochi assistant"
@@ -276,14 +631,27 @@ export function MochiChat() {
                   <p className="text-[11px] text-fg-subtle">Your trading copilot</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                aria-label="Close"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg active:scale-95"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearChat}
+                    aria-label="Clear chat"
+                    title="Clear chat"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg active:scale-95"
+                  >
+                    <Trash size={15} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Close"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg active:scale-95"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -297,13 +665,13 @@ export function MochiChat() {
                   <p className="mt-1.5 text-[13px] leading-relaxed text-fg-subtle">
                     Ask about your performance, the bot, or tune your strategy in plain English.
                   </p>
-                  <div className="mt-6 flex flex-col justify-center gap-2 w-full">
+                  <div className="mt-6 flex w-full flex-col justify-center gap-2">
                     {SUGGESTIONS.map((s) => (
                       <button
                         key={s}
                         type="button"
                         onClick={() => setInput(s)}
-                        className="rounded-xl border border-line bg-surface px-4 py-2.5 text-[12px] font-medium text-left text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
+                        className="rounded-xl border border-line bg-surface px-4 py-2.5 text-left text-[12px] font-medium text-fg-subtle transition-colors hover:border-line-strong hover:text-fg"
                       >
                         {s}
                       </button>
@@ -311,8 +679,17 @@ export function MochiChat() {
                   </div>
                 </div>
               ) : (
-                (messages as any[]).map((m) => {
+                messages.map((m) => {
                   const isUser = m.role === "user";
+                  const parts = m.parts ?? [];
+
+                  // Extract text for user bubbles
+                  const textContent = parts
+                    .filter((p) => p.type === "text")
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    .map((p) => (p as any).text as string)
+                    .join("");
+
                   return (
                     <motion.div
                       key={m.id}
@@ -334,114 +711,38 @@ export function MochiChat() {
                             : "rounded-bl-[8px] border border-line bg-surface text-fg",
                         )}
                       >
-                        {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
-                        {m.toolInvocations?.map((toolInvocation: any) => {
-                          const toolCallId = toolInvocation.toolCallId;
-                          if (toolInvocation.toolName === "updateStrategyParams") {
-                            if (!('result' in toolInvocation)) {
-                              const args = toolInvocation.args as Record<string, unknown>;
-                              const busy = pendingToolId === toolCallId;
+                        {isUser ? (
+                          <div className="whitespace-pre-wrap">{textContent}</div>
+                        ) : (
+                          parts.map((part, idx) => {
+                            if (part.type === "text") {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const text = (part as any).text as string;
+                              if (!text) return null;
                               return (
-                                <div key={toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
-                                  <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
-                                  <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(args, null, 2)}</pre>
-                                  <div className="flex gap-2">
-                                    <button
-                                      disabled={busy}
-                                      onClick={() => handleToolAccept(toolCallId, args)}
-                                      className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {busy ? "Applying…" : "Accept & Apply"}
-                                    </button>
-                                    <button
-                                      disabled={busy}
-                                      onClick={() => handleToolDecline(toolCallId)}
-                                      className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      Decline
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            } else {
-                              const res = toolInvocation.result as { ok?: boolean } | undefined;
-                              const ok = res?.ok;
-                              return (
-                                <div key={toolCallId} className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
-                                  {ok ? <Check size={12} weight="bold" className="text-profit" /> : <X size={12} weight="bold" className="text-negative" />}
-                                  {ok ? "Changes Applied" : "Changes Declined / Failed"}
+                                <div key={idx} className="whitespace-pre-wrap">
+                                  {text}
                                 </div>
                               );
                             }
-                          }
-                          
-                          if (toolInvocation.toolName === "calculate" && 'result' in toolInvocation) {
-                            const out = (toolInvocation.result ?? {}) as { expression?: string; result?: number; error?: string };
-                            return (
-                              <div key={toolCallId} className="mt-3 rounded-[10px] border border-line bg-base px-3 py-2 font-mono text-[12px] text-fg">
-                                {out.error ? (
-                                  <span className="text-negative">{out.error}</span>
-                                ) : (
-                                  <span><span className="text-fg-subtle">{out.expression} =</span> <span className="font-semibold text-accent">{out.result}</span></span>
-                                )}
-                              </div>
-                            );
-                          }
-
-                          if (toolInvocation.toolName === "runMonteCarlo" && 'result' in toolInvocation) {
-                            const mc = (toolInvocation.result ?? {}) as {
-                              startingBalance?: number; trades?: number; simulations?: number; mean?: number;
-                              p10?: number; p50?: number; p90?: number; ruinProbability?: number; samplePath?: number[];
-                            };
-                            const money = (n?: number) => `$${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-                            return (
-                                <div key={toolCallId} className="mt-3 rounded-[12px] border border-line bg-base p-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Monte Carlo · {mc.simulations} runs · {mc.trades} trades</p>
-                                    <span className={cn("text-[11px] font-semibold", (mc.ruinProbability ?? 0) > 25 ? "text-negative" : "text-fg-muted")}>
-                                      {mc.ruinProbability}% risk of 50% drawdown
-                                    </span>
-                                  </div>
-                                  <MonteCarloChart path={mc.samplePath ?? []} />
-                                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-fg-subtle">
-                                    <div className="flex justify-between border-b border-line pb-1"><span>Worst 10%</span> <span className="font-semibold text-fg">{money(mc.p10)}</span></div>
-                                    <div className="flex justify-between border-b border-line pb-1"><span>Median</span> <span className="font-semibold text-fg">{money(mc.p50)}</span></div>
-                                    <div className="flex justify-between"><span>Top 10%</span> <span className="font-semibold text-fg">{money(mc.p90)}</span></div>
-                                    <div className="flex justify-between"><span>Mean</span> <span className="font-semibold text-fg">{money(mc.mean)}</span></div>
-                                  </div>
+                            if (part.type.startsWith("tool-")) {
+                              const tp = part as unknown as ToolPart;
+                              return (
+                                <div key={tp.toolCallId ?? idx}>
+                                  {renderToolPart(tp, pendingToolId, handleToolAccept, handleToolDecline)}
                                 </div>
-                            );
-                          }
-
-                          const labels: Record<string, [string, string]> = {
-                            getPerformance: ["Reading performance", "Performance loaded"],
-                            getBotStatus: ["Checking bot status", "Status loaded"],
-                            calculate: ["Calculating", "Calculated"],
-                            runMonteCarlo: ["Running simulation", "Simulation complete"],
-                          };
-                          const toolName = toolInvocation.toolName;
-                          const isResult = 'result' in toolInvocation;
-                          const [running, finished] = labels[toolName] ?? [`Running ${toolName}`, `${toolName} done`];
-                          return (
-                            <div
-                              key={toolCallId}
-                              className={cn(
-                                "mt-3 flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase",
-                                isResult ? "border-line bg-base text-fg-muted" : "border-accent/30 bg-accent-soft text-accent"
-                              )}
-                            >
-                              {isResult ? <Check size={12} weight="bold" className="text-profit" /> : <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />}
-                              {isResult ? finished : running}
-                            </div>
-                          );
-                        })}
+                              );
+                            }
+                            return null;
+                          })
+                        )}
                       </div>
                     </motion.div>
                   );
                 })
               )}
 
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
+              {isStreaming && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start gap-3">
                   <div className="mt-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
                     <Robot size={15} weight="fill" />
@@ -463,35 +764,41 @@ export function MochiChat() {
             {usage && (
               <div className="border-t border-line bg-base px-4 pt-2.5">
                 <div className="flex items-center justify-between text-[10px] text-fg-subtle">
-                  <span className="font-medium uppercase tracking-wider">Weekly tokens · {usage.plan}</span>
+                  <span className="font-medium uppercase tracking-wider">
+                    Weekly tokens · {usage.plan}
+                  </span>
                   <span className="tnum">
                     {fmtTokens(usage.usedWeek)} / {fmtTokens(usage.limitWeek)}
-                    {usage.lastMessageTokens > 0 && <span className="text-fg-faint"> · last {fmtTokens(usage.lastMessageTokens)}</span>}
+                    {usage.lastMessageTokens > 0 && (
+                      <span className="text-fg-faint"> · last {fmtTokens(usage.lastMessageTokens)}</span>
+                    )}
                   </span>
                 </div>
                 <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-surface">
                   <div
-                    className={cn("h-full rounded-full transition-[width] duration-500", usage.blocked ? "bg-negative" : "bg-accent")}
-                    style={{ width: `${Math.min(100, (usage.usedWeek / Math.max(1, usage.limitWeek)) * 100)}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-500",
+                      usage.blocked ? "bg-negative" : "bg-accent",
+                    )}
+                    style={{
+                      width: `${Math.min(100, (usage.usedWeek / Math.max(1, usage.limitWeek)) * 100)}%`,
+                    }}
                   />
                 </div>
               </div>
             )}
 
-            {/* Input Form inside the Dialog */}
-            <form
-              onSubmit={onFormSubmit}
-              className="flex border-t border-line bg-base px-3 py-3"
-            >
-              <div className="relative flex-1 flex items-center gap-2 rounded-full border border-line bg-surface px-2 pl-4 transition-colors focus-within:border-line-strong overflow-hidden">
+            {/* Input form */}
+            <form onSubmit={onFormSubmit} className="flex border-t border-line bg-base px-3 py-3">
+              <div className="relative flex flex-1 items-center gap-2 overflow-hidden rounded-full border border-line bg-surface px-2 pl-4 transition-colors focus-within:border-line-strong">
                 {isListening && (
-                  <div className="absolute inset-0 z-0 flex items-center justify-start pointer-events-none">
-                    <div className="h-full w-full bg-gradient-to-r from-rose-500/10 via-fuchsia-500/10 to-transparent animate-pulse" />
+                  <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-start">
+                    <div className="h-full w-full animate-pulse bg-gradient-to-r from-rose-500/10 via-fuchsia-500/10 to-transparent" />
                   </div>
                 )}
-                
+
                 {isListening ? (
-                  <div className="relative z-10 flex-1 flex items-center gap-2 font-mono text-[13px] font-medium text-rose-500 animate-pulse py-2">
+                  <div className="relative z-10 flex flex-1 animate-pulse items-center gap-2 py-2 font-mono text-[13px] font-medium text-rose-500">
                     <span>Listening...</span>
                     <span>{formatDuration(listenTime)}</span>
                   </div>
@@ -506,6 +813,7 @@ export function MochiChat() {
                     className="w-full bg-transparent py-2.5 text-[14px] font-medium text-fg placeholder:text-fg-faint focus:outline-none"
                   />
                 )}
+
                 <div className="relative z-10 flex shrink-0 items-center gap-1.5 pr-1">
                   <button
                     type="button"
@@ -514,18 +822,23 @@ export function MochiChat() {
                       "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
                       isListening
                         ? "bg-negative text-white"
-                        : "text-fg-subtle hover:text-fg hover:bg-surface-hover"
+                        : "text-fg-subtle hover:bg-surface-hover hover:text-fg",
                     )}
-                    title="Voice Input"
+                    title="Voice input"
                   >
                     <Microphone size={16} weight={isListening ? "fill" : "regular"} />
                   </button>
                   <button
                     type="submit"
-                    disabled={isLoading || (!input.trim() && !isListening)}
+                    disabled={!isStreaming && !input.trim() && !isListening}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[var(--color-on-accent)] transition-transform hover:enabled:scale-[1.05] active:enabled:scale-95 disabled:opacity-40"
+                    title={isStreaming ? "Stop" : "Send"}
                   >
-                    <ArrowUp size={16} weight="bold" />
+                    {isStreaming ? (
+                      <StopCircle size={16} weight="fill" />
+                    ) : (
+                      <ArrowUp size={16} weight="bold" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -534,7 +847,7 @@ export function MochiChat() {
         )}
       </AnimatePresence>
 
-      {/* Floating Action Button (FAB) */}
+      {/* Floating Action Button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -547,7 +860,7 @@ export function MochiChat() {
             aria-label="Open Mochi Chat"
           >
             <Robot size={24} weight="fill" />
-            {messages.length > 0 && !isLoading && (
+            {messages.length > 0 && !isStreaming && (
               <span className="absolute right-0 top-0 h-3.5 w-3.5 rounded-full border-2 border-base bg-profit" />
             )}
           </motion.button>
