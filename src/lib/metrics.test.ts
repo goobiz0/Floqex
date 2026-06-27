@@ -3,6 +3,8 @@ import {
   summaryMetrics,
   equitySeries,
   maxDrawdown,
+  drawdownSeries,
+  openExposure,
   currentDrawdown,
   grossProfitLoss,
   streaks,

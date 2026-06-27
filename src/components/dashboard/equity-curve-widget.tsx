@@ -21,7 +21,7 @@ export function EquityCurveWidget({ summaries }: { summaries: DailyRow[] }) {
         <WidgetEmpty message="Your equity curve appears once the bot logs its first daily balances." />
       ) : (
         <div className="h-full overflow-y-auto overflow-x-hidden p-4">
-          <EquityCurve series={series} enableNews={false} />
+          <EquityCurve series={series} />
         </div>
       )}
     </WidgetShell>
