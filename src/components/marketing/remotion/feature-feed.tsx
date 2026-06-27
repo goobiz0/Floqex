@@ -3,20 +3,21 @@
 import { useCurrentFrame, interpolate, Easing, AbsoluteFill } from "remotion";
 import { COLORS, MockCursor, StatusDot, FeedItem } from "./shared";
 
+// 150 frames
 export const FeatureFeed = () => {
   const frame = useCurrentFrame();
 
   const getEntrance = (startFrame: number) => {
-    const opacity = interpolate(frame, [startFrame, startFrame + 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
-    const x = interpolate(frame, [startFrame, startFrame + 18], [15, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
+    const opacity = interpolate(frame, [startFrame, startFrame + 15], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
+    const x = interpolate(frame, [startFrame, startFrame + 15], [15, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
     return { opacity, transform: `translateX(${x}px)` };
   };
 
-  const cursorOpacity = interpolate(frame, [120, 130], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const cursorX = interpolate(frame, [120, 150], [300, 200], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
-  const cursorY = interpolate(frame, [120, 150], [200, 140], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
+  const cursorOpacity = interpolate(frame, [90, 100, 135, 150], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const cursorX = interpolate(frame, [90, 115], [300, 200], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
+  const cursorY = interpolate(frame, [90, 115], [200, 140], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
 
-  const overallOpacity = interpolate(frame, [160, 180], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const overallOpacity = interpolate(frame, [135, 150], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ backgroundColor: "transparent", fontFamily: '"Outfit", system-ui, sans-serif', padding: 24, opacity: overallOpacity }}>
@@ -31,10 +32,10 @@ export const FeatureFeed = () => {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {frame >= 15 && <div style={getEntrance(15)}><FeedItem label="Market scan complete" meta="15 instruments" /></div>}
-        {frame >= 40 && <div style={getEntrance(40)}><FeedItem label="Breakout detected" meta="EURUSD 1m" /></div>}
-        {frame >= 65 && <div style={getEntrance(65)}><FeedItem label="Risk parameters verified" meta="All within limits" iconColor={COLORS.info} /></div>}
-        {frame >= 90 && <div style={getEntrance(90)}><FeedItem label="Order submitted" meta="Long 0.5 lots" /></div>}
+        {frame >= 10 && <div style={getEntrance(10)}><FeedItem label="Market scan complete" meta="15 instruments" /></div>}
+        {frame >= 35 && <div style={getEntrance(35)}><FeedItem label="Breakout detected" meta="EURUSD 1m" /></div>}
+        {frame >= 60 && <div style={getEntrance(60)}><FeedItem label="Risk parameters verified" meta="All within limits" iconColor={COLORS.info} /></div>}
+        {frame >= 85 && <div style={getEntrance(85)}><FeedItem label="Order submitted" meta="Long 0.5 lots" /></div>}
       </div>
 
       <div style={{ opacity: cursorOpacity }}>

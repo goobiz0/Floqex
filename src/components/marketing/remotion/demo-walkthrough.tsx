@@ -3,32 +3,32 @@
 import { useCurrentFrame, interpolate, Easing, AbsoluteFill } from "remotion";
 import { COLORS, RADIUS, MockSidebar, MockTopbar, MockCard, MockCursor, FeedItem, StatusDot } from "./shared";
 
-// Full platform demo (1200x720, 30fps, 600 frames = 20s)
+// Full platform demo (1200x720, 30fps, 360 frames = 12s)
 export const DemoWalkthrough = () => {
   const frame = useCurrentFrame();
 
-  // Act 1: Define Rules (0 - 200)
-  // Act 2: Backtest (200 - 400)
-  // Act 3: Go live (400 - 600)
+  // Act 1: Define Rules (0 - 120)
+  // Act 2: Backtest (120 - 240)
+  // Act 3: Go live (240 - 360)
 
-  const act1Opacity = interpolate(frame, [0, 30, 170, 200], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const act2Opacity = interpolate(frame, [200, 230, 370, 400], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const act3Opacity = interpolate(frame, [400, 430, 570, 600], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const act1Opacity = interpolate(frame, [0, 20, 100, 120], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const act2Opacity = interpolate(frame, [120, 140, 220, 240], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const act3Opacity = interpolate(frame, [240, 260, 340, 360], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Act 1 specific
-  const block1Opacity = interpolate(frame, [50, 70], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const block2Opacity = interpolate(frame, [90, 110], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const linePathLength = interpolate(frame, [110, 140], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.4, 0, 0.2, 1) });
-  const cursor1X = interpolate(frame, [60, 100, 130], [500, 600, 400], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
-  const cursor1Y = interpolate(frame, [60, 100, 130], [400, 350, 400], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
+  const block1Opacity = interpolate(frame, [30, 45], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const block2Opacity = interpolate(frame, [55, 70], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const linePathLength = interpolate(frame, [65, 85], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.4, 0, 0.2, 1) });
+  const cursor1X = interpolate(frame, [35, 60, 80], [500, 600, 400], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
+  const cursor1Y = interpolate(frame, [35, 60, 80], [400, 350, 400], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.23, 1, 0.32, 1) });
 
   // Act 2 specific
-  const chartDraw = interpolate(frame, [240, 320], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.4, 0, 0.2, 1) });
+  const chartDraw = interpolate(frame, [150, 200], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.4, 0, 0.2, 1) });
 
   // Act 3 specific
-  const feed1Opacity = interpolate(frame, [440, 460], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const feed2Opacity = interpolate(frame, [490, 510], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const livePulseOpacity = interpolate(frame, [440, 460, 480, 500, 520, 540], [0.3, 1, 0.3, 1, 0.3, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const feed1Opacity = interpolate(frame, [260, 275], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const feed2Opacity = interpolate(frame, [290, 305], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const livePulseOpacity = interpolate(frame, [260, 275, 290, 305, 320, 335], [0.3, 1, 0.3, 1, 0.3, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ backgroundColor: "transparent", fontFamily: '"Outfit", system-ui, sans-serif' }}>
@@ -96,17 +96,7 @@ export const DemoWalkthrough = () => {
                     </linearGradient>
                   </defs>
                   <path d="M0 160 C100 150 200 180 300 120 C400 60 500 100 600 40 C700 -20 750 20 800 10 L800 200 L0 200 Z" fill="url(#demo-chart-gradient)" opacity={chartDraw} />
-                  <path
-                    d="M0 160 C100 150 200 180 300 120 C400 60 500 100 600 40 C700 -20 750 20 800 10"
-                    fill="none"
-                    stroke={COLORS.accent}
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    pathLength={chartDraw}
-                    strokeDasharray={1}
-                    strokeDashoffset={1 - chartDraw}
-                  />
+                  <path d="M0 160 C100 150 200 180 300 120 C400 60 500 100 600 40 C700 -20 750 20 800 10" fill="none" stroke={COLORS.accent} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" pathLength={chartDraw} strokeDasharray={1} strokeDashoffset={1 - chartDraw} />
                 </svg>
               </MockCard>
             </div>
@@ -143,12 +133,12 @@ export const DemoWalkthrough = () => {
               <div style={{ width: 340, display: "flex", flexDirection: "column", gap: 24 }}>
                 <span style={{ color: COLORS.fg, fontSize: 18, fontWeight: 600 }}>Agent Feed</span>
                 <MockCard style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, backgroundColor: "rgba(28, 28, 32, 0.6)", backdropFilter: "blur(12px)" }}>
-                  {frame >= 440 && (
+                  {frame >= 260 && (
                     <div style={{ opacity: feed1Opacity }}>
                       <FeedItem label="Order filled at broker" meta="Long EURUSD @ 1.0945" />
                     </div>
                   )}
-                  {frame >= 490 && (
+                  {frame >= 290 && (
                     <div style={{ opacity: feed2Opacity }}>
                       <FeedItem label="Trailing stop updated" meta="Moved to 1.0930" iconColor={COLORS.info} />
                     </div>

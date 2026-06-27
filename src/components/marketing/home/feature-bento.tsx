@@ -59,7 +59,7 @@ export function FeatureBento() {
   const reduce = useReducedMotion();
 
   const playerProps = {
-    durationInFrames: 180,
+    durationInFrames: 120,
     fps: 30,
     compositionWidth: 380,
     compositionHeight: 240,
@@ -118,7 +118,7 @@ export function FeatureBento() {
             title="Transparent agent feed"
             body="Every scan, signal and order is narrated in plain language, so you always know what the bot is doing and why."
           >
-            <RemotionPlayer component={FeatureFeed} {...playerProps} />
+            <RemotionPlayer component={FeatureFeed} {...playerProps} durationInFrames={150} />
           </CellShell>
 
           <CellShell

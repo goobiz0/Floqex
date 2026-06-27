@@ -102,7 +102,7 @@ export function HomeHero() {
           {/* Remotion Embed instead of static SVG */}
           <RemotionPlayer
             component={HeroSession}
-            durationInFrames={360}
+            durationInFrames={240}
             fps={30}
             compositionWidth={560}
             compositionHeight={420}
