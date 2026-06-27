@@ -142,7 +142,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
       getPerformance: tool({
         description: "Get the user's REAL trading performance over the last 7 days (win rate, net P/L, trade count).",
         parameters: z.object({}),
-        execute: async (_args) => {
+        execute: (async () => {
           const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           const trades = await prisma.trade.findMany({
             where: { account: { userId: user.id }, status: "CLOSED", closedAt: { gte: since } },
@@ -156,12 +156,12 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
             winRate: count ? `${Math.round((wins / count) * 100)}%` : "N/A",
             netPnl: `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`,
           };
-        },
+        }) as any,
       }),
       getBotStatus: tool({
         description: "Check the user's REAL bots: how many exist, how many are running, open positions, and each bot's strategy.",
         parameters: z.object({}),
-        execute: async (_args) => {
+        execute: (async () => {
           const bots = await prisma.bot.findMany({
             where: { account: { userId: user.id } },
             include: { account: { select: { nickname: true } }, strategy: { select: { name: true } } },
@@ -173,7 +173,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
             openPositions,
             detail: bots.map((b) => ({ account: b.account?.nickname ?? "Unassigned", status: b.status, strategy: b.strategy.name })),
           };
-        },
+        }) as any,
       }),
       calculate: tool({
         description: "Evaluate a basic arithmetic expression precisely. Use for ALL math (position sizing, R multiples, percentages).",
