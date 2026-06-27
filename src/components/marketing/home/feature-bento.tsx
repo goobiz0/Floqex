@@ -135,7 +135,7 @@ export function FeatureBento() {
           <CellShell
             icon={ChartLineUp}
             title="Performance you can read"
-            body="Equity, drawdown, R-multiple spread and Monte Carlo, computed from real fills. Know exactly where the edge lives and where the risk is."
+            body="Equity, drawdown, R-multiple spread and Monte Carlo, computed from your real fills inside the app. Know exactly where the edge lives and where the risk is."
             className="lg:col-span-3"
           >
             <RemotionPlayer

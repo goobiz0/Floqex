@@ -191,34 +191,46 @@ export interface MoversResult {
 }
 
 const moversCache: Record<string, { data: MoversResult; expiresAt: number }> = {};
+// Per-universe in-flight fetch, so a burst of widget polls after the TTL expires
+// shares one upstream fan-out instead of each running its own Promise.all.
+const moversInflight: Record<string, Promise<MoversResult>> = {};
 const MOVERS_TTL_MS = 1000 * 30; // 30s: fresh enough, kind to rate limits
 
 export async function getMarketMovers(universe: string[], perSide = 5): Promise<MoversResult> {
   const key = universe.join(",");
   const cached = moversCache[key];
   if (cached && cached.expiresAt > Date.now()) return cached.data;
+  if (key in moversInflight) return moversInflight[key];
 
-  const snapshots = await Promise.all(
-    universe.map((sym) => getQuoteSnapshot(sym).catch(() => null)),
-  );
-  const rows: MoverRow[] = snapshots
-    .filter((s): s is QuoteSnapshot => s != null && Number.isFinite(s.changePercent))
-    .map((s) => ({
-      symbol: s.instrument,
-      name: s.shortName,
-      price: s.price,
-      change: s.change,
-      changePercent: s.changePercent,
-      currency: s.currency,
-    }));
+  const fetchMovers = async (): Promise<MoversResult> => {
+    const snapshots = await Promise.all(
+      universe.map((sym) => getQuoteSnapshot(sym).catch(() => null)),
+    );
+    const rows: MoverRow[] = snapshots
+      .filter((s): s is QuoteSnapshot => s != null && Number.isFinite(s.changePercent))
+      .map((s) => ({
+        symbol: s.instrument,
+        name: s.shortName,
+        price: s.price,
+        change: s.change,
+        changePercent: s.changePercent,
+        currency: s.currency,
+      }));
 
-  const byChangeDesc = [...rows].sort((a, b) => b.changePercent - a.changePercent);
-  const gainers = byChangeDesc.filter((r) => r.changePercent > 0).slice(0, perSide);
-  const losers = [...byChangeDesc].reverse().filter((r) => r.changePercent < 0).slice(0, perSide);
+    const byChangeDesc = [...rows].sort((a, b) => b.changePercent - a.changePercent);
+    const gainers = byChangeDesc.filter((r) => r.changePercent > 0).slice(0, perSide);
+    const losers = [...byChangeDesc].reverse().filter((r) => r.changePercent < 0).slice(0, perSide);
 
-  const data: MoversResult = { gainers, losers, asOf: new Date().toISOString() };
-  moversCache[key] = { data, expiresAt: Date.now() + MOVERS_TTL_MS };
-  return data;
+    const data: MoversResult = { gainers, losers, asOf: new Date().toISOString() };
+    moversCache[key] = { data, expiresAt: Date.now() + MOVERS_TTL_MS };
+    return data;
+  };
+
+  const promise = fetchMovers().finally(() => {
+    delete moversInflight[key];
+  });
+  moversInflight[key] = promise;
+  return promise;
 }
 
 // Daily OHLC bars for the strategy backtest/sandbox. Real Yahoo history, mapped

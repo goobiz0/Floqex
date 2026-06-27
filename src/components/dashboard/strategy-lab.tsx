@@ -133,15 +133,17 @@ export function StrategyLab({
   // a seeded Monte Carlo confidence band. Both come from real simulated trades.
   const rBuckets = useMemo(() => {
     if (!backtest) return [];
-    const defs = [
-      { label: "≤ -0.5R", min: -Infinity, max: -0.5 },
-      { label: "-0.5 to +0.5R", min: -0.5, max: 0.5 },
-      { label: "+0.5 to +1.5R", min: 0.5, max: 1.5 },
-      { label: "≥ +1.5R", min: 1.5, max: Infinity },
+    // Edge-inclusive predicates that match the displayed labels exactly: an exact
+    // -0.5R lands in "≤ -0.5R" and an exact +1.5R lands in "≥ +1.5R".
+    const defs: { label: string; test: (r: number) => boolean }[] = [
+      { label: "≤ -0.5R", test: (r) => r <= -0.5 },
+      { label: "-0.5 to +0.5R", test: (r) => r > -0.5 && r < 0.5 },
+      { label: "+0.5 to +1.5R", test: (r) => r >= 0.5 && r < 1.5 },
+      { label: "≥ +1.5R", test: (r) => r >= 1.5 },
     ];
     return defs.map((d) => ({
       label: d.label,
-      count: backtest.tradeReturns.filter((r) => r >= d.min && r < d.max).length,
+      count: backtest.tradeReturns.filter(d.test).length,
     }));
   }, [backtest]);
 
@@ -154,6 +156,13 @@ export function StrategyLab({
   const [objective, setObjective] = useState<Objective>("return");
   const [sweep, setSweep] = useState<SweepRow[] | null>(null);
   const [sweeping, setSweeping] = useState(false);
+
+  // Stale results are misleading: clear the ranking whenever an input that feeds
+  // the sweep changes (bars, objective, direction, or risk per trade).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- invalidate stale sweep on input change
+    setSweep(null);
+  }, [bars, objective, params.direction, params.riskPct]);
 
   function runOptimization() {
     if (!bars || bars.length < 5) return;

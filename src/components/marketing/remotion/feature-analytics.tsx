@@ -46,8 +46,13 @@ export const FeatureAnalytics = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "transparent", fontFamily: '"Outfit", system-ui, sans-serif', padding: 24, opacity: overallOpacity }}>
-      <div style={{ color: COLORS.fgSubtle, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14, opacity: headerOpacity }}>
-        Analytics
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, opacity: headerOpacity }}>
+        <span style={{ color: COLORS.fgSubtle, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+          Analytics
+        </span>
+        <span style={{ color: COLORS.fgFaint, fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8, border: `1px solid ${COLORS.line}`, borderRadius: RADIUS.pill, padding: "1px 6px" }}>
+          Illustrative
+        </span>
       </div>
 
       <div style={{ display: "flex", gap: 16, flex: 1 }}>

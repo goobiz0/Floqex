@@ -11,20 +11,22 @@ import type { TradeRow } from "@/lib/queries";
 export function ExposureWidget({
   openTrades = [],
   balance = 0,
+  hasAccount = false,
 }: {
   openTrades?: TradeRow[];
   balance?: number;
+  hasAccount?: boolean;
 }) {
   const { notional, pct } = useMemo(() => {
     const total = openExposure(openTrades, "asset").reduce((s, e) => s + e.notional, 0);
-    return { notional: total, pct: balance > 0 ? Math.min(100, (total / balance) * 100) : 0 };
+    // Keep the true percentage (can exceed 100% with leverage); the arc clamps.
+    return { notional: total, pct: balance > 0 ? (total / balance) * 100 : 0 };
   }, [openTrades, balance]);
 
-  const hasAccount = balance > 0;
   // Utilization itself is neutral; only colour high usage as a caution.
   const stroke = pct > 80 ? "var(--color-negative)" : pct > 50 ? "var(--color-warning)" : "var(--color-accent)";
   const circ = 251;
-  const dashOffset = circ - (circ * pct) / 100;
+  const dashOffset = circ - (circ * Math.min(100, pct)) / 100;
 
   return (
     <div className="flex h-full w-full flex-col bg-elevated text-fg">

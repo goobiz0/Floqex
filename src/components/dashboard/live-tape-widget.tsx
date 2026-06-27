@@ -18,7 +18,7 @@ export function LiveTapeWidget({
   isLive?: boolean;
 }) {
   const items = [...trades]
-    .sort((a, b) => (b.openedAt > a.openedAt ? 1 : -1))
+    .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
     .slice(0, rows);
 
   return (

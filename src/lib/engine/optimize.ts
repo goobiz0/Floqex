@@ -32,7 +32,8 @@ function scoreFor(row: SweepRow, objective: Objective): number {
     case "return":
       return row.totalReturnPct;
     case "profitFactor":
-      return row.profitFactor ?? 0;
+      // null means no losing trades (undefined PF) — the strongest possible result.
+      return row.profitFactor ?? Infinity;
     case "winRate":
       return row.winRate;
     case "drawdown":

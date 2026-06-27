@@ -41,11 +41,13 @@ export function NotificationsBell({ items }: { items: NotificationRow[] }) {
   // Mount-time read from localStorage. Starts at 0 on the server so the markup
   // matches during hydration, then syncs to the stored value on the client.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot localStorage hydration on mount */
     const rawSeen = typeof window !== "undefined" ? localStorage.getItem(SEEN_KEY) : null;
     if (rawSeen) setSeen(Number(rawSeen));
-    
+
     const rawCleared = typeof window !== "undefined" ? localStorage.getItem(CLEARED_KEY) : null;
     if (rawCleared) setClearedIds(JSON.parse(rawCleared));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const visibleItems = items.filter((i) => !clearedIds.includes(i.id));

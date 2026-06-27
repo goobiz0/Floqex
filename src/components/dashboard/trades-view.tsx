@@ -19,7 +19,7 @@ function liveToRow(t: LiveTrade): TradeRow {
     exitPrice: t.exitPrice,
     stopPrice: 0,
     targetPrice: 0,
-    sizeUnits: 0,
+    sizeUnits: t.sizeUnits,
     netPnl: t.netPnl,
     grossPnl: null,
     rMultiple: t.rMultiple,

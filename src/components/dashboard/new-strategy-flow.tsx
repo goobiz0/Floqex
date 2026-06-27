@@ -434,10 +434,14 @@ function TemplatePreview({ templateId }: { templateId: string }) {
   const t = templateById(templateId);
   const params = useMemo(() => (t ? t.buildParams() : null), [t]);
   const instrument = typeof params?.instrument === "string" && params.instrument ? params.instrument : "NQ";
+  // Only the ORB engine maps onto the breakout backtest, so only ORB templates
+  // fetch history and render a preview.
+  const isOrb = t?.kind === "ORB";
   const [bars, setBars] = useState<Bar[] | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!isOrb) return;
     let cancelled = false;
     (async () => {
       setBars(null);
@@ -452,7 +456,12 @@ function TemplatePreview({ templateId }: { templateId: string }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [instrument]);
+  }, [instrument, isOrb]);
+
+  // Distinguish "still fetching" (bars === null) from "history too short" so the
+  // skeleton resolves to an honest message rather than spinning forever.
+  const loading = !error && bars === null;
+  const notEnoughHistory = !error && bars !== null && bars.length < 5;
 
   const backtest = useMemo(() => {
     if (!t || !params || !bars || bars.length < 5) return null;
@@ -492,7 +501,9 @@ function TemplatePreview({ templateId }: { templateId: string }) {
       <div className="mt-4 min-h-[64px]">
         {error ? (
           <p className="text-xs text-fg-subtle">Couldn&apos;t load historical data for a preview.</p>
-        ) : !backtest ? (
+        ) : notEnoughHistory ? (
+          <p className="text-xs text-fg-subtle">Not enough history for {instrument} to preview a backtest.</p>
+        ) : loading || !backtest ? (
           <div className="h-16 w-full animate-pulse rounded-[var(--radius-control)] bg-surface" />
         ) : backtest.trades === 0 ? (
           <p className="text-xs text-fg-subtle">Not enough qualifying setups in the window to preview.</p>

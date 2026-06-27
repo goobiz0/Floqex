@@ -58,8 +58,13 @@ export function Sparkline({
     return { x, y };
   });
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const area = `${line} L${W},${H} L0,${H} Z`;
-  const zeroY = max <= 0 ? H - 6 : min >= 0 ? 6 : H - 6 - ((0 - min) / span) * (H - 12);
+  // Zero baseline: top edge for an all-negative series (0 is the max), bottom
+  // edge for an all-positive one, interpolated when the series crosses zero.
+  const zeroY = max <= 0 ? 6 : min >= 0 ? H - 6 : H - 6 - ((0 - min) / span) * (H - 12);
+  // With a baseline, the fill closes to zero (so a drawdown shades the underwater
+  // region); otherwise it closes to the chart floor.
+  const areaBaseY = baseline ? zeroY : H;
+  const area = `${line} L${W},${areaBaseY} L0,${areaBaseY} Z`;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={cn("h-full w-full", className)} preserveAspectRatio="none" aria-hidden>

@@ -24,6 +24,16 @@ export function AccountsNewClient({ plan }: { plan: string }) {
 
   const brokerData = BROKERS.find(b => b.id === selectedBroker);
 
+  // Switch (or clear) the selected broker, resetting broker-specific form state so
+  // a nickname or API credentials never carry over from a previously picked broker.
+  function selectBroker(broker: Broker | null) {
+    setSelectedBroker(broker);
+    setMode("PAPER");
+    setNickname("");
+    setApiKey("");
+    setApiSecret("");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedBroker || !brokerData) return;
@@ -66,7 +76,7 @@ export function AccountsNewClient({ plan }: { plan: string }) {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
         <button 
-          onClick={() => setSelectedBroker(null)}
+          onClick={() => selectBroker(null)}
           className="flex items-center gap-2 text-sm font-medium text-fg-subtle hover:text-fg transition-colors mb-6"
         >
           <CaretLeft size={16} /> Back to broker list
@@ -170,7 +180,7 @@ export function AccountsNewClient({ plan }: { plan: string }) {
           </div>
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setSelectedBroker(null)}>
+            <Button type="button" variant="secondary" onClick={() => selectBroker(null)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading || (mode === "LIVE" && plan === "FREE")}>
@@ -189,7 +199,7 @@ export function AccountsNewClient({ plan }: { plan: string }) {
         return (
           <button
             key={broker.id}
-            onClick={() => !comingSoon && setSelectedBroker(broker.id)}
+            onClick={() => !comingSoon && selectBroker(broker.id)}
             disabled={comingSoon}
             aria-disabled={comingSoon}
             className={cn(

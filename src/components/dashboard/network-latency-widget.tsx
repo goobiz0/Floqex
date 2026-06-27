@@ -20,30 +20,34 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
     if (interval === "5s") ms = 5000;
 
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
+    // Sequential polling: each probe completes before the next is scheduled, so
+    // slow responses never overlap or race the chart.
     async function measure() {
       const start = performance.now();
       try {
         await fetch("/api/ping", { cache: "no-store" });
-        const val = Math.round(performance.now() - start);
         if (cancelled) return;
+        const val = Math.round(performance.now() - start);
         setCurrentPing(val);
         setPings((prev) => {
           const next = [...prev, { id: idRef.current++, val }];
           return next.length > 40 ? next.slice(next.length - 40) : next;
         });
       } catch {
-        // A failed probe is a real signal too: surface it as a max-latency bar.
+        // A failed probe is a real signal too: surface it as a timeout.
         if (cancelled) return;
         setCurrentPing(null);
+      } finally {
+        if (!cancelled) timer = setTimeout(measure, ms);
       }
     }
 
     measure();
-    const timer = setInterval(measure, ms);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
   }, [interval]);
 

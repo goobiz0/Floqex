@@ -291,8 +291,11 @@ export function DashboardPageClient({
   // user can tweak then Save it as a template. Never overwrites silently.
   const applyLayout = (layout: WidgetItem[], label: string) => {
     setLayoutItems(layout.map((w) => ({ ...w, config: { ...w.config } })));
+    // Detach from the active template so Saving a preset/default creates a new
+    // template (via the name dialog) instead of overwriting the selected one.
+    setActiveTemplateId(null);
     setIsEditMode(true);
-    toast.success(`${label} applied. Save to keep it.`);
+    toast.success(`${label} applied. Save to keep it as a new layout.`);
   };
 
   const handleLayoutChange = useCallback((newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
@@ -611,7 +614,7 @@ export function DashboardPageClient({
     }
 
     if (item.type === "exposure") {
-      return <ExposureWidget openTrades={openTrades} balance={liveBalance} />;
+      return <ExposureWidget openTrades={openTrades} balance={liveBalance} hasAccount={hasAccount} />;
     }
 
     if (item.type === "calendar-pnl") {

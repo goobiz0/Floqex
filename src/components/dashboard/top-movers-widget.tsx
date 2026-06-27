@@ -26,16 +26,23 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
 
   useEffect(() => {
     const ctrl = new AbortController();
+    let latest = 0;
+    let current = 0;
 
     async function load() {
+      const id = ++current;
       try {
         const res = await fetch(`/api/market/movers?asx=${includeAsx}`, { signal: ctrl.signal, cache: "no-store" });
         if (!res.ok) throw new Error("bad response");
         const json = (await res.json()) as MoversResult;
+        // Ignore a slow response that a newer poll has already superseded.
+        if (id < latest) return;
+        latest = id;
         setData(json);
         setStatus("ready");
       } catch (err) {
-        if ((err as Error)?.name === "AbortError") return;
+        if ((err as Error)?.name === "AbortError" || id < latest) return;
+        latest = id;
         setStatus("error");
       }
     }
@@ -48,6 +55,14 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
     };
   }, [includeAsx, reloadKey]);
 
+  const fmtPrice = (value: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+    } catch {
+      return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+    }
+  };
+
   const rows = data ? (tab === "gainers" ? data.gainers : data.losers) : [];
 
   return (
@@ -59,12 +74,14 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
         </div>
         <div className="flex items-center gap-1 rounded-[var(--radius-pill)] bg-surface p-0.5">
           <button
+            type="button"
             onClick={() => setTab("gainers")}
             className={cn("rounded-[var(--radius-pill)] px-2 py-1 text-[10px] font-medium transition-colors", tab === "gainers" ? "bg-accent text-[var(--color-on-accent)]" : "text-fg-subtle hover:text-fg")}
           >
             Gainers
           </button>
           <button
+            type="button"
             onClick={() => setTab("losers")}
             className={cn("rounded-[var(--radius-pill)] px-2 py-1 text-[10px] font-medium transition-colors", tab === "losers" ? "bg-accent text-[var(--color-on-accent)]" : "text-fg-subtle hover:text-fg")}
           >
@@ -95,6 +112,7 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <p className="text-xs text-fg-subtle">Couldn&apos;t load market movers.</p>
             <button
+              type="button"
               onClick={() => { setStatus("loading"); setReloadKey((k) => k + 1); }}
               className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-surface-hover"
             >
@@ -132,7 +150,7 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
                   </div>
                   <div className="text-right">
                     <p className="tnum text-sm font-semibold tracking-tight">
-                      {item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {fmtPrice(item.price, item.currency)}
                     </p>
                     <p className={cn("tnum mt-0.5 text-[11px] font-medium", up ? "text-profit" : "text-negative")}>
                       {up ? "+" : ""}{item.changePercent.toFixed(2)}%

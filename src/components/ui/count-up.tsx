@@ -23,7 +23,10 @@ export function CountUp({
   className?: string;
 }) {
   const [display, setDisplay] = useState(value);
-  const fromRef = useRef(value);
+  // Tracks the latest animated value (updated inside the rAF loop, never during
+  // render) so a value change mid-animation continues smoothly from where the
+  // number currently is rather than jumping from the previous target.
+  const displayRef = useRef(value);
   const firstRef = useRef(true);
 
   useEffect(() => {
@@ -34,12 +37,12 @@ export function CountUp({
     // No animation on first mount or under reduced motion: snap to the value.
     if (firstRef.current || reduce) {
       firstRef.current = false;
-      fromRef.current = value;
+      displayRef.current = value;
       setDisplay(value);
       return;
     }
 
-    const from = fromRef.current;
+    const from = displayRef.current;
     const delta = value - from;
     if (delta === 0) return;
 
@@ -48,9 +51,10 @@ export function CountUp({
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / durationMs);
       const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      setDisplay(from + delta * eased);
+      const next = from + delta * eased;
+      displayRef.current = next;
+      setDisplay(next);
       if (t < 1) raf = requestAnimationFrame(tick);
-      else fromRef.current = value;
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);

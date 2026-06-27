@@ -266,7 +266,7 @@ async function tick() {
   }
 }
 
-if (process.env.DEBUG) {
+if (process.env.DEBUG === "1" || process.env.DEBUG === "true") {
   console.log("==========================================");
   console.log("Floqex Background Trading Engine Started");
   console.log(`Tick Rate: ${TICK_RATE_MS / 1000} seconds`);

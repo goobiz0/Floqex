@@ -27,6 +27,7 @@ export function RiskMatrixWidget({
   openTrades?: TradeRow[];
 }) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const openCount = useMemo(() => openTrades.filter((t) => t.status === "OPEN").length, [openTrades]);
 
   const cx = 50;
   const cy = 50;
@@ -94,7 +95,7 @@ export function RiskMatrixWidget({
               })}
             </svg>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-semibold text-fg-subtle">{segments.length} open</span>
+              <span className="text-xs font-semibold text-fg-subtle">{openCount} open</span>
             </div>
           </div>
 

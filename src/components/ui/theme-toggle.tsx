@@ -22,7 +22,7 @@ export function ThemeToggle() {
       align="right"
       items={items}
       trigger={
-        <button className="flex items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg shadow-[var(--shadow-sm)] hover:border-line-strong hover:bg-surface-hover transition-colors min-w-[120px]">
+        <button type="button" className="flex items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg shadow-[var(--shadow-sm)] hover:border-line-strong hover:bg-surface-hover transition-colors min-w-[120px]">
           <span className="flex items-center gap-2">
             {theme === "light" ? <Sun size={14} /> : theme === "dark" ? <Moon size={14} /> : <Monitor size={14} />}
             {(theme || "system").charAt(0).toUpperCase() + (theme || "system").slice(1)}
