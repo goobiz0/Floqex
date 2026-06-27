@@ -43,14 +43,23 @@ export function SignUpForm() {
     }
   }, [isLoaded, isSignedIn, searchParams]);
 
-  // Try to detect Waitlist mode from Clerk environment or local env var.
-  // Clerk does not type the unstable environment, so a cast is required here.
+  // Detect Waitlist mode from the Clerk environment (or an explicit env var).
+  // Clerk exposes the sign-up restriction at `userSettings.signUp.mode`, which is
+  // "waitlist" when the instance is gated. The old check only looked at
+  // displayConfig.waitlist* (not where this lives), so it silently missed
+  // waitlist mode, so the normal sign-up form rendered, signUp.create() hit Clerk's
+  // waitlist enforcement, and the user was bounced to Clerk's hosted waitlist
+  // page instead of seeing our in-app form. Clerk does not type the unstable
+  // environment, so a cast is required here.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const env = (clerk as any)?.__unstable__environment;
-  const isWaitlistEnabled = 
-    env?.displayConfig?.waitlistEnabled === true || 
-    env?.displayConfig?.waitlistMode === true || 
-    process.env.NEXT_PUBLIC_WAITLIST_MODE === "true";
+  const signUpMode: string | undefined =
+    env?.userSettings?.signUp?.mode ?? env?.authConfig?.signUp?.mode;
+  const isWaitlistEnabled =
+    process.env.NEXT_PUBLIC_WAITLIST_MODE === "true" ||
+    signUpMode === "waitlist" ||
+    env?.displayConfig?.waitlistEnabled === true ||
+    env?.displayConfig?.waitlistMode === true;
 
   const [step, setStep] = useState<"form" | "verify">("form");
   const [firstName, setFirstName] = useState("");
