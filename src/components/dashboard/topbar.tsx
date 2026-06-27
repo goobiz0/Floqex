@@ -15,23 +15,17 @@ const TOP_PLAN = PLAN_ORDER[PLAN_ORDER.length - 1];
 
 /** Full-width top bar: brand at the left, centered links, right cluster. */
 export async function Topbar() {
-  const [plan, notifications, user] = await Promise.all([
-    userPlan(),
+  const clerkId = (await auth()).userId;
+  // Run the notification feed, the user/account meta, and the Clerk profile
+  // lookup concurrently. The plan is read off the user meta row we already load
+  // here, so there is no need for a separate plan query.
+  const [notifications, user, marketAsxEnabled] = await Promise.all([
     getRecentNotifications(),
     getTopBarUserMeta(),
+    getMarketAsxEnabled(clerkId),
   ]);
+  const plan = (user?.plan as Plan) ?? "FREE";
   const canUpgrade = plan !== TOP_PLAN;
-
-  const { clerkClient } = await import("@clerk/nextjs/server");
-  const clerkId = (await auth()).userId;
-  let marketAsxEnabled = false;
-  if (clerkId) {
-    try {
-      const client = await clerkClient();
-      const cu = await client.users.getUser(clerkId);
-      marketAsxEnabled = (cu.privateMetadata?.marketAsxEnabled !== false);
-    } catch {}
-  }
 
   // Market logic: NY Session is 9:30 AM to 4:00 PM EST, Mon-Fri.
   const now = new Date();
@@ -189,18 +183,21 @@ export async function Topbar() {
   );
 }
 
-/** The signed-in user's plan, for the Upgrade pill. Defensive: never crashes the shell. */
-async function userPlan(): Promise<Plan> {
+/**
+ * Whether the user has the ASX market enabled (Clerk private metadata). Follows
+ * the app-wide contract: enabled unless explicitly set to false, so a transient
+ * Clerk failure (or a missing session) does not flip the topbar's market/uptime
+ * state off and disagree with the dashboard page.
+ */
+async function getMarketAsxEnabled(clerkId: string | null): Promise<boolean> {
+  if (!clerkId) return true;
   try {
-    const { userId } = await auth();
-    if (!userId) return "FREE";
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      select: { plan: true },
-    });
-    return (user?.plan as Plan) ?? "FREE";
+    const { clerkClient } = await import("@clerk/nextjs/server");
+    const client = await clerkClient();
+    const cu = await client.users.getUser(clerkId);
+    return ((cu.privateMetadata ?? {}) as Record<string, unknown>).marketAsxEnabled !== false;
   } catch {
-    return "FREE";
+    return true;
   }
 }
 

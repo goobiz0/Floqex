@@ -14,6 +14,19 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ["@prisma/client"],
+  experimental: {
+    // Cache visited route segments on the client so switching back to a
+    // recently-opened dashboard tab is instant instead of re-fetching the RSC
+    // payload (and flashing the loading skeleton) every time. Next 16 defaults
+    // the dynamic stale time to 0, which is why tab switching felt slow.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+    // Tree-shake the large icon/animation packages so each route ships only the
+    // icons it actually uses, cutting bundle size and time-to-interactive.
+    optimizePackageImports: ["@phosphor-icons/react", "motion", "recharts"],
+  },
   async headers() {
     return [
       {
