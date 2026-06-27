@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
 import { getNavAccounts } from "@/lib/queries";
 import { Sidebar, BottomNav } from "@/components/dashboard/nav";
 import { Topbar } from "@/components/dashboard/topbar";
@@ -12,27 +10,13 @@ import Script from "next/script";
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Force onboarding until the user has provisioned an account. A brand-new user
   // (or one whose Clerk row hasn't synced yet) is sent to the wizard, which
-  // creates their paper account. Computed defensively so a transient DB error
-  // never traps the user — the redirect runs outside the try/catch because
-  // redirect() signals via a thrown error.
-  let needsOnboarding = false;
-  const { userId } = await auth();
-  if (userId) {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { clerkId: userId },
-        select: { _count: { select: { accounts: true } } },
-      });
-      needsOnboarding = !user || user._count.accounts === 0;
-    } catch {
-      // If Prisma fails (e.g., db offline or schema unmigrated on Vercel),
-      // we must force onboarding to prevent them from hitting broken dashboard queries.
-      needsOnboarding = true;
-    }
-  }
-  if (needsOnboarding) redirect("/onboarding");
-
+  // creates their paper account. A single account fetch drives both the
+  // onboarding gate and the sidebar, instead of two separate user lookups on
+  // every dashboard load. getNavAccounts is defensive: a missing user or a
+  // transient DB error yields an empty list, which (as before) forces onboarding
+  // rather than dropping the user into broken dashboard queries.
   const navAccounts = await getNavAccounts();
+  if (navAccounts.length === 0) redirect("/onboarding");
 
   return (
     <div className="min-h-[100dvh] bg-base">
