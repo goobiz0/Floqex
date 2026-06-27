@@ -5,6 +5,8 @@ export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
 import { getMarketForInstrument, type MarketKind } from "./market";
+import { getForwardTests, type ForwardTestRow } from "./engine/forward-test";
+export type { ForwardTestRow };
 
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.
@@ -552,20 +554,21 @@ export type AvailableAccount = {
   mode: string;
 };
 
-export type BotsData = { 
-  bots: BotRow[]; 
+export type BotsData = {
+  bots: BotRow[];
   availableAccounts: AvailableAccount[];
-  plan: Plan; 
-  error: boolean 
+  forwardTests: ForwardTestRow[];
+  plan: Plan;
+  error: boolean;
 };
 
 /** Every bot the user owns, and accounts available for connection. */
 export async function getBotsData(): Promise<BotsData> {
-  const EMPTY: BotsData = { bots: [], availableAccounts: [], plan: "FREE", error: false };
+  const EMPTY: BotsData = { bots: [], availableAccounts: [], forwardTests: [], plan: "FREE", error: false };
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY;
-    
+
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
@@ -591,11 +594,11 @@ export async function getBotsData(): Promise<BotsData> {
     if (!user) return EMPTY;
 
     const todayKey = new Date().toISOString().slice(0, 10);
-    
+
     const bots: BotRow[] = user.bots.map((b) => {
       const a = b.account;
       const today = a ? a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey) : null;
-      
+
       return {
         id: b.id,
         name: b.name,
@@ -622,7 +625,10 @@ export async function getBotsData(): Promise<BotsData> {
         mode: a.mode,
       }));
 
-    return { bots, availableAccounts, plan: user.plan as Plan, error: false };
+    // Forward tests evaluated fresh (persists any RUNNING→PASSED/FAILED transitions).
+    const forwardTests = await getForwardTests(user.id).catch(() => []);
+
+    return { bots, availableAccounts, forwardTests, plan: user.plan as Plan, error: false };
   } catch (err) {
     console.error("getBotsData error", err);
     return { ...EMPTY, error: true };

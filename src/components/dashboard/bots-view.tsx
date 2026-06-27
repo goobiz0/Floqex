@@ -2,18 +2,33 @@
 
 import { useTransition, useOptimistic, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Flask, DotsThree, LinkBreak, Sliders, Trash, Info } from "@phosphor-icons/react";
-import { Card, CardTitle } from "@/components/ui/card";
+import {
+  Plus,
+  Flask,
+  DotsThree,
+  LinkBreak,
+  Sliders,
+  Trash,
+  Info,
+  TestTube,
+  ArrowCircleUp,
+  StopCircle,
+  CheckCircle,
+  XCircle,
+  HourglassMedium,
+  ChartLineUp,
+} from "@phosphor-icons/react";
+import { Card } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import { toggleBotStatus } from "@/app/dashboard/accounts/actions";
-import { detachBot, connectBotToAccount, deleteBot } from "@/app/dashboard/bots/actions";
+import { detachBot, connectBotToAccount, deleteBot, startForwardTest, stopForwardTest } from "@/app/dashboard/bots/actions";
 import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
-import type { BotRow, AvailableAccount } from "@/lib/queries";
+import type { BotRow, AvailableAccount, ForwardTestRow } from "@/lib/queries";
 
 const STATUS: Record<BotRow["status"] | "NONE", { tone: "positive" | "warning" | "neutral" | "negative"; label: string }> = {
   RUNNING: { tone: "positive", label: "Running" },
@@ -22,9 +37,33 @@ const STATUS: Record<BotRow["status"] | "NONE", { tone: "positive" | "warning" |
   NONE: { tone: "negative", label: "Inactive - No Account" },
 };
 
-export function BotsView({ bots, availableAccounts, plan }: { bots: BotRow[]; availableAccounts: AvailableAccount[]; plan: Plan }) {
+const FT_STATUS: Record<ForwardTestRow["status"], { tone: "positive" | "warning" | "neutral" | "negative"; label: string }> = {
+  RUNNING: { tone: "warning", label: "Running" },
+  PASSED: { tone: "positive", label: "Passed" },
+  FAILED: { tone: "negative", label: "Failed" },
+  STOPPED: { tone: "neutral", label: "Stopped" },
+};
+
+export function BotsView({
+  bots,
+  availableAccounts,
+  plan,
+  forwardTests,
+}: {
+  bots: BotRow[];
+  availableAccounts: AvailableAccount[];
+  plan: Plan;
+  forwardTests: ForwardTestRow[];
+}) {
   const cfg = PLANS[plan];
   const atLimit = bots.length >= (cfg.accountLimit ?? 999);
+
+  // Index forward tests by accountId for O(1) lookup
+  const ftByAccount = new Map<string, ForwardTestRow>();
+  for (const ft of forwardTests) {
+    // Keep most-recent per account (already ordered by startedAt desc from getForwardTests)
+    if (!ftByAccount.has(ft.accountId)) ftByAccount.set(ft.accountId, ft);
+  }
 
   return (
     <div className="space-y-5">
@@ -34,7 +73,11 @@ export function BotsView({ bots, availableAccounts, plan }: { bots: BotRow[]; av
             <span className="tnum font-medium text-fg">{bots.length}</span> of{" "}
             {formatAccountLimit(cfg.accountLimit)} bot{bots.length === 1 ? "" : "s"}
           </p>
-          {plan === "FREE" && <span title="Upgrade to create more bots."><Badge tone="positive">PRO</Badge></span>}
+          {plan === "FREE" && (
+            <span title="Upgrade to create more bots.">
+              <Badge tone="positive">PRO</Badge>
+            </span>
+          )}
         </div>
         {atLimit ? (
           <Button size="sm" disabled>
@@ -71,7 +114,12 @@ export function BotsView({ bots, availableAccounts, plan }: { bots: BotRow[]; av
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {bots.map((b) => (
-            <BotCard key={b.id} bot={b} availableAccounts={availableAccounts} />
+            <BotCard
+              key={b.id}
+              bot={b}
+              availableAccounts={availableAccounts}
+              forwardTest={b.accountId ? (ftByAccount.get(b.accountId) ?? null) : null}
+            />
           ))}
         </div>
       )}
@@ -79,16 +127,27 @@ export function BotsView({ bots, availableAccounts, plan }: { bots: BotRow[]; av
   );
 }
 
-function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: AvailableAccount[] }) {
+function BotCard({
+  bot,
+  availableAccounts,
+  forwardTest,
+}: {
+  bot: BotRow;
+  availableAccounts: AvailableAccount[];
+  forwardTest: ForwardTestRow | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic<BotRow["status"] | "NONE", BotRow["status"] | "NONE">(
     bot.accountId ? bot.status : "NONE",
-    (_state, newStatus) => newStatus
+    (_state, newStatus) => newStatus,
   );
+  const [ftPending, startFtTransition] = useTransition();
+  const [ftError, setFtError] = useState<string | null>(null);
 
   const status = STATUS[optimisticStatus];
   const isRunning = optimisticStatus === "RUNNING";
+  const isPaper = bot.accountMode === "PAPER";
   const pnlTone =
     (bot.todayPnl ?? 0) > 0 ? "text-profit" : (bot.todayPnl ?? 0) < 0 ? "text-negative" : "text-fg-muted";
 
@@ -108,6 +167,22 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
     });
   }
 
+  function handleStartForwardTest() {
+    setFtError(null);
+    startFtTransition(async () => {
+      const res = await startForwardTest(bot.id);
+      if (!res.ok) setFtError(res.error ?? "Failed to start forward test");
+    });
+  }
+
+  function handleStopForwardTest() {
+    if (!forwardTest) return;
+    startFtTransition(async () => {
+      const res = await stopForwardTest(forwardTest.id);
+      if (!res.ok) setFtError(res.error ?? "Failed to stop forward test");
+    });
+  }
+
   return (
     <Card className={cn("flex h-full flex-col p-5", !bot.accountId && "opacity-80 border-dashed")}>
       <div className="flex items-start justify-between">
@@ -121,12 +196,14 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
             )}
           </div>
           <p className="text-xs text-fg-subtle mt-1 flex items-center gap-1">
-            {bot.accountId ? `${bot.accountBroker} · ` : ""} 
+            {bot.accountId ? `${bot.accountBroker} · ` : ""}
             {bot.strategyName}
-            <span title="The underlying strategy this bot runs" className="cursor-help"><Info size={12} /></span>
+            <span title="The underlying strategy this bot runs" className="cursor-help">
+              <Info size={12} />
+            </span>
           </p>
         </div>
-        
+
         <Dropdown
           trigger={
             <button className="text-fg-subtle hover:text-fg transition-colors p-1 rounded hover:bg-surface-hover">
@@ -139,23 +216,31 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
               label: "Tune Strategy",
               icon: <Sliders size={16} />,
               onClick: () => {
-                router.push(`/dashboard/strategy?view=edit&strategyId=${bot.strategyId}${bot.accountId ? `&accountId=${bot.accountId}` : ''}`);
-              }
+                router.push(
+                  `/dashboard/strategy?view=edit&strategyId=${bot.strategyId}${bot.accountId ? `&accountId=${bot.accountId}` : ""}`,
+                );
+              },
             },
-            ...(bot.accountId ? [
-              { label: "divider" as const, onClick: () => {} },
-              {
-                label: "Detach Bot",
-                icon: <LinkBreak size={16} />,
-                onClick: () => {
-                  if (confirm("Are you sure you want to detach this bot? The account will stop trading automatically.")) {
-                    startTransition(async () => {
-                      await detachBot(bot.id);
-                    });
-                  }
-                }
-              }
-            ] : []),
+            ...(bot.accountId
+              ? [
+                  { label: "divider" as const, onClick: () => {} },
+                  {
+                    label: "Detach Bot",
+                    icon: <LinkBreak size={16} />,
+                    onClick: () => {
+                      if (
+                        confirm(
+                          "Are you sure you want to detach this bot? The account will stop trading automatically.",
+                        )
+                      ) {
+                        startTransition(async () => {
+                          await detachBot(bot.id);
+                        });
+                      }
+                    },
+                  },
+                ]
+              : []),
             { label: "divider" as const, onClick: () => {} },
             {
               label: "Delete Bot",
@@ -166,8 +251,8 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
                     await deleteBot(bot.id);
                   });
                 }
-              }
-            }
+              },
+            },
           ]}
         />
       </div>
@@ -184,7 +269,11 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
             <div>
               <p className="text-xs text-fg-subtle">Today</p>
               <p className={cn("tnum mt-0.5 text-lg font-semibold", pnlTone)}>
-                <DisplayValue type="PNL" money={bot.todayPnl ?? 0} percent={bot.balance ? ((bot.todayPnl ?? 0) / bot.balance) * 100 : undefined} />
+                <DisplayValue
+                  type="PNL"
+                  money={bot.todayPnl ?? 0}
+                  percent={bot.balance ? ((bot.todayPnl ?? 0) / bot.balance) * 100 : undefined}
+                />
               </p>
             </div>
           </div>
@@ -192,29 +281,40 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
           <div className="mt-3">
             <Spark data={bot.spark} />
           </div>
+
+          {/* Forward-Test Promotion Gate */}
+          {isPaper && (
+            <ForwardTestCard
+              forwardTest={forwardTest}
+              ftPending={ftPending}
+              ftError={ftError}
+              onStart={handleStartForwardTest}
+              onStop={handleStopForwardTest}
+            />
+          )}
         </>
       ) : (
         <div className="mt-6 mb-2 flex-1 flex flex-col items-center justify-center py-6 bg-surface-hover/30 rounded-lg border border-line">
-           <p className="text-sm font-medium text-fg-muted mb-2">Bot is disconnected</p>
-           
-           {availableAccounts.length > 0 ? (
-             <Dropdown
-               trigger={
-                 <Button size="sm" variant="outline">
-                   Connect Account
-                 </Button>
-               }
-               align="right"
-               items={availableAccounts.map(a => ({
-                 label: `${a.nickname} (${a.broker})`,
-                 onClick: () => connectAccount(a.id)
-               }))}
-             />
-           ) : (
-             <Button size="sm" variant="outline" disabled title="No available accounts without a bot">
-               Connect Account
-             </Button>
-           )}
+          <p className="text-sm font-medium text-fg-muted mb-2">Bot is disconnected</p>
+
+          {availableAccounts.length > 0 ? (
+            <Dropdown
+              trigger={
+                <Button size="sm" variant="outline">
+                  Connect Account
+                </Button>
+              }
+              align="right"
+              items={availableAccounts.map((a) => ({
+                label: `${a.nickname} (${a.broker})`,
+                onClick: () => connectAccount(a.id),
+              }))}
+            />
+          ) : (
+            <Button size="sm" variant="outline" disabled title="No available accounts without a bot">
+              Connect Account
+            </Button>
+          )}
         </div>
       )}
 
@@ -224,12 +324,7 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
           {status.label}
         </span>
         {bot.accountId && (
-          <Button
-            size="sm"
-            variant={isRunning ? "secondary" : "primary"}
-            disabled={pending}
-            onClick={toggle}
-          >
+          <Button size="sm" variant={isRunning ? "secondary" : "primary"} disabled={pending} onClick={toggle}>
             {isRunning ? "Stop" : "Start"}
           </Button>
         )}
@@ -238,11 +333,162 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
   );
 }
 
+function ForwardTestCard({
+  forwardTest: ft,
+  ftPending,
+  ftError,
+  onStart,
+  onStop,
+}: {
+  forwardTest: ForwardTestRow | null;
+  ftPending: boolean;
+  ftError: string | null;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+
+  // No forward test yet — invite the user to start one
+  if (!ft) {
+    return (
+      <div className="mt-4 rounded-lg border border-line bg-surface p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <TestTube size={15} className="text-fg-subtle" />
+          <p className="text-xs font-medium text-fg-subtle uppercase tracking-wide">Forward Test</p>
+        </div>
+        <p className="text-xs text-fg-muted mb-3">
+          Prove this strategy in live paper trading before risking real capital. The gate opens only when your edge
+          holds.
+        </p>
+        {ftError && <p className="text-xs text-negative mb-2">{ftError}</p>}
+        <Button size="sm" variant="outline" onClick={onStart} disabled={ftPending}>
+          <TestTube size={14} />
+          Start Forward Test
+        </Button>
+      </div>
+    );
+  }
+
+  const ftMeta = FT_STATUS[ft.status];
+  const pct = Math.round(ft.progress * 100);
+  const passed = ft.status === "PASSED";
+  const failed = ft.status === "FAILED";
+  const stopped = ft.status === "STOPPED";
+  const active = ft.status === "RUNNING";
+
+  return (
+    <div
+      className={cn(
+        "mt-4 rounded-lg border p-4",
+        passed && "border-accent/30 bg-accent/5",
+        failed && "border-negative/30 bg-negative/5",
+        stopped && "border-line bg-surface",
+        active && "border-line bg-surface",
+      )}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ChartLineUp size={15} className={cn("text-fg-subtle", passed && "text-accent")} />
+          <p className="text-xs font-medium text-fg-subtle uppercase tracking-wide">Forward Test</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone={ftMeta.tone}>{ftMeta.label}</Badge>
+          {active && (
+            <button
+              onClick={onStop}
+              disabled={ftPending}
+              title="Stop forward test"
+              className="text-fg-subtle hover:text-fg transition-colors"
+            >
+              <StopCircle size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-3">
+        <div className="flex justify-between text-xs text-fg-muted mb-1">
+          <span className="tnum">{ft.observedTrades} trades</span>
+          <span className="tnum">target {ft.targetTrades}</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-surface-hover overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-700 ease-out",
+              passed ? "bg-accent" : failed ? "bg-negative" : "bg-accent/60",
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <p className="text-[10px] text-fg-faint mt-1 tnum">{pct}% complete</p>
+      </div>
+
+      {/* Observed vs baseline metrics */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <p className="text-[10px] text-fg-muted uppercase tracking-wide">Live Expectancy</p>
+          <p
+            className={cn(
+              "tnum text-sm font-semibold mt-0.5",
+              ft.observedExpectancyR > 0 ? "text-profit" : "text-negative",
+            )}
+          >
+            {ft.observedExpectancyR > 0 ? "+" : ""}
+            {ft.observedExpectancyR.toFixed(2)}R
+          </p>
+          {ft.baselineExpectancy != null && (
+            <p className="text-[10px] text-fg-faint tnum">baseline {ft.baselineExpectancy.toFixed(2)}R</p>
+          )}
+        </div>
+        <div>
+          <p className="text-[10px] text-fg-muted uppercase tracking-wide">Win Rate</p>
+          <p className="tnum text-sm font-semibold mt-0.5 text-fg">{ft.observedWinRate.toFixed(1)}%</p>
+          <p className="text-[10px] text-fg-faint tnum">{ft.observedTrades} closed</p>
+        </div>
+      </div>
+
+      {/* Reason / verdict line */}
+      <p className="text-[10px] text-fg-muted leading-relaxed mb-3">{ft.reason}</p>
+
+      {ftError && <p className="text-xs text-negative mb-2">{ftError}</p>}
+
+      {/* Action: Promote to live (only on PASSED) or restart on FAILED/STOPPED */}
+      {passed && (
+        <div className="flex items-center gap-2 p-2.5 rounded-md bg-accent/10 border border-accent/20">
+          <CheckCircle size={14} className="text-accent shrink-0" />
+          <p className="text-xs text-accent font-medium flex-1">Edge confirmed. Ready to promote.</p>
+          <Button
+            size="sm"
+            variant="primary"
+            href={`/dashboard/bots/new?strategyId=${ft.strategyId}&fromForwardTest=${ft.id}`}
+          >
+            <ArrowCircleUp size={14} />
+            Promote
+          </Button>
+        </div>
+      )}
+      {failed && (
+        <div className="flex items-center gap-2 p-2.5 rounded-md bg-negative/10 border border-negative/20">
+          <XCircle size={14} className="text-negative shrink-0" />
+          <p className="text-xs text-negative font-medium flex-1">Edge did not hold.</p>
+          <Button size="sm" variant="outline" onClick={onStart} disabled={ftPending}>
+            Retry
+          </Button>
+        </div>
+      )}
+      {stopped && (
+        <Button size="sm" variant="outline" onClick={onStart} disabled={ftPending}>
+          <HourglassMedium size={14} />
+          Restart Test
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function Spark({ data }: { data: number[] }) {
   if (data.length < 2) {
-    return (
-      <div className="flex h-10 items-center text-xs text-fg-faint">No history yet</div>
-    );
+    return <div className="flex h-10 items-center text-xs text-fg-faint">No history yet</div>;
   }
   const min = Math.min(...data);
   const max = Math.max(...data);

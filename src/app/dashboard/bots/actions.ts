@@ -237,3 +237,73 @@ export async function deleteBot(botId: string) {
     return { ok: false, error: "Failed to delete bot." };
   }
 }
+
+/** Start a forward test on a paper bot's account. Creates a ForwardTest record
+ *  seeded with the strategy's validated baseline expectancy (if it exists). */
+export async function startForwardTest(botId: string) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Not signed in" };
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findUnique({
+      where: { id: botId },
+      include: {
+        strategy: { select: { id: true, params: true } },
+        account: { select: { id: true, mode: true } },
+      },
+    });
+    if (!bot || bot.userId !== user.id) return { ok: false, error: "Bot not found" };
+    if (!bot.account) return { ok: false, error: "Bot has no account connected" };
+    if (bot.account.mode !== "PAPER") return { ok: false, error: "Forward tests only run on paper accounts" };
+
+    const existing = await prisma.forwardTest.findFirst({
+      where: { accountId: bot.account.id, status: "RUNNING" },
+    });
+    if (existing) return { ok: false, error: "A forward test is already running for this account" };
+
+    const params = (bot.strategy?.params ?? {}) as Record<string, unknown>;
+    const rawEdge = params.edgeExpectancyR;
+    const baselineExpectancy =
+      rawEdge != null && !Number.isNaN(Number(rawEdge)) ? Number(rawEdge) : undefined;
+
+    await prisma.forwardTest.create({
+      data: {
+        userId: user.id,
+        strategyId: bot.strategyId,
+        accountId: bot.account.id,
+        targetTrades: 20,
+        ...(baselineExpectancy !== undefined ? { baselineExpectancy } : {}),
+      },
+    });
+
+    revalidatePath("/dashboard/bots");
+    return { ok: true };
+  } catch (err) {
+    console.error("startForwardTest error", err);
+    return { ok: false, error: "Failed to start forward test." };
+  }
+}
+
+/** Mark a forward test as STOPPED. */
+export async function stopForwardTest(ftId: string) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Not signed in" };
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const ft = await prisma.forwardTest.findFirst({ where: { id: ftId, userId: user.id } });
+    if (!ft) return { ok: false, error: "Forward test not found" };
+
+    await prisma.forwardTest.update({ where: { id: ftId }, data: { status: "STOPPED" } });
+    revalidatePath("/dashboard/bots");
+    return { ok: true };
+  } catch (err) {
+    console.error("stopForwardTest error", err);
+    return { ok: false, error: "Failed to stop forward test." };
+  }
+}

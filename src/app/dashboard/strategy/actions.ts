@@ -90,6 +90,7 @@ export async function runStrategyValidation(input: {
             ...saved,
             edgeScore: report.edge.score,
             edgeVerdict: report.edge.verdict,
+            edgeExpectancyR: report.walkForward.outOfSample.expectancyR,
             edgeCheckedAt: new Date().toISOString(),
           } as unknown as Prisma.InputJsonValue,
         },

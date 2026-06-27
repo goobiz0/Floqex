@@ -63,6 +63,7 @@ model User {
   strategies         Strategy[]
   dashboardTemplates DashboardTemplate[]
   mochiUsage         MochiUsage[]
+  forwardTests       ForwardTest[]
 
   @@map("users")
   @@schema("public")
@@ -139,12 +140,13 @@ model Account {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bot         Bot?
-  connection  Connection?
-  trades      Trade[]
-  summaries   DailySummary[]
-  agentEvents AgentEvent[]
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot          Bot?
+  connection   Connection?
+  trades       Trade[]
+  summaries    DailySummary[]
+  agentEvents  AgentEvent[]
+  forwardTests ForwardTest[]
 
   @@index([userId])
   @@map("accounts")
@@ -204,9 +206,10 @@ model Strategy {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bots        Bot[]
-  adjustments BotAdjustment[]
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bots         Bot[]
+  adjustments  BotAdjustment[]
+  forwardTests ForwardTest[]
 
   @@index([userId])
   @@map("strategies")
@@ -327,6 +330,42 @@ model BotAdjustment {
 
   @@index([botId, createdAt])
   @@map("bot_adjustments")
+  @@schema("public")
+}
+
+// ───────────────── Forward-test promotion gate ──────────────────
+
+enum ForwardTestStatus {
+  RUNNING
+  PASSED
+  FAILED
+  STOPPED
+  @@schema("public")
+}
+
+// A strategy proving itself in live paper ("shadow") trading before live capital
+// is unlocked. Observed metrics are computed from the paper account's closed
+// trades and compared to the validation baseline; status flips to PASSED only
+// once enough trades confirm the edge held.
+model ForwardTest {
+  id                 String            @id @default(cuid())
+  userId             String
+  strategyId         String
+  accountId          String
+  status             ForwardTestStatus @default(RUNNING)
+  targetTrades       Int               @default(20)
+  baselineWinRate    Decimal?          @db.Decimal(6, 3)
+  baselineExpectancy Decimal?          @db.Decimal(8, 3) // R per trade
+  startedAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accountId])
+  @@map("forward_tests")
   @@schema("public")
 }
 
