@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode, isValidElement, cloneElement, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { Question } from "@phosphor-icons/react";
 import { useReducedMotion } from "motion/react";
@@ -17,15 +17,17 @@ export function Tooltip({
   children,
   side = "top",
   className,
+  asChild = false,
 }: {
   content: ReactNode;
   children: ReactNode;
   side?: "top" | "bottom";
   className?: string;
+  asChild?: boolean;
 }) {
   const reduce = useReducedMotion();
   const id = useId();
-  const triggerRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
   const [coords, setCoords] = useState<{ x: number; y: number; place: "top" | "bottom" } | null>(null);
 
   function show() {
@@ -44,24 +46,33 @@ export function Tooltip({
     setCoords(null);
   }
 
+  const childProps = {
+    "aria-describedby": coords ? id : undefined,
+    onMouseEnter: (e: any) => { show(); if (isValidElement(children)) children.props.onMouseEnter?.(e); },
+    onMouseLeave: (e: any) => { hide(); if (isValidElement(children)) children.props.onMouseLeave?.(e); },
+    onFocus: (e: any) => { show(); if (isValidElement(children)) children.props.onFocus?.(e); },
+    onBlur: (e: any) => { hide(); if (isValidElement(children)) children.props.onBlur?.(e); },
+    onKeyDown: (e: any) => {
+      if (e.key === "Escape") hide();
+      if (isValidElement(children)) children.props.onKeyDown?.(e);
+    },
+  };
+
   return (
     <>
-      <span
-        ref={triggerRef}
-        className={cn("inline-flex cursor-help", className)}
-        tabIndex={0}
-        role="button"
-        aria-describedby={coords ? id : undefined}
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        onFocus={show}
-        onBlur={hide}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") hide();
-        }}
-      >
-        {children}
-      </span>
+      {asChild && isValidElement(children) ? (
+        cloneElement(children as ReactElement, { ref: triggerRef, ...childProps })
+      ) : (
+        <span
+          ref={triggerRef as any}
+          className={cn("inline-flex cursor-help", className)}
+          tabIndex={0}
+          role="button"
+          {...childProps}
+        >
+          {children}
+        </span>
+      )}
       {coords && typeof document !== "undefined"
         ? createPortal(
             <div

@@ -232,7 +232,7 @@ export function StrategyCodeEditor({
                 strategy.{fileExt}
               </span>
               <div className="flex items-center gap-1">
-                <Tooltip content="Insert snippet">
+                <Tooltip asChild content="Insert snippet">
                   <div className="relative">
                     <button
                       type="button"
@@ -258,7 +258,7 @@ export function StrategyCodeEditor({
                   </div>
                 </Tooltip>
                 {(language === "javascript" || language === "python") && (
-                  <Tooltip content="Format code (tabs to spaces, trim whitespace)">
+                  <Tooltip asChild content="Format code (tabs to spaces, trim whitespace)">
                     <button
                       type="button"
                       onClick={formatCode}
@@ -268,7 +268,7 @@ export function StrategyCodeEditor({
                     </button>
                   </Tooltip>
                 )}
-                <Tooltip content="Copy code">
+                <Tooltip asChild content="Copy code">
                   <button
                     type="button"
                     onClick={copyCode}

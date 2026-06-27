@@ -339,20 +339,23 @@ export function MochiChat() {
                           if (toolInvocation.toolName === "updateStrategyParams") {
                             if (!('result' in toolInvocation)) {
                               const args = toolInvocation.args as Record<string, unknown>;
-                              const busy = pendingToolId === toolCallId;
+                              const isStreaming = (toolInvocation as any).state === "partial-call";
+                              const busy = pendingToolId === toolCallId || isStreaming;
                               return (
                                 <div key={toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
                                   <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
                                   <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(args, null, 2)}</pre>
                                   <div className="flex gap-2">
                                     <button
+                                      type="button"
                                       disabled={busy}
                                       onClick={() => handleToolAccept(toolCallId, args)}
                                       className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                      {busy ? "Applying…" : "Accept & Apply"}
+                                      {busy ? (isStreaming ? "Receiving…" : "Applying…") : "Accept & Apply"}
                                     </button>
                                     <button
+                                      type="button"
                                       disabled={busy}
                                       onClick={() => handleToolDecline(toolCallId)}
                                       className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -420,6 +423,16 @@ export function MochiChat() {
                           };
                           const toolName = toolInvocation.toolName;
                           const isResult = 'result' in toolInvocation;
+                          const resError = isResult && (toolInvocation.result as any)?.error;
+                          
+                          if (resError) {
+                            return (
+                              <div key={toolCallId} className="mt-3 rounded-[10px] border border-negative/30 bg-negative-soft px-3 py-2 text-[12px] text-negative">
+                                {String(resError)}
+                              </div>
+                            );
+                          }
+
                           const [running, finished] = labels[toolName] ?? [`Running ${toolName}`, `${toolName} done`];
                           return (
                             <div

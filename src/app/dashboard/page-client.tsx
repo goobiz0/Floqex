@@ -166,15 +166,26 @@ export function DashboardPageClient({
     return Object.entries(assetPnl).sort((a, b) => b[1] - a[1]);
   }, [trades]);
 
-  // Actions
+  // Save state
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
+
+  // Check if dirty
+  const isDirty = useMemo(() => {
+    if (!isEditMode) return false;
+    const current = layoutItems.map(({ i, x, y, w, h }) => ({ i, x, y, w, h }));
+    const saved = ((activeTemplate?.layout as WidgetItem[]) || DEFAULT_LAYOUT).map(({ i, x, y, w, h }) => ({ i, x, y, w, h }));
+    return JSON.stringify(current) !== JSON.stringify(saved);
+  }, [layoutItems, activeTemplate, isEditMode]);
+
   const handleSaveLayout = async () => {
     if (!activeTemplateId) {
-      // First save logic
       setNewTemplateName("My Dashboard");
       setNewTemplateDialogOpen(true);
       return;
     }
+    setIsSavingLayout(true);
     const res = await updateDashboardTemplate(activeTemplateId, layoutItems);
+    setIsSavingLayout(false);
     if (res.error) toast.error(res.error);
     else {
       toast.success("Layout saved");
@@ -185,7 +196,9 @@ export function DashboardPageClient({
 
   const handleCreateTemplate = async () => {
     if (!newTemplateName.trim()) return toast.error("Name required");
+    setIsSavingLayout(true);
     const res = await createDashboardTemplate(newTemplateName, layoutItems);
+    setIsSavingLayout(false);
     if (res.error) return toast.error(res.error);
     if (res.data) {
       toast.success("Template created");
@@ -516,6 +529,51 @@ export function DashboardPageClient({
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       
+      {/* Floating Unsaved Changes Banner */}
+      {isDirty && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="flex items-center gap-4 rounded-full border border-warning/30 bg-warning-soft/90 px-6 py-3 shadow-[var(--shadow-lg)] backdrop-blur-md">
+            <div className="flex items-center gap-2 text-sm font-semibold text-warning">
+              <WarningCircle size={18} weight="fill" />
+              Unsaved layout changes
+            </div>
+            <div className="h-4 w-px bg-warning/20 mx-1" />
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  const prev = activeTemplate ? (activeTemplate.layout as WidgetItem[]) : DEFAULT_LAYOUT;
+                  setLayoutItems(prev);
+                  setIsEditMode(false);
+                }} 
+                className="text-xs font-medium text-warning hover:text-fg transition-colors"
+                disabled={isSavingLayout}
+              >
+                Discard
+              </button>
+              <button 
+                onClick={handleSaveLayout} 
+                className="flex items-center gap-1.5 rounded-full bg-warning px-4 py-1.5 text-xs font-bold text-[var(--color-on-accent)] transition-transform hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
+                disabled={isSavingLayout}
+              >
+                {isSavingLayout ? (
+                  <>
+                    <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} weight="bold" /> Save layout
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header Row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
@@ -563,8 +621,16 @@ export function DashboardPageClient({
               }} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
                 Cancel
               </button>
-              <button onClick={handleSaveLayout} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02]">
-                <Check size={16} weight="bold" /> Save
+              <button onClick={handleSaveLayout} disabled={isSavingLayout} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] disabled:opacity-50">
+                {isSavingLayout ? (
+                  <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <Check size={16} weight="bold" />
+                )}
+                Save
               </button>
             </div>
           )}

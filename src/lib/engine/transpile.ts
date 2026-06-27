@@ -27,6 +27,9 @@ export type TranspileResult =
 // ---------------------------------------------------------------------------
 
 export function transpileStrategy(language: StrategyLanguage, code: string): TranspileResult {
+  if (code.length > 20480) {
+    return { ok: false, error: "Strategy code is too large (max 20KB)." };
+  }
   switch (language) {
     case "javascript":
       return transpileJs(code);
@@ -50,12 +53,8 @@ export function runTranspiled(
   ctx: IndicatorContext,
 ): StrategyDecision {
   const result = transpileStrategy(language, code);
-  if (!result.ok) return null;
-  try {
-    return result.run(ctx);
-  } catch {
-    return null;
-  }
+  if (!result.ok) throw new Error(result.error);
+  return result.run(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -382,13 +381,12 @@ function parseExpr(s: ParseState, minPrec = 0): { node: AstNode; mapping: Mappin
             consume(s); // (
             const _src = parsePrec(0); // close
             if (peek(s).type === "COMMA") consume(s);
-            const periodTok = peek(s);
-            const period = periodTok.type === "NUMBER" ? parseInt(periodTok.value, 10) : 0;
-            consume(s); // period
+            const periodNode = parsePrec(0);
+            const period = periodNode.kind === "num" ? periodNode.value : 0;
             if (peek(s).type === "RPAREN") consume(s);
             const ctxKey = SMA_MAP[period];
             if (!ctxKey) {
-              return { kind: "null" }; // will be treated as error via callers
+              throw new Error(`ta.sma period ${period} is not supported. Use 20, 50, or 200.`);
             }
             mapping.push({ source: `ta.sma(close,${period})`, resolvesTo: ctxKey });
             return { kind: "ctx", key: ctxKey };
@@ -397,12 +395,11 @@ function parseExpr(s: ParseState, minPrec = 0): { node: AstNode; mapping: Mappin
             consume(s);
             const _src = parsePrec(0);
             if (peek(s).type === "COMMA") consume(s);
-            const periodTok = peek(s);
-            const period = periodTok.type === "NUMBER" ? parseInt(periodTok.value, 10) : 0;
-            consume(s);
+            const periodNode = parsePrec(0);
+            const period = periodNode.kind === "num" ? periodNode.value : 0;
             if (peek(s).type === "RPAREN") consume(s);
             const ctxKey = EMA_MAP[period];
-            if (!ctxKey) return { kind: "null" };
+            if (!ctxKey) throw new Error(`ta.ema period ${period} is not supported. Use 12 or 26.`);
             mapping.push({ source: `ta.ema(close,${period})`, resolvesTo: ctxKey });
             return { kind: "ctx", key: ctxKey };
           }
@@ -410,9 +407,8 @@ function parseExpr(s: ParseState, minPrec = 0): { node: AstNode; mapping: Mappin
             consume(s);
             const _src = parsePrec(0);
             if (peek(s).type === "COMMA") consume(s);
-            const periodTok = peek(s);
-            const period = periodTok.type === "NUMBER" ? parseInt(periodTok.value, 10) : 14;
-            consume(s);
+            const periodNode = parsePrec(0);
+            const period = periodNode.kind === "num" ? periodNode.value : 14;
             if (peek(s).type === "RPAREN") consume(s);
             if (period !== 14) warnings.push(`RSI length ${period} approximated by rsi14`);
             mapping.push({ source: `ta.rsi(close,${period})`, resolvesTo: "rsi14" });
@@ -420,9 +416,8 @@ function parseExpr(s: ParseState, minPrec = 0): { node: AstNode; mapping: Mappin
           }
           if (method === "atr") {
             consume(s);
-            const periodTok = peek(s);
-            const period = periodTok.type === "NUMBER" ? parseInt(periodTok.value, 10) : 14;
-            consume(s);
+            const periodNode = parsePrec(0);
+            const period = periodNode.kind === "num" ? periodNode.value : 14;
             if (peek(s).type === "RPAREN") consume(s);
             if (period !== 14) warnings.push(`ATR length ${period} approximated by atr14`);
             mapping.push({ source: `ta.atr(${period})`, resolvesTo: "atr14" });
@@ -467,8 +462,8 @@ function parseExpr(s: ParseState, minPrec = 0): { node: AstNode; mapping: Mappin
           return { kind: "null" };
         }
 
-        // Unknown qualified name - treat as null
-        return { kind: "null" };
+        // Unknown qualified name - throw
+        throw new Error(`Unsupported function or property: ${name}.${method}`);
       }
 
       // Simple identifier lookup
@@ -477,18 +472,16 @@ function parseExpr(s: ParseState, minPrec = 0): { node: AstNode; mapping: Mappin
         return { kind: "hl2" };
       }
       if (name === "open") {
-        // open is unsupported
-        return { kind: "null" };
+        throw new Error("`open` is not supported in the engine. Use `close` (price), `high`, or `low`.");
       }
       if (name in PINE_ALIAS) {
         const key = PINE_ALIAS[name];
         mapping.push({ source: name, resolvesTo: key });
         return { kind: "ctx", key };
       }
-      // Could be a variable reference - return as null (variable substitution happens before parsing)
-      return { kind: "null" };
+      throw new Error(`Unsupported variable or syntax: ${name}`);
     }
-    return { kind: "null" };
+    throw new Error(`Unexpected token: ${peek(s).value}`);
   }
 
   const PREC: Record<string, number> = {
@@ -579,29 +572,7 @@ function evalNode(node: AstNode, ctx: IndicatorContext): number | boolean | null
   }
 }
 
-// Validate ta.sma/ema calls return valid keys (not null node from unsupported period)
-function validatePineExpr(expr: string): { ok: false; error: string } | { ok: true } {
-  // Check for unsupported ta.sma/ema periods
-  const smaPeriodRe = /ta\.sma\s*\(\s*\w+\s*,\s*(\d+)\s*\)/g;
-  let m;
-  while ((m = smaPeriodRe.exec(expr)) !== null) {
-    const period = parseInt(m[1], 10);
-    if (!SMA_MAP[period]) {
-      return { ok: false, error: `ta.sma period ${period} is not supported. Use 20, 50, or 200.` };
-    }
-  }
-  const emaPeriodRe = /ta\.ema\s*\(\s*\w+\s*,\s*(\d+)\s*\)/g;
-  while ((m = emaPeriodRe.exec(expr)) !== null) {
-    const period = parseInt(m[1], 10);
-    if (!EMA_MAP[period]) {
-      return { ok: false, error: `ta.ema period ${period} is not supported. Use 12 or 26.` };
-    }
-  }
-  if (/\bopen\b/.test(expr)) {
-    return { ok: false, error: "`open` is not supported in the engine. Use `close` (price), `high`, or `low`." };
-  }
-  return { ok: true };
-}
+// (validatePineExpr has been removed in favor of throw during parsing)
 
 interface PineParseResult {
   longExpr?: string;
@@ -691,7 +662,7 @@ function parsePine(code: string): { ok: false; error: string } | { ok: true; res
           const longEntry = nextLine.match(/strategy\.(entry|long)/i);
           const shortEntry = nextLine.match(/strategy\.(entry.*short|short)/i);
           if (longEntry && !shortEntry && !longExpr) longExpr = cond;
-          else if (shortEntry && !longExpr) shortExpr = cond;
+          else if (shortEntry && !shortExpr) shortExpr = cond;
         }
         continue;
       }
@@ -714,12 +685,6 @@ function parsePine(code: string): { ok: false; error: string } | { ok: true; res
     };
   }
 
-  // Validate expressions
-  for (const expr of [longExpr, shortExpr].filter(Boolean) as string[]) {
-    const v = validatePineExpr(expr);
-    if (!v.ok) return { ok: false, error: v.error };
-  }
-
   // Parse both expressions to collect mapping/warnings
   const allMapping: Mapping[] = [];
   const allWarnings: string[] = [];
@@ -727,12 +692,16 @@ function parsePine(code: string): { ok: false; error: string } | { ok: true; res
   for (const expr of [longExpr, shortExpr].filter(Boolean) as string[]) {
     const tokens = tokenize(expr);
     const state: ParseState = { tokens, pos: 0 };
-    const { mapping, warnings } = parseExpr(state, 0);
-    for (const m of mapping) {
-      if (!allMapping.some((x) => x.source === m.source)) allMapping.push(m);
-    }
-    for (const w of warnings) {
-      if (!allWarnings.includes(w)) allWarnings.push(w);
+    try {
+      const { mapping, warnings } = parseExpr(state, 0);
+      for (const m of mapping) {
+        if (!allMapping.some((x) => x.source === m.source)) allMapping.push(m);
+      }
+      for (const w of warnings) {
+        if (!allWarnings.includes(w)) allWarnings.push(w);
+      }
+    } catch (e: any) {
+      return { ok: false, error: e.message };
     }
   }
 
@@ -748,10 +717,10 @@ function parsePine(code: string): { ok: false; error: string } | { ok: true; res
 }
 
 function makeConditionEvaluator(expr: string): (ctx: IndicatorContext) => boolean {
+  const tokens = tokenize(expr);
+  const state: ParseState = { tokens, pos: 0 };
+  const { node } = parseExpr(state, 0);
   return (ctx: IndicatorContext) => {
-    const tokens = tokenize(expr);
-    const state: ParseState = { tokens, pos: 0 };
-    const { node } = parseExpr(state, 0);
     const val = evalNode(node, ctx);
     return Boolean(val);
   };

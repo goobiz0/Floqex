@@ -77,7 +77,7 @@ export default async function BillingPage(props: { searchParams: Promise<{ statu
                 <div className="flex items-center gap-2">
                   <CardTitle>Current plan</CardTitle>
                   {data.status && (
-                    <Badge tone={activeStatus ? "positive" : "warning"}>{data.status}</Badge>
+                    <Badge tone={activeStatus ? "positive" : "warning"}>{data.status.charAt(0).toUpperCase() + data.status.slice(1)}</Badge>
                   )}
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-fg">

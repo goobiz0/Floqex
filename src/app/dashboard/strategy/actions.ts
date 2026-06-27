@@ -142,7 +142,23 @@ export async function createStrategyAdvanced(input: {
 
   let params: Record<string, unknown> = { ...risk.params };
 
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, plan: true, _count: { select: { strategies: true } } },
+  });
+  if (!user) return { ok: false, error: "User not found" };
+
   if (kind === "CUSTOM") {
+    const rawParams = input.params as Record<string, unknown>;
+    // Server-side pro language gate (defense in depth) before any transpilation.
+    if (
+      rawParams.mode === "CODE" &&
+      rawParams.language !== "javascript" &&
+      user.plan === "FREE"
+    ) {
+      return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
+    }
+
     // Validate the entry logic (builder groups or live code) and instruments.
     const custom = parseCustomConfig(input.params ?? {});
     if (!custom.ok) return { ok: false, error: custom.error };
@@ -152,22 +168,6 @@ export async function createStrategyAdvanced(input: {
       instrument: custom.instruments[0],
       ...custom.config,
     };
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true, plan: true, _count: { select: { strategies: true } } },
-  });
-  if (!user) return { ok: false, error: "User not found" };
-
-  // Server-side pro language gate (defense in depth).
-  if (
-    kind === "CUSTOM" &&
-    (params as Record<string, unknown>).mode === "CODE" &&
-    (params as Record<string, unknown>).language !== "javascript" &&
-    user.plan === "FREE"
-  ) {
-    return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
   }
 
   const planConfig = PLANS[user.plan as Plan];

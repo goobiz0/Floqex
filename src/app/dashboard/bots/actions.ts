@@ -80,6 +80,16 @@ export async function createBot({
       };
 
       if (strategyKind === "CUSTOM") {
+        const rawParams = params as Record<string, unknown>;
+        // Server-side pro language gate (defense in depth) before any transpilation.
+        if (
+          rawParams.mode === "CODE" &&
+          rawParams.language !== "javascript" &&
+          user.plan === "FREE"
+        ) {
+          return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
+        }
+
         const custom = parseCustomConfig(params);
         if (!custom.ok) {
           return { ok: false, error: custom.error };
@@ -87,15 +97,6 @@ export async function createBot({
         Object.assign(finalParams, custom.config);
         finalParams.instruments = custom.instruments;
         finalParams.instrument = custom.instruments[0];
-
-        // Server-side pro language gate (defense in depth).
-        if (
-          custom.config.mode === "CODE" &&
-          custom.config.language !== "javascript" &&
-          user.plan === "FREE"
-        ) {
-          return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
-        }
 
         // Generate a webhook secret for CODE strategies.
         if (custom.config.mode === "CODE") {
