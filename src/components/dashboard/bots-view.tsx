@@ -2,7 +2,7 @@
 
 import { useTransition, useOptimistic, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Flask, DotsThree, LinkBreak, Sliders, Trash, Info } from "@phosphor-icons/react";
+import { Plus, Flask, DotsThree, LinkBreak, Sliders, Trash, Info, ShareNetwork, Warning, Copy } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,11 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import { toggleBotStatus } from "@/app/dashboard/accounts/actions";
-import { detachBot, connectBotToAccount, deleteBot } from "@/app/dashboard/bots/actions";
+import { detachBot, connectBotToAccount, deleteBot, toggleBotPublic, resumeEdgeDecay, updateBotEdgeDecayThreshold } from "@/app/dashboard/bots/actions";
 import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
 import type { BotRow, AvailableAccount } from "@/lib/queries";
+import { EdgeDecayChart } from "@/components/dashboard/edge-decay-chart";
 
 const STATUS: Record<BotRow["status"] | "NONE", { tone: "positive" | "warning" | "neutral" | "negative"; label: string }> = {
   RUNNING: { tone: "positive", label: "Running" },
@@ -109,8 +110,24 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
   }
 
   return (
-    <Card className={cn("flex h-full flex-col p-5", !bot.accountId && "opacity-80 border-dashed")}>
-      <div className="flex items-start justify-between">
+    <Card className={cn("flex h-full flex-col p-5 relative overflow-hidden", !bot.accountId && "opacity-80 border-dashed")}>
+      {bot.edgeDecayPaused && (
+        <div className="absolute top-0 left-0 right-0 bg-negative-soft border-b border-negative/20 px-4 py-2 flex items-center justify-between">
+           <div className="flex items-center gap-2 text-negative text-xs font-medium">
+             <Warning size={16} weight="bold" />
+             Edge Decay Detected — Bot Paused
+           </div>
+           <Button size="sm" variant="secondary" className="h-6 px-2 text-[10px]" onClick={() => {
+             startTransition(async () => {
+               await resumeEdgeDecay(bot.id);
+             });
+           }}>
+             Resume
+           </Button>
+        </div>
+      )}
+      
+      <div className={cn("flex items-start justify-between", bot.edgeDecayPaused && "mt-8")}>
         <div>
           <div className="flex items-center gap-2">
             <p className="font-medium text-fg">{bot.name}</p>
@@ -140,6 +157,15 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
               icon: <Sliders size={16} />,
               onClick: () => {
                 router.push(`/dashboard/strategy?view=edit&strategyId=${bot.strategyId}${bot.accountId ? `&accountId=${bot.accountId}` : ''}`);
+              }
+            },
+            {
+              label: bot.isPublic ? "Make Bot Private" : "Share Bot (Public Embed)",
+              icon: <ShareNetwork size={16} />,
+              onClick: () => {
+                startTransition(async () => {
+                  await toggleBotPublic(bot.id, !bot.isPublic);
+                });
               }
             },
             ...(bot.accountId ? [
@@ -227,13 +253,59 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
           <Button
             size="sm"
             variant={isRunning ? "secondary" : "primary"}
-            disabled={pending}
+            disabled={pending || bot.edgeDecayPaused}
             onClick={toggle}
           >
             {isRunning ? "Stop" : "Start"}
           </Button>
         )}
       </div>
+
+      <div className="mt-4 border-t border-line pt-4">
+         <p className="text-xs font-medium text-fg-subtle mb-2">Edge Decay Protection</p>
+         {bot.spark && bot.spark.length > 0 && (
+           <div className="mb-4 rounded-[var(--radius-card)] overflow-hidden border border-line bg-surface/50">
+             <EdgeDecayChart data={bot.spark} />
+           </div>
+         )}
+         <div className="flex items-center gap-2">
+            <span className="text-[11px] text-fg-muted">Pause bot if win-rate drops by:</span>
+            <input 
+              type="number" 
+              step="0.01"
+              min="0.01"
+              max="1.0"
+              defaultValue={bot.edgeDecayThreshold ?? 0.20}
+              className="h-7 w-20 rounded-[var(--radius-control)] border border-line bg-surface px-2 text-xs text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              onBlur={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null;
+                startTransition(async () => {
+                  await updateBotEdgeDecayThreshold(bot.id, val);
+                });
+              }}
+            />
+         </div>
+      </div>
+
+      {bot.isPublic && (
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="text-xs font-medium text-fg-subtle mb-1 flex items-center justify-between">
+            Public Embed URL
+            <Badge tone="positive">LIVE</Badge>
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-[8px] bg-surface px-2 py-1.5 text-[11px] text-fg-muted border border-line">
+              {typeof window !== "undefined" ? window.location.origin : ""}/embed/bot/{bot.id}
+            </code>
+            <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/embed/bot/${bot.id}`);
+              alert("Public embed URL copied!");
+            }}>
+              <Copy size={14} />
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

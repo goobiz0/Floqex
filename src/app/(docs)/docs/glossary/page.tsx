@@ -1,98 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { BookBookmark, MagnifyingGlass } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 
 const GLOSSARY_TERMS = [
-  { term: "Alpha", desc: "The excess return of an investment relative to the return of a benchmark index." },
-  { term: "ATR (Average True Range)", desc: "A technical analysis indicator that measures market volatility by decomposing the entire range of an asset price for that period." },
-  { term: "Bracket Order (OCO)", desc: "One-Cancels-Other. A group of orders where the execution of one order automatically cancels the other. Used to place a stop-loss and take-profit simultaneously." },
-  { term: "Drawdown", desc: "The peak-to-trough decline during a specific record period of an investment, fund, or trading account." },
-  { term: "Edge", desc: "A trader's competitive advantage that results in positive expectancy over a large sample size of trades." },
-  { term: "Expectancy", desc: "The mathematical formula that tells you the average amount you can expect to win (or lose) per trade based on your win rate and reward-to-risk ratio." },
-  { term: "FIX Protocol", desc: "Financial Information eXchange. An electronic communications protocol initiated for real-time exchange of information related to securities transactions." },
-  { term: "MCP", desc: "Model Context Protocol. The secure architecture allowing AI agents to interface directly with Floqex." },
-  { term: "ORB (Opening Range Breakout)", desc: "A day trading strategy that involves taking a position when the price breaks above or below the high/low of the first X minutes of the trading day." },
-  { term: "R-Multiple", desc: "A way to measure the performance of a trade as a multiple of the initial risk. A 2R trade means the profit was twice the initial dollar amount risked." },
-  { term: "Slippage", desc: "The difference between the expected price of a trade and the price at which the trade is actually executed. Usually occurs during high volatility." },
-  { term: "Webhook", desc: "A method of augmenting or altering the behavior of a web page or web application with custom callbacks. Used in Floqex to route data to Make.com or Zapier." }
+  { term: "Opening Range (OR)", definition: "The high and low price established during the first N minutes (typically 15) of a trading session. This range serves as support and resistance." },
+  { term: "Opening Range Breakout (ORB)", definition: "A strategy that enters a trade when the price breaks out (closes outside) of the Opening Range." },
+  { term: "R-Multiple", definition: "A standardized measure of risk and reward. 1R represents the initial risk taken on a trade. A trade that makes twice the initial risk is a +2R trade." },
+  { term: "MFE (Maximum Favorable Excursion)", definition: "The peak profit a trade reached before it was closed. Used to determine if take-profit targets are too conservative or too aggressive." },
+  { term: "MAE (Maximum Adverse Excursion)", definition: "The maximum loss a trade experienced before it was closed. Used to determine if stop-losses are placed too tightly." },
+  { term: "Drawdown", definition: "The peak-to-trough decline during a specific record period of an investment, usually quoted as the percentage between the peak and the subsequent trough." },
+  { term: "Expectancy", definition: "The average amount you can expect to win (or lose) per trade, combining win rate and average win/loss sizes. Positive expectancy means a strategy is profitable over time." },
+  { term: "Profit Factor", definition: "The gross profit divided by the gross loss over a specific trading period. A profit factor above 1.0 indicates a profitable system." },
+  { term: "Slippage", definition: "The difference between the expected price of a trade and the price at which the trade is actually executed. Floqex paper trading applies a simulated 0.02% slippage penalty." },
 ];
 
 export default function GlossaryPage() {
-  const [search, setSearch] = useState("");
-  
-  const filteredTerms = GLOSSARY_TERMS.filter(item => 
-    item.term.toLowerCase().includes(search.toLowerCase()) || 
-    item.desc.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-  };
-
   return (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-12"
-    >
-      <motion.header variants={itemVariants} className="space-y-4">
-        <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
-          <BookBookmark size={14} weight="duotone" />
-          Terminology
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-fg">Trading Glossary</h1>
-        <p className="mt-4 text-lg text-fg-muted leading-relaxed max-w-2xl">
-          Master the terminology used in algorithmic trading and the Floqex platform.
+    <div className="space-y-16">
+      <motion.header 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-4"
+      >
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-fg">
+          Glossary
+        </h1>
+        <p className="max-w-2xl text-lg text-fg-muted leading-relaxed">
+          Common terminology used within the Floqex platform and algorithmic trading.
         </p>
       </motion.header>
 
-      <motion.section variants={itemVariants} className="space-y-6 mt-8">
-        <div className="relative max-w-md">
-          <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-muted" size={18} weight="bold" />
-          <input 
-            type="text" 
-            placeholder="Search terms..." 
-            className="w-full bg-surface border border-line rounded-[var(--radius-control)] pl-11 pr-4 py-3 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all shadow-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTerms.map(item => (
-            <motion.div 
-              key={item.term} 
-              layout
-              className="bg-surface border border-line rounded-[var(--radius-card)] p-6 hover:border-accent/50 hover:shadow-[0_0_15px_rgba(var(--color-accent),0.05)] transition-all group"
-            >
-              <h3 className="text-lg font-semibold text-fg group-hover:text-accent transition-colors">{item.term}</h3>
-              <p className="mt-3 text-sm text-fg-subtle leading-relaxed">{item.desc}</p>
-            </motion.div>
+      <motion.section 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-6"
+      >
+        <dl className="grid gap-6 md:grid-cols-2">
+          {GLOSSARY_TERMS.map((item, index) => (
+            <div key={index} className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
+              <dt className="text-lg font-semibold text-fg mb-2">{item.term}</dt>
+              <dd className="text-sm text-fg-muted leading-relaxed">{item.definition}</dd>
+            </div>
           ))}
-          {filteredTerms.length === 0 && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="col-span-full py-12 text-center text-fg-muted border border-dashed border-line rounded-[var(--radius-card)] bg-base/50"
-            >
-              <BookBookmark size={32} className="mx-auto mb-3 opacity-20" />
-              No terminology found matching &quot;<span className="text-fg font-medium">{search}</span>&quot;.
-            </motion.div>
-          )}
-        </div>
+        </dl>
       </motion.section>
-    </motion.div>
+
+    </div>
   );
 }

@@ -127,8 +127,10 @@ model Account {
   mode       AccountMode @default(PAPER)
   externalId String?
   balance    Decimal     @default(10000) @db.Decimal(18, 2)
-  currency         String      @default("USD")
-  maxDailyDrawdown Decimal?    @db.Decimal(18, 2)
+  currency                    String      @default("USD")
+  maxDailyDrawdown            Decimal?    @db.Decimal(18, 2)
+  isPropFirmMode              Boolean     @default(false)
+  propFirmMaxTrailingDrawdown Decimal?    @db.Decimal(18, 2)
   isActive         Boolean     @default(true)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
@@ -160,6 +162,9 @@ model Bot {
   name                String    @default("My Bot")
   status              BotStatus @default(STOPPED)
   autoAdjustmentsUsed Int       @default(0)
+  edgeDecayPaused     Boolean   @default(false)
+  edgeDecayThreshold  Decimal?  @db.Decimal(6, 4)
+  isPublic            Boolean   @default(false)
   lastHeartbeat       DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt

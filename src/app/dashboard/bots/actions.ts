@@ -27,7 +27,7 @@ export async function createBot({
     const { userId } = await auth();
     if (!userId) return { ok: false, error: "Not signed in" };
 
-    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
     if (!user) return { ok: false, error: "User not found" };
 
     const planConfig = PLANS[user.plan as Plan];
@@ -87,6 +87,20 @@ export async function createBot({
         Object.assign(finalParams, custom.config);
         finalParams.instruments = custom.instruments;
         finalParams.instrument = custom.instruments[0];
+
+        // Server-side pro language gate (defense in depth).
+        if (
+          custom.config.mode === "CODE" &&
+          custom.config.language !== "javascript" &&
+          user.plan === "FREE"
+        ) {
+          return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
+        }
+
+        // Generate a webhook secret for CODE strategies.
+        if (custom.config.mode === "CODE") {
+          finalParams.tvWebhookSecret = crypto.randomUUID();
+        }
       }
 
       const activeStrategiesCount = await prisma.strategy.count({
@@ -221,5 +235,84 @@ export async function deleteBot(botId: string) {
   } catch (err) {
     console.error("deleteBot error", err);
     return { ok: false, error: "Failed to delete bot." };
+  }
+}
+
+export async function toggleBotPublic(botId: string, isPublic: boolean) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Unauthorized" };
+    
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    if (!bot || bot.userId !== user.id) {
+      return { ok: false, error: "Bot not found or access denied" };
+    }
+
+    await prisma.bot.update({
+      where: { id: botId },
+      data: { isPublic },
+    });
+
+    revalidatePath("/dashboard/bots");
+    return { ok: true };
+  } catch (err) {
+    console.error("toggleBotPublic error", err);
+    return { ok: false, error: "Failed to update bot visibility." };
+  }
+}
+
+export async function resumeEdgeDecay(botId: string) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Unauthorized" };
+    
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    if (!bot || bot.userId !== user.id) {
+      return { ok: false, error: "Bot not found or access denied" };
+    }
+
+    await prisma.bot.update({
+      where: { id: botId },
+      data: { edgeDecayPaused: false, status: "RUNNING", lastHeartbeat: new Date() },
+    });
+
+    revalidatePath("/dashboard/bots");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (err) {
+    console.error("resumeEdgeDecay error", err);
+    return { ok: false, error: "Failed to resume bot." };
+  }
+}
+
+export async function updateBotEdgeDecayThreshold(botId: string, threshold: number | null) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Unauthorized" };
+    
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    if (!bot || bot.userId !== user.id) {
+      return { ok: false, error: "Bot not found or access denied" };
+    }
+
+    await prisma.bot.update({
+      where: { id: botId },
+      data: { edgeDecayThreshold: threshold },
+    });
+
+    revalidatePath("/dashboard/bots");
+    return { ok: true };
+  } catch (err) {
+    console.error("updateBotEdgeDecayThreshold error", err);
+    return { ok: false, error: "Failed to update edge decay threshold." };
   }
 }

@@ -1,73 +1,81 @@
-import type { Metadata } from "next";
-import { Button } from "@/components/ui/button";
-import { Code, BookOpen, Key, TerminalWindow } from "@phosphor-icons/react/dist/ssr";
-import { Card } from "@/components/ui/card";
+"use client";
 
-export const metadata: Metadata = { title: "API Documentation | Floqex" };
+import { motion } from "motion/react";
+import { TerminalWindow, Plug, Link as LinkIcon, Code } from "@phosphor-icons/react/dist/ssr";
 
 export default function ApiDocsPage() {
   return (
-    <div className="mx-auto max-w-4xl p-6 md:p-12 space-y-16">
-      <div className="text-center space-y-4 pt-12">
-        <h1 className="text-4xl font-bold tracking-tight text-fg">Floqex API</h1>
-        <p className="text-xl text-fg-subtle max-w-2xl mx-auto">
-          Integrate our trading engine directly into your own applications. Full programmatic access coming soon.
+    <div className="space-y-16">
+      <motion.header 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-4"
+      >
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-fg">
+          API Documentation
+        </h1>
+        <p className="max-w-2xl text-lg text-fg-muted leading-relaxed">
+          Interact with your Floqex bots and data programmatically. Available exclusively on the Pro tier.
         </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card className="p-8 space-y-4 border border-line">
-          <div className="h-12 w-12 rounded-full bg-accent-soft flex items-center justify-center text-accent">
-            <Key size={24} weight="fill" />
-          </div>
-          <h3 className="text-xl font-bold text-fg">Authentication</h3>
-          <p className="text-fg-subtle leading-relaxed">
-            Secure REST API access via Bearer tokens. Issue and revoke API keys directly from your developer dashboard.
-          </p>
-        </Card>
-
-        <Card className="p-8 space-y-4 border border-line">
-          <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-            <TerminalWindow size={24} weight="fill" />
-          </div>
-          <h3 className="text-xl font-bold text-fg">Webhooks</h3>
-          <p className="text-fg-subtle leading-relaxed">
-            Receive real-time push notifications for trade executions, daily PnL summaries, and risk limit breaches.
-          </p>
-        </Card>
-
-        <Card className="p-8 space-y-4 border border-line">
-          <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-            <Code size={24} weight="fill" />
-          </div>
-          <h3 className="text-xl font-bold text-fg">SDKs</h3>
-          <p className="text-fg-subtle leading-relaxed">
-            Official SDKs for Node.js, Python, and Go will be available soon. Interact with your bots natively.
-          </p>
-        </Card>
-
-        <Card className="p-8 space-y-4 border border-line">
-          <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
-            <BookOpen size={24} weight="fill" />
-          </div>
-          <h3 className="text-xl font-bold text-fg">Comprehensive Docs</h3>
-          <p className="text-fg-subtle leading-relaxed">
-            Detailed API references, OpenAPI specs, and copy-paste examples for every endpoint.
-          </p>
-        </Card>
-      </div>
-
-      <div className="rounded-3xl bg-surface p-8 border border-line text-center space-y-4">
-        <h3 className="text-2xl font-bold text-fg">Join the Developer Waitlist</h3>
-        <p className="text-fg-subtle">Get early access to our developer tools before public launch.</p>
-        <div className="pt-4 flex justify-center">
-          <Button variant="primary" disabled size="lg">Waitlist Closed</Button>
+        <div className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wider text-fg-muted">
+          <TerminalWindow size={14} />
+          REST API v1
         </div>
-      </div>
+      </motion.header>
 
-      <div className="text-center pt-8">
-        <Button variant="secondary" href="/dashboard" size="lg">Return to Dashboard</Button>
-      </div>
+      <motion.section 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-8"
+      >
+        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-4">Authentication</h2>
+        <p className="text-sm text-fg-muted leading-relaxed">
+          All API requests must be authenticated using a Bearer token in the Authorization header. You can generate API keys from the Settings page in your dashboard.
+        </p>
+        <div className="rounded-md border border-line bg-base p-4 overflow-x-auto">
+          <code className="text-sm font-mono text-fg-subtle">
+            <span className="text-accent">Authorization:</span> Bearer flqx_live_xxxxxxxxxxxxxxxxxxxx
+          </code>
+        </div>
+      </motion.section>
+
+      <motion.section 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-8"
+      >
+        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-4">Endpoints</h2>
+
+        <div className="space-y-6">
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-profit bg-profit/10 px-2 py-1 rounded">GET</span>
+              <code className="font-mono text-sm text-fg">/v1/bots</code>
+            </div>
+            <p className="text-sm text-fg-muted leading-relaxed mb-4">List all bots attached to your account and their current status (RUNNING, STOPPED, WAITING).</p>
+          </div>
+
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-accent bg-accent/10 px-2 py-1 rounded">POST</span>
+              <code className="font-mono text-sm text-fg">/v1/bots/:id/stop</code>
+            </div>
+            <p className="text-sm text-fg-muted leading-relaxed mb-4">Issue a programmatic Emergency Stop to a specific bot. All open positions will be flattened.</p>
+          </div>
+
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-profit bg-profit/10 px-2 py-1 rounded">GET</span>
+              <code className="font-mono text-sm text-fg">/v1/trades</code>
+            </div>
+            <p className="text-sm text-fg-muted leading-relaxed mb-4">Retrieve a paginated list of all executed trades, including MFE, MAE, and R-multiple data.</p>
+          </div>
+        </div>
+      </motion.section>
+
     </div>
   );
 }

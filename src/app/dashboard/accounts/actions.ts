@@ -284,6 +284,33 @@ export async function updateCircuitBreaker(accountId: string, amount: number | n
   }
 }
 
+export async function updatePropFirmSettings(accountId: string, isPropFirmMode: boolean, propFirmMaxTrailingDrawdown: number | null) {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Not signed in" };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    if (!account || account.userId !== user.id) {
+      return { ok: false, error: "Account not found" };
+    }
+
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { isPropFirmMode, propFirmMaxTrailingDrawdown },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/accounts");
+    return { ok: true };
+  } catch (err) {
+    console.error("updatePropFirmSettings error", err);
+    return { ok: false, error: "Could not update prop firm settings" };
+  }
+}
+
 export async function disconnectAccount(accountId: string) {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not signed in" };
