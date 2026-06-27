@@ -5,12 +5,21 @@ import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
 // Sign the user out after this much genuine inactivity. Kept generous on purpose:
-// it is a security backstop for a truly abandoned tab, not a productivity tax.
-// The previous 15-minute value booted active sessions during normal use, e.g.
-// while reading charts without moving the mouse, or while a change was being
+// it is a security backstop for a truly abandoned browser, not a productivity
+// tax. The previous 15-minute value booted active sessions during normal use,
+// e.g. while reading charts without moving the mouse, or while a change was being
 // committed/pushed/deployed (the app tab sits idle the whole time, so it looked
 // like the redeploy logged you out when it was really this timer).
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
+
+// Shared across tabs so activity in any tab keeps every tab signed in. signOut
+// ends the Clerk session globally, so a single hidden tab must not boot a user
+// who is actively working in another tab.
+const ACTIVITY_KEY = "floqex:last-activity";
+// Throttle cross-tab writes: mousemove fires constantly and localStorage writes
+// are synchronous, so only persist every few seconds. Coarse granularity is fine
+// against a 60-minute window.
+const SHARED_WRITE_INTERVAL_MS = 10 * 1000;
 
 export function IdleTimeout() {
   const { signOut } = useClerk();
@@ -19,7 +28,27 @@ export function IdleTimeout() {
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     let lastActivity = Date.now();
+    let lastSharedWrite = 0;
     let signedOut = false;
+
+    const readShared = (): number => {
+      try {
+        const raw = window.localStorage.getItem(ACTIVITY_KEY);
+        const parsed = raw ? parseInt(raw, 10) : NaN;
+        return Number.isFinite(parsed) ? parsed : 0;
+      } catch {
+        return 0;
+      }
+    };
+
+    const writeShared = (ts: number) => {
+      try {
+        window.localStorage.setItem(ACTIVITY_KEY, String(ts));
+      } catch {
+        // localStorage may be unavailable (private mode, blocked storage); this
+        // tab then falls back to its own in-memory timestamp.
+      }
+    };
 
     const doSignOut = () => {
       if (signedOut) return;
@@ -27,37 +56,52 @@ export function IdleTimeout() {
       signOut(() => router.push("/sign-in"));
     };
 
-    const schedule = (delay: number) => {
+    // Re-evaluate idleness against the newest activity from ANY tab. Only sign
+    // out once the whole browser has been idle past the window; otherwise
+    // reschedule for the time that's left. This also corrects for background
+    // timer throttling, which can fire a stale timer late.
+    const evaluate = () => {
+      lastActivity = Math.max(lastActivity, readShared());
+      const idleFor = Date.now() - lastActivity;
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(doSignOut, Math.max(0, delay));
+      if (idleFor >= IDLE_TIMEOUT_MS) doSignOut();
+      else timeoutId = setTimeout(evaluate, IDLE_TIMEOUT_MS - idleFor);
     };
 
     const handleActivity = () => {
-      lastActivity = Date.now();
-      schedule(IDLE_TIMEOUT_MS);
+      const t = Date.now();
+      lastActivity = t;
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(evaluate, IDLE_TIMEOUT_MS);
+      if (t - lastSharedWrite > SHARED_WRITE_INTERVAL_MS) {
+        lastSharedWrite = t;
+        writeShared(t);
+      }
     };
 
-    // Background tabs fire no input events and throttle timers, so a timer armed
-    // before the tab was hidden is unreliable. On return, measure real elapsed
-    // time: sign out only if the session genuinely went idle past the window,
-    // otherwise reschedule for the time that's left. This kills the premature
-    // logout that booted you after a few minutes on another tab, without letting
-    // a walked-away session live forever.
     const handleVisibility = () => {
-      if (document.visibilityState !== "visible") return;
-      const idleFor = Date.now() - lastActivity;
-      if (idleFor >= IDLE_TIMEOUT_MS) doSignOut();
-      else schedule(IDLE_TIMEOUT_MS - idleFor);
+      if (document.visibilityState === "visible") evaluate();
     };
 
-    // Arm the initial timeout.
-    schedule(IDLE_TIMEOUT_MS);
+    // Activity broadcast from another tab: pick up the newer timestamp and
+    // reschedule so this (possibly hidden) tab won't sign out while another is
+    // in use.
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === ACTIVITY_KEY) evaluate();
+    };
+
+    // Seed the shared timestamp and arm the initial timeout.
+    lastActivity = Math.max(lastActivity, readShared());
+    writeShared(lastActivity);
+    lastSharedWrite = lastActivity;
+    timeoutId = setTimeout(evaluate, IDLE_TIMEOUT_MS);
 
     const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart"];
     events.forEach((event) => {
       window.addEventListener(event, handleActivity, { passive: true });
     });
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("storage", handleStorage);
 
     return () => {
       clearTimeout(timeoutId);
@@ -65,6 +109,7 @@ export function IdleTimeout() {
         window.removeEventListener(event, handleActivity);
       });
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("storage", handleStorage);
     };
   }, [signOut, router]);
 

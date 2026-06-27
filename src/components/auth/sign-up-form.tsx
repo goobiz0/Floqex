@@ -49,10 +49,12 @@ export function SignUpForm() {
   // displayConfig.waitlist* (not where this lives), so it silently missed
   // waitlist mode, so the normal sign-up form rendered, signUp.create() hit Clerk's
   // waitlist enforcement, and the user was bounced to Clerk's hosted waitlist
-  // page instead of seeing our in-app form. Clerk does not type the unstable
-  // environment, so a cast is required here.
+  // page instead of seeing our in-app form. Clerk renamed this internal field
+  // from `__unstable__environment` to `__internal_environment` (core v3), so read
+  // both; neither is typed, hence the cast.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (clerk as any)?.__unstable__environment;
+  const clerkAny = clerk as any;
+  const env = clerkAny?.__internal_environment ?? clerkAny?.__unstable__environment;
   const signUpMode: string | undefined =
     env?.userSettings?.signUp?.mode ?? env?.authConfig?.signUp?.mode;
   const isWaitlistEnabled =

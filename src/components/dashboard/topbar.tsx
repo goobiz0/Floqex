@@ -183,16 +183,21 @@ export async function Topbar() {
   );
 }
 
-/** Whether the user has the ASX market enabled (Clerk private metadata). */
+/**
+ * Whether the user has the ASX market enabled (Clerk private metadata). Follows
+ * the app-wide contract: enabled unless explicitly set to false, so a transient
+ * Clerk failure (or a missing session) does not flip the topbar's market/uptime
+ * state off and disagree with the dashboard page.
+ */
 async function getMarketAsxEnabled(clerkId: string | null): Promise<boolean> {
-  if (!clerkId) return false;
+  if (!clerkId) return true;
   try {
     const { clerkClient } = await import("@clerk/nextjs/server");
     const client = await clerkClient();
     const cu = await client.users.getUser(clerkId);
-    return cu.privateMetadata?.marketAsxEnabled !== false;
+    return ((cu.privateMetadata ?? {}) as Record<string, unknown>).marketAsxEnabled !== false;
   } catch {
-    return false;
+    return true;
   }
 }
 
