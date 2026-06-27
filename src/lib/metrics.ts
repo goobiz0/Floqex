@@ -143,6 +143,64 @@ export function rollingWinRate(trades: TradeRow[], window = 10): number[] {
   return out;
 }
 
+/** Gross profit (sum of winners) and gross loss (positive magnitude of losers). */
+export function grossProfitLoss(trades: TradeRow[]): { grossWin: number; grossLoss: number } {
+  const closed = trades.filter(isClosed);
+  const grossWin = closed.filter(isWin).reduce((s, t) => s + (t.netPnl ?? 0), 0);
+  const grossLoss = Math.abs(closed.filter(isLoss).reduce((s, t) => s + (t.netPnl ?? 0), 0));
+  return { grossWin, grossLoss };
+}
+
+/**
+ * Drawdown from the running peak to the latest equity point ("how far underwater
+ * are we right now"), as amount and percent. 0 when at a fresh high.
+ */
+export function currentDrawdown(series: EquityPoint[]): { amount: number; pct: number } {
+  if (series.length === 0) return { amount: 0, pct: 0 };
+  let peak = -Infinity;
+  for (const point of series) peak = Math.max(peak, point.equity);
+  const last = series[series.length - 1].equity;
+  const amount = Math.max(0, peak - last);
+  const pct = peak > 0 ? (amount / peak) * 100 : 0;
+  return { amount, pct };
+}
+
+export type StreakStats = {
+  current: number; // length of the streak ending at the most recent trade
+  currentType: "WIN" | "LOSS" | null;
+  longestWin: number;
+  longestLoss: number;
+};
+
+/**
+ * Win/loss streaks over closed trades. Expects `trades` newest-first (the
+ * dashboard/query order) and walks them chronologically. Break-even trades
+ * (netPnl === 0) reset the current run without counting toward either side.
+ */
+export function streaks(trades: TradeRow[]): StreakStats {
+  const chrono = trades.filter(isClosed).slice().reverse();
+  let longestWin = 0;
+  let longestLoss = 0;
+  let runType: "WIN" | "LOSS" | null = null;
+  let runLen = 0;
+  for (const t of chrono) {
+    const type: "WIN" | "LOSS" | null = isWin(t) ? "WIN" : isLoss(t) ? "LOSS" : null;
+    if (type === null) {
+      runType = null;
+      runLen = 0;
+      continue;
+    }
+    if (type === runType) runLen += 1;
+    else {
+      runType = type;
+      runLen = 1;
+    }
+    if (type === "WIN") longestWin = Math.max(longestWin, runLen);
+    else longestLoss = Math.max(longestLoss, runLen);
+  }
+  return { current: runLen, currentType: runType, longestWin, longestLoss };
+}
+
 export function rDistribution(trades: TradeRow[]): { label: string; count: number }[] {
   const buckets = [
     { label: "≤ -0.5R", min: -Infinity, max: -0.5, count: 0 },

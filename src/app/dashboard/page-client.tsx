@@ -28,6 +28,15 @@ import { NetworkLatencyWidget } from "@/components/dashboard/network-latency-wid
 import { StreakHeatmapWidget } from "@/components/dashboard/streak-heatmap-widget";
 import { LiveTapeWidget } from "@/components/dashboard/live-tape-widget";
 import { RiskMatrixWidget } from "@/components/dashboard/risk-matrix-widget";
+import { EquityCurveWidget } from "@/components/dashboard/equity-curve-widget";
+import { PerformanceSummaryWidget } from "@/components/dashboard/performance-summary-widget";
+import { DrawdownWidget } from "@/components/dashboard/drawdown-widget";
+import { ProfitFactorWidget } from "@/components/dashboard/profit-factor-widget";
+import { RDistributionWidget } from "@/components/dashboard/r-distribution-widget";
+import { SessionPerformanceWidget } from "@/components/dashboard/session-performance-widget";
+import { WeekdayPerformanceWidget } from "@/components/dashboard/weekday-performance-widget";
+import { RollingWinRateWidget } from "@/components/dashboard/rolling-win-rate-widget";
+import { StreakTrackerWidget } from "@/components/dashboard/streak-tracker-widget";
 import type { DashboardTemplate } from "@prisma/client";
 import { getDashboardTemplates, createDashboardTemplate, updateDashboardTemplate, deleteDashboardTemplate, setDefaultTemplate, WidgetLayout } from "./template-actions";
 import { useLiveStream } from "@/lib/use-live-stream";
@@ -43,6 +52,8 @@ const DEFAULT_LAYOUT: WidgetItem[] = [
   { i: "7", x: 6, y: 4, w: 2, h: 4, type: "system-health", config: {} },
   { i: "8", x: 8, y: 4, w: 2, h: 4, type: "market-pulse", config: {} },
   { i: "9", x: 10, y: 4, w: 2, h: 4, type: "quick-actions", config: {} },
+  { i: "10", x: 0, y: 14, w: 8, h: 5, type: "equity-curve", config: {} },
+  { i: "11", x: 8, y: 14, w: 4, h: 5, type: "performance-summary", config: {} },
 ];
 
 function EventIcon({ kind }: { kind: string }) {
@@ -509,9 +520,46 @@ export function DashboardPageClient({
       return <RiskMatrixWidget groupBy={item.config?.groupBy || "asset"} />;
     }
 
+    // --- Real-data performance metrics ---
+    if (item.type === "equity-curve") {
+      return <EquityCurveWidget summaries={summaries} />;
+    }
+
+    if (item.type === "performance-summary") {
+      return <PerformanceSummaryWidget trades={trades} summaries={summaries} window={item.config?.window || "all"} />;
+    }
+
+    if (item.type === "drawdown") {
+      return <DrawdownWidget summaries={summaries} />;
+    }
+
+    if (item.type === "profit-factor") {
+      return <ProfitFactorWidget trades={trades} />;
+    }
+
+    if (item.type === "r-distribution") {
+      return <RDistributionWidget trades={trades} />;
+    }
+
+    if (item.type === "session-performance") {
+      return <SessionPerformanceWidget trades={trades} />;
+    }
+
+    if (item.type === "weekday-performance") {
+      return <WeekdayPerformanceWidget trades={trades} />;
+    }
+
+    if (item.type === "rolling-win-rate") {
+      return <RollingWinRateWidget trades={trades} window={item.config?.window || "10"} />;
+    }
+
+    if (item.type === "streak-tracker") {
+      return <StreakTrackerWidget trades={trades} />;
+    }
+
     // Fallback
     return <div className="p-6 text-sm text-fg-subtle">Unknown Widget</div>;
-  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus]);
+  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus, trades, summaries]);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">

@@ -134,6 +134,38 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
           </div>
         )}
 
+        {widgetType === "performance-summary" && (
+          <div className="space-y-2">
+            <Label>Window</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.window ?? "all")}
+              onChange={e => setLocalConfig({ ...localConfig, window: e.target.value })}
+            >
+              <option value="all">All trades</option>
+              <option value="30">Last 30 trades</option>
+              <option value="7">Last 7 trades</option>
+            </select>
+            <p className="text-xs text-fg-subtle">Which closed trades to summarise.</p>
+          </div>
+        )}
+
+        {widgetType === "rolling-win-rate" && (
+          <div className="space-y-2">
+            <Label>Window</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.window ?? "10")}
+              onChange={e => setLocalConfig({ ...localConfig, window: e.target.value })}
+            >
+              <option value="10">Trailing 10 trades</option>
+              <option value="20">Trailing 20 trades</option>
+              <option value="30">Trailing 30 trades</option>
+            </select>
+            <p className="text-xs text-fg-subtle">How many trades each rolling win-rate point averages.</p>
+          </div>
+        )}
+
         {!isConfigurable && (
           <div className="p-4 border border-line rounded-[var(--radius-control)] bg-surface text-sm text-fg-subtle text-center">
             No configurable options available for this widget yet.
