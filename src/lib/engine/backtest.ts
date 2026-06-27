@@ -28,6 +28,9 @@ export type BacktestResult = {
   maxDrawdownPct: number;
   profitFactor: number | null; // null when there are no losses to divide by
   barsCount: number;
+  /** Realised R-multiple per trade (winner ~ +rr, loser ~ -1). Powers the
+   *  R-distribution and Monte Carlo views without re-running the simulation. */
+  tradeReturns: number[];
 };
 
 const clampNum = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -48,6 +51,7 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
       maxDrawdownPct: 0,
       profitFactor: null,
       barsCount: bars.length,
+      tradeReturns: [],
     };
   }
 
@@ -65,6 +69,7 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
   let grossLoss = 0;
   let peak = START;
   let maxDD = 0;
+  const tradeReturns: number[] = [];
 
   for (let i = 1; i < bars.length; i++) {
     const bar = bars[i];
@@ -118,6 +123,9 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
     const size = riskDist > 0 ? riskBudget / riskDist : 0;
     const pnl = pnlPerUnit * size;
 
+    // Realised R for this trade: P&L per unit expressed in units of risk.
+    tradeReturns.push(riskDist > 0 ? pnlPerUnit / riskDist : 0);
+
     equity += pnl;
     trades++;
     if (pnl >= 0) {
@@ -143,5 +151,6 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
     maxDrawdownPct: maxDD * 100,
     profitFactor: grossLoss > 0 ? grossWin / grossLoss : null,
     barsCount: bars.length,
+    tradeReturns,
   };
 }
