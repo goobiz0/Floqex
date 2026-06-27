@@ -62,6 +62,23 @@ export async function POST(req: NextRequest) {
         }
 
         if (session.subscription && session.customer) {
+          // Fix: Prevent plan stacking by cancelling all OTHER active subscriptions for this customer
+          const existingSubs = await getStripe().subscriptions.list({
+            customer: session.customer as string,
+            status: "active",
+          });
+          
+          for (const s of existingSubs.data) {
+            if (s.id !== session.subscription) {
+              try {
+                await getStripe().subscriptions.cancel(s.id);
+                console.log(`Cancelled previous subscription ${s.id} for customer ${session.customer}`);
+              } catch (e) {
+                console.error(`Failed to cancel previous subscription ${s.id}:`, e);
+              }
+            }
+          }
+
           const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
           await syncSubscription(session.customer as string, sub);
         }

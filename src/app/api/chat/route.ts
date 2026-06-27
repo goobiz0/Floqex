@@ -1,4 +1,4 @@
-import { streamText, tool, type Message } from "ai";
+import { streamText, tool } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -91,7 +91,7 @@ function monteCarlo(a: {
 }
 
 export async function POST(req: Request) {
-  const { messages }: { messages: Message[] } = await req.json();
+  const { messages }: { messages: { id: string; role: string; content: string }[] } = await req.json();
   const { userId } = await auth();
 
   if (!userId) {
