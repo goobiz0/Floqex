@@ -311,7 +311,7 @@ export function MochiChat() {
                   </div>
                 </div>
               ) : (
-                messages.map((m) => {
+                (messages as any[]).map((m) => {
                   const isUser = m.role === "user";
                   return (
                     <motion.div
@@ -335,7 +335,7 @@ export function MochiChat() {
                         )}
                       >
                         {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
-                        {m.toolInvocations?.map((toolInvocation) => {
+                        {m.toolInvocations?.map((toolInvocation: any) => {
                           const toolCallId = toolInvocation.toolCallId;
                           if (toolInvocation.toolName === "updateStrategyParams") {
                             if (!('result' in toolInvocation)) {
