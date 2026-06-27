@@ -127,9 +127,6 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
     }
     if (customMode === "CODE") {
       if (!code.trim()) return { ok: false, error: "Write some strategy code before saving." };
-      if (language !== "javascript") {
-        return { ok: false, error: "Live execution for this language is in beta. Switch to JavaScript to save a runnable strategy." };
-      }
     }
 
     const params: Record<string, unknown> = {
@@ -247,6 +244,7 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
                 setStopLossPct={setStopLossPct}
                 targetRatio={targetRatio}
                 setTargetRatio={setTargetRatio}
+                isFree={isFree}
               />
             )}
 
@@ -443,6 +441,7 @@ function CustomAuthor({
   setStopLossPct,
   targetRatio,
   setTargetRatio,
+  isFree,
 }: {
   customMode: CustomMode;
   onModeChange: (m: CustomMode) => void;
@@ -460,6 +459,7 @@ function CustomAuthor({
   setStopLossPct: (v: number) => void;
   targetRatio: number;
   setTargetRatio: (v: number) => void;
+  isFree: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -479,7 +479,7 @@ function CustomAuthor({
             onClick={() => onModeChange("CODE")}
             icon={<Code size={20} weight="bold" />}
             title="Custom code"
-            desc="Write your own strategy in JavaScript with full control over the entry logic."
+            desc="Write your own strategy in JavaScript, Python, Pine Script or TradingView."
             badge="Runs live"
           />
         </div>
@@ -512,6 +512,7 @@ function CustomAuthor({
             code={code}
             onCodeChange={onCodeChange}
             sampleSymbol={instruments[0]}
+            isFree={isFree}
           />
         )}
       </Panel>
@@ -560,8 +561,8 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated">
-      <div className="border-b border-line bg-surface/50 px-6 py-4">
+    <div className="rounded-[var(--radius-card)] border border-line bg-elevated">
+      <div className="rounded-t-[calc(var(--radius-card)-1px)] border-b border-line bg-surface/50 px-6 py-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-fg">
           {icon}
           {title}

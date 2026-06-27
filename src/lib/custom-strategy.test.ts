@@ -125,15 +125,15 @@ describe("parseCustomConfig", () => {
     }
   });
 
-  it("rejects deploying a non-JavaScript (beta) language", () => {
+  it("accepts Python as a supported language", () => {
     const res = parseCustomConfig({
       mode: "CODE",
       language: "python",
       instruments: ["BTC"],
       code: "def decide(ctx):\n    return None",
     });
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/beta|JavaScript/i);
+    // Python is now a supported language (requires Pro plan, enforced server-side)
+    expect(res.ok).toBe(true);
   });
 
   it("rejects code that trips the static guard", () => {
