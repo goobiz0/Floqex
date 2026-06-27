@@ -142,6 +142,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
       getPerformance: tool({
         description: "Get the user's REAL trading performance over the last 7 days (win rate, net P/L, trade count).",
         parameters: z.object({ _run: z.boolean().optional() }),
+        // @ts-ignore - Vercel AI SDK generic type inference bug for empty/optional parameters
         execute: async (_args) => {
           const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           const trades = await prisma.trade.findMany({
@@ -161,6 +162,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
       getBotStatus: tool({
         description: "Check the user's REAL bots: how many exist, how many are running, open positions, and each bot's strategy.",
         parameters: z.object({ _run: z.boolean().optional() }),
+        // @ts-ignore - Vercel AI SDK generic type inference bug for empty/optional parameters
         execute: async (_args) => {
           const bots = await prisma.bot.findMany({
             where: { account: { userId: user.id } },
