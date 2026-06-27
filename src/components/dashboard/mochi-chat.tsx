@@ -235,9 +235,9 @@ export function MochiChat() {
     setPendingToolId(toolCallId);
     try {
       const res = await applyStrategyChanges(args);
-      addToolResult({ toolCallId, result: res });
+      addToolResult({ toolCallId, result: res } as any);
     } catch {
-      addToolResult({ toolCallId, result: { ok: false, message: "Server error" } });
+      addToolResult({ toolCallId, result: { ok: false, message: "Server error" } } as any);
     } finally {
       setPendingToolId(null);
     }
@@ -245,7 +245,7 @@ export function MochiChat() {
 
   const handleToolDecline = (toolCallId: string) => {
     if (pendingToolId) return;
-    addToolResult({ toolCallId, result: { ok: false, message: "User declined the changes." } });
+    addToolResult({ toolCallId, result: { ok: false, message: "User declined the changes." } } as any);
   };
 
   const spring = { type: "spring" as const, damping: 26, stiffness: 280, mass: 0.6 };
