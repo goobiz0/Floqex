@@ -87,6 +87,7 @@ export function MochiChat() {
   const reduce = useReducedMotion();
   const [input, setInput] = useState("");
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
+  // @ts-ignore - Vercel AI SDK generic type mismatch for useChat return type
   const { messages, append, isLoading, addToolResult, setMessages, error } = useChat({
     api: "/api/chat",
   });
