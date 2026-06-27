@@ -26,10 +26,12 @@ const absolute = (url: string, base: string) => (url.startsWith("http") ? url : 
  * happens we rebuild the checkout from an inline price so the plan still works.
  */
 function isMissingPriceError(err: unknown): boolean {
-  const e = err as { code?: string; message?: string; raw?: { code?: string; message?: string } };
+  const e = err as { code?: string; message?: string; param?: string; raw?: { code?: string; message?: string; param?: string } };
   const code = e?.code ?? e?.raw?.code;
+  const param = (e?.param ?? e?.raw?.param ?? "").toLowerCase();
   const msg = (e?.message ?? e?.raw?.message ?? "").toLowerCase();
-  return code === "resource_missing" || msg.includes("no such price") || msg.includes("no such plan");
+  if (msg.includes("no such price") || msg.includes("no such plan")) return true;
+  return code === "resource_missing" && (param.includes("price") || param.includes("plan"));
 }
 
 /** Find (or lazily create) the Stripe customer for the signed-in user. */
@@ -63,8 +65,12 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
 
   const origin = await requestOrigin();
   const billing = absolute(dashboardUrl("/billing"), origin);
-  const successUrl = absolute(returnUrls ? returnUrls.success : `${billing}?status=success`, origin);
-  const cancelUrl = absolute(returnUrls ? returnUrls.cancel : `${billing}?status=cancelled`, origin);
+  const defaultSuccess = `${billing}?status=success`;
+  const defaultCancel = `${billing}?status=cancelled`;
+  const isSameOrigin = (url: string) => { try { return new URL(url).origin === origin; } catch { return false; } };
+  const clampUrl = (url: string) => (url.startsWith("http") && !isSameOrigin(url) ? "" : url);
+  const successUrl = absolute(clampUrl(returnUrls?.success ?? "") || defaultSuccess, origin);
+  const cancelUrl = absolute(clampUrl(returnUrls?.cancel ?? "") || defaultCancel, origin);
 
   try {
     const customer = await ensureCustomer();

@@ -624,7 +624,6 @@ export async function getInstrumentActivity(instrument: string): Promise<Instrum
     const rows = await prisma.trade.findMany({
       where: { accountId: { in: accounts.map((a) => a.id) }, instrument: sym },
       orderBy: [{ openedAt: "desc" }],
-      take: 500,
     });
 
     const trades = rows.map(serializeTrade);
@@ -729,7 +728,6 @@ export async function getBotActivityOverview(): Promise<BotActivityOverview> {
         netPnl: true, sizeUnits: true, openedAt: true,
       },
       orderBy: { openedAt: "desc" },
-      take: 5000,
     });
     if (rows.length === 0) return { ...EMPTY, hasAccount: true };
 

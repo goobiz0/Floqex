@@ -262,7 +262,7 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
                     placeholder="e.g. NQ Opening Range"
                     onChange={(e) => setName(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") submit();
+                      if (e.key === "Enter" && !pending) submit();
                     }}
                     invalid={Boolean(error)}
                   />
@@ -520,21 +520,21 @@ function CustomAuthor({
       <Panel title="Risk defaults" icon={<ShieldCheck size={15} className="text-warning" />}>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
-            <label className="inline-flex items-center gap-1.5 text-xs font-medium text-fg">
+            <label htmlFor="risk-stop-loss" className="inline-flex items-center gap-1.5 text-xs font-medium text-fg">
               Stop loss distance
               <InfoTip content="How far the protective stop sits from entry, as a percentage. A tighter stop means a larger position for the same dollar risk." />
             </label>
             <div className="mt-1.5">
-              <ClampedNumberInput value={stopLossPct} min={0.1} max={20} onCommit={setStopLossPct} trailing="%" className="w-28 tnum" ariaLabel="Stop loss distance" />
+              <ClampedNumberInput id="risk-stop-loss" value={stopLossPct} min={0.1} max={20} onCommit={setStopLossPct} trailing="%" className="w-28 tnum" ariaLabel="Stop loss distance" />
             </div>
           </div>
           <div>
-            <label className="inline-flex items-center gap-1.5 text-xs font-medium text-fg">
+            <label htmlFor="risk-target-ratio" className="inline-flex items-center gap-1.5 text-xs font-medium text-fg">
               Reward to risk
               <InfoTip content="Profit target as a multiple of the risk. 2 means the target is twice as far as the stop." />
             </label>
             <div className="mt-1.5">
-              <ClampedNumberInput value={targetRatio} min={0.25} max={20} onCommit={setTargetRatio} trailing="R" className="w-28 tnum" ariaLabel="Reward to risk" />
+              <ClampedNumberInput id="risk-target-ratio" value={targetRatio} min={0.25} max={20} onCommit={setTargetRatio} trailing="R" className="w-28 tnum" ariaLabel="Reward to risk" />
             </div>
           </div>
           {customMode === "CODE" && (

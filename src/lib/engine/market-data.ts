@@ -109,11 +109,24 @@ export interface QuoteSnapshot {
   timestamp: Date;
 }
 
+function pruneCache<T extends { expiresAt: number }>(cache: Record<string, T>, max: number): void {
+  const now = Date.now();
+  for (const key of Object.keys(cache)) {
+    if (cache[key].expiresAt <= now) delete cache[key];
+  }
+  const keys = Object.keys(cache);
+  if (keys.length >= max) {
+    keys.sort((a, b) => cache[a].expiresAt - cache[b].expiresAt);
+    for (const key of keys.slice(0, Math.ceil(max / 4))) delete cache[key];
+  }
+}
+
 // Snapshot quotes are cached for a few seconds so the markets search feels
 // instant: re-selecting a symbol or the 5s poll re-uses the last fetch instead
 // of waiting on Yahoo every time. The open flag is refreshed on every read.
 const snapshotCache: Record<string, { data: QuoteSnapshot; expiresAt: number }> = {};
 const SNAPSHOT_TTL_MS = 4000;
+const SNAPSHOT_MAX = 200;
 
 export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapshot | null> {
   const symbol = getYahooSymbol(instrument);
@@ -139,6 +152,7 @@ export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapsho
       shortName: (q.shortName as string) || (q.longName as string) || symbol,
       timestamp: (q.regularMarketTime as Date) || new Date(),
     };
+    pruneCache(snapshotCache, SNAPSHOT_MAX);
     snapshotCache[symbol] = { data: snapshot, expiresAt: Date.now() + SNAPSHOT_TTL_MS };
     return snapshot;
   } catch (error) {
@@ -207,6 +221,7 @@ export interface SymbolSearchResult {
 // searches return instantly instead of round-tripping to Yahoo each keystroke.
 const searchCache: Record<string, { results: SymbolSearchResult[]; expiresAt: number }> = {};
 const SEARCH_TTL_MS = 1000 * 60; // 1 minute
+const SEARCH_MAX = 500;
 
 export async function searchSymbols(query: string, limit = 8): Promise<SymbolSearchResult[]> {
   const q = query.trim();
@@ -235,6 +250,7 @@ export async function searchSymbols(query: string, limit = 8): Promise<SymbolSea
       });
       if (out.length >= limit) break;
     }
+    pruneCache(searchCache, SEARCH_MAX);
     searchCache[cacheKey] = { results: out, expiresAt: Date.now() + SEARCH_TTL_MS };
     return out;
   } catch (error) {

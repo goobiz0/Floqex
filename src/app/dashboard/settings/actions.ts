@@ -91,7 +91,7 @@ export async function changePassword(newPassword: string): Promise<Result> {
 
   try {
     const client = await clerkClient();
-    await client.users.updateUser(userId, { password: newPassword });
+    await client.users.updateUser(userId, { password: newPassword, signOutOfOtherSessions: true });
     return { ok: true };
   } catch (err: unknown) {
     const e = err as { errors?: { longMessage?: string; message?: string }[] };
