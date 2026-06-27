@@ -27,7 +27,7 @@ export async function createBot({
     const { userId } = await auth();
     if (!userId) return { ok: false, error: "Not signed in" };
 
-    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
     if (!user) return { ok: false, error: "User not found" };
 
     const planConfig = PLANS[user.plan as Plan];
@@ -87,6 +87,20 @@ export async function createBot({
         Object.assign(finalParams, custom.config);
         finalParams.instruments = custom.instruments;
         finalParams.instrument = custom.instruments[0];
+
+        // Server-side pro language gate (defense in depth).
+        if (
+          custom.config.mode === "CODE" &&
+          custom.config.language !== "javascript" &&
+          user.plan === "FREE"
+        ) {
+          return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
+        }
+
+        // Generate a webhook secret for CODE strategies.
+        if (custom.config.mode === "CODE") {
+          finalParams.tvWebhookSecret = crypto.randomUUID();
+        }
       }
 
       const activeStrategiesCount = await prisma.strategy.count({
