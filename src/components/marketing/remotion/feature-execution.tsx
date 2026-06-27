@@ -9,8 +9,8 @@ export const FeatureExecution = () => {
   const barHeights = [65, 42, 78, 35, 55, 28, 48, 22];
 
   const getBarHeight = (index: number, targetHeight: number) => {
-    const startFrame = index * 6;
-    const height = interpolate(frame, [startFrame, startFrame + 15], [0, targetHeight], {
+    const startFrame = 20 + index * 8;
+    const height = interpolate(frame, [startFrame, startFrame + 20], [0, targetHeight], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
       easing: Easing.bezier(0.16, 1, 0.3, 1),
@@ -18,24 +18,24 @@ export const FeatureExecution = () => {
     return height;
   };
 
-  const cardTranslateY = interpolate(frame, [80, 95], [20, 0], {
+  const cardTranslateY = interpolate(frame, [100, 120], [20, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.bezier(0.16, 1, 0.3, 1),
   });
 
-  const cardOpacity = interpolate(frame, [80, 95], [0, 1], {
+  const cardOpacity = interpolate(frame, [100, 120], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const overallOpacity = interpolate(frame, [100, 120], [1, 0], {
+  const overallOpacity = interpolate(frame, [160, 180], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: COLORS.base, fontFamily: '"Outfit", system-ui, sans-serif', padding: 24, opacity: overallOpacity }}>
+    <AbsoluteFill style={{ backgroundColor: "transparent", fontFamily: '"Outfit", system-ui, sans-serif', padding: 24, opacity: overallOpacity }}>
       <div style={{ color: COLORS.fgSubtle, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 40 }}>
         Order Execution
       </div>
@@ -63,14 +63,15 @@ export const FeatureExecution = () => {
             bottom: 20,
             transform: `translateY(${cardTranslateY}px)`,
             opacity: cardOpacity,
-            backgroundColor: COLORS.elevated,
+            backgroundColor: "rgba(28, 28, 32, 0.8)",
+            backdropFilter: "blur(12px)",
             border: `1px solid ${COLORS.line}`,
             borderRadius: RADIUS.control,
             padding: "8px 12px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
           }}
         >
           <span style={{ color: COLORS.accent, fontSize: 12, fontWeight: 600 }}>Filled</span>

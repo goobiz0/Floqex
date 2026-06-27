@@ -21,9 +21,12 @@ export function RemotionPlayer({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[var(--radius-lg)] border border-line bg-elevated",
+        "overflow-hidden rounded-[var(--radius-lg)] border border-line",
         className
       )}
+      style={{
+        aspectRatio: `${props.compositionWidth} / ${props.compositionHeight}`,
+      }}
     >
       <Player
         {...props}
@@ -36,6 +39,7 @@ export function RemotionPlayer({
           width: "100%",
           height: "100%",
           display: "block",
+          backgroundColor: "transparent",
           ...props.style,
         }}
       />

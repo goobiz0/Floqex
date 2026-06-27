@@ -34,7 +34,7 @@ export function PlatformDemo() {
           <div className="relative z-10 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-elevated shadow-2xl">
             <RemotionPlayer
               component={DemoWalkthrough}
-              durationInFrames={450}
+              durationInFrames={600}
               fps={30}
               compositionWidth={1200}
               compositionHeight={720}

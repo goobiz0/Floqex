@@ -59,7 +59,7 @@ export function FeatureBento() {
   const reduce = useReducedMotion();
 
   const playerProps = {
-    durationInFrames: 120,
+    durationInFrames: 180,
     fps: 30,
     compositionWidth: 380,
     compositionHeight: 240,
@@ -93,7 +93,7 @@ export function FeatureBento() {
             body="Orders fire in milliseconds, directly at your broker, so what you backtest is close to what you fill."
             className="md:col-span-2"
           >
-            <RemotionPlayer component={FeatureExecution} {...playerProps} durationInFrames={120} compositionWidth={780} />
+            <RemotionPlayer component={FeatureExecution} {...playerProps} compositionWidth={780} />
           </CellShell>
 
           <CellShell
@@ -118,7 +118,7 @@ export function FeatureBento() {
             title="Transparent agent feed"
             body="Every scan, signal and order is narrated in plain language, so you always know what the bot is doing and why."
           >
-            <RemotionPlayer component={FeatureFeed} {...playerProps} durationInFrames={150} />
+            <RemotionPlayer component={FeatureFeed} {...playerProps} />
           </CellShell>
 
           <CellShell
