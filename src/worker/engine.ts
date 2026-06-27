@@ -110,10 +110,8 @@ async function tick() {
           }
         } else if (bot.account.isPropFirmMode) {
           // Prop Firm specific hard-stop logic on open trade floating PnL
-          // This is a simplified check: if price moves significantly against us,
-          // close trade and stop bot. For a real system, you sum floating PNL across all open trades.
-          // Since we are iterating per instrument, we can just enforce it as a hard exit signal here.
-          const limit = bot.account.maxDailyDrawdown ? Number(bot.account.maxDailyDrawdown) : 0;
+          // This evaluates the current balance against the start of day balance minus the trailing drawdown limit.
+          const limit = bot.account.propFirmMaxTrailingDrawdown ? Number(bot.account.propFirmMaxTrailingDrawdown) : 0;
           if (limit > 0) {
             // Rough approximation of floating PNL 
             const isLong = openTrade.direction === "LONG";
@@ -126,10 +124,13 @@ async function tick() {
             const today = new Date();
             today.setUTCHours(0, 0, 0, 0);
             const summary = await prisma.dailySummary.findFirst({ where: { accountId: bot.accountId!, date: today } });
-            const closedPnl = summary ? summary.netPnl.toNumber() : 0;
             
-            if (closedPnl + floatingPnl <= -limit) {
-               console.log(`[PROP FIRM LIMIT BREACH] Bot ${bot.id} breached daily limit!`);
+            const startBalance = summary ? Number(summary.startBalance) : Number(bot.account.balance);
+            const currentBalance = Number(bot.account.balance) + floatingPnl;
+            const limitThreshold = startBalance - limit;
+
+            if (currentBalance <= limitThreshold) {
+               console.log(`[PROP FIRM LIMIT BREACH] Bot ${bot.id} breached trailing drawdown limit!`);
                try {
                  await closeTrade(openTrade.id, bot.accountId!, "PROP_FIRM_LIMIT_BREACH", marketData.price);
                  await prisma.bot.update({ where: { id: bot.id }, data: { status: "STOPPED" }});
@@ -137,9 +138,9 @@ async function tick() {
                    botId: bot.id,
                    accountId: bot.accountId!,
                    kind: "RISK",
-                   message: `Prop Firm Daily Limit Breached (Closed + Floating PnL <= -$${limit}). Trade closed and bot halted.`,
+                   message: `Prop Firm Trailing Drawdown Breached (Balance dropped to $${currentBalance.toFixed(2)}, limit is $${limitThreshold.toFixed(2)}). Trade closed and bot halted.`,
                  });
-                 await sendUrgentAlert(bot.account.userId, "RISK", "Prop Firm Rule Violation", `Bot halted. Daily limit breached.`, { botId: bot.id });
+                 await sendUrgentAlert(bot.account.userId, "RISK", "Prop Firm Rule Violation", `Bot halted. Max trailing drawdown limit breached.`, { botId: bot.id });
                } catch (e) {
                  console.error("Failed to close on prop firm breach", e);
                }

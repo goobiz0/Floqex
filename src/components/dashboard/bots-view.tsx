@@ -14,6 +14,7 @@ import { detachBot, connectBotToAccount, deleteBot, toggleBotPublic, resumeEdgeD
 import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
 import type { BotRow, AvailableAccount } from "@/lib/queries";
+import { EdgeDecayChart } from "@/components/dashboard/edge-decay-chart";
 
 const STATUS: Record<BotRow["status"] | "NONE", { tone: "positive" | "warning" | "neutral" | "negative"; label: string }> = {
   RUNNING: { tone: "positive", label: "Running" },
@@ -262,6 +263,11 @@ function BotCard({ bot, availableAccounts }: { bot: BotRow; availableAccounts: A
 
       <div className="mt-4 border-t border-line pt-4">
          <p className="text-xs font-medium text-fg-subtle mb-2">Edge Decay Protection</p>
+         {bot.spark && bot.spark.length > 0 && (
+           <div className="mb-4 rounded-[var(--radius-card)] overflow-hidden border border-line bg-surface/50">
+             <EdgeDecayChart data={bot.spark} />
+           </div>
+         )}
          <div className="flex items-center gap-2">
             <span className="text-[11px] text-fg-muted">Pause bot if win-rate drops by:</span>
             <input 

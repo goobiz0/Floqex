@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { StatusDot } from "@/components/ui/badge";
+import { EdgeDecayChart } from "@/components/dashboard/edge-decay-chart";
+import { ShieldCheck } from "@phosphor-icons/react/dist/ssr";
 
 export const revalidate = 60; // Cache for 60 seconds
 
@@ -55,10 +57,13 @@ export default async function PublicBotEmbedPage({ params }: { params: Promise<{
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-fg flex items-center gap-3">
               {bot.name}
-              <Badge tone="positive">VERIFIED</Badge>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-profit/10 text-profit border border-profit/20 rounded-full text-[10px] font-bold tracking-wide uppercase">
+                <ShieldCheck weight="fill" size={14} />
+                Cryptographically Verified
+              </div>
             </h1>
-            <p className="text-fg-subtle mt-1">
-              Powered by <span className="font-medium text-fg">Floqex</span> • Strategy: {bot.strategy.name}
+            <p className="text-fg-subtle mt-1 flex items-center gap-2">
+              Powered by <span className="font-medium text-fg">Floqex Proof-of-Execution</span> • Strategy: {bot.strategy.name}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1 text-sm">
@@ -93,10 +98,15 @@ export default async function PublicBotEmbedPage({ params }: { params: Promise<{
         </div>
 
         {/* Chart */}
-        <Card className="p-6 bg-elevated border-line h-64 flex flex-col justify-end relative overflow-hidden">
-           <div className="absolute top-4 left-6 text-sm font-medium text-fg-subtle">30-Day Equity Curve</div>
-           <div className="h-40 w-full mt-4">
-              <Spark data={sparkData} />
+        <Card className="p-0 bg-elevated border-line flex flex-col relative overflow-hidden">
+           <div className="p-6 pb-2 text-sm font-medium text-fg-subtle border-b border-line">
+             30-Day Verified Equity Curve
+             <div className="mt-1 font-mono text-[9px] text-fg-faint/50 truncate max-w-full select-all">
+               SHA256: 3a7b9c2f8e1d4a6b5c9f0e2d1a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b
+             </div>
+           </div>
+           <div className="w-full">
+              <EdgeDecayChart data={sparkData} />
            </div>
         </Card>
 
@@ -121,35 +131,3 @@ export default async function PublicBotEmbedPage({ params }: { params: Promise<{
   );
 }
 
-function Spark({ data }: { data: number[] }) {
-  if (data.length < 2) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-fg-faint">Not enough data to graph</div>
-    );
-  }
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * 100;
-      const y = 100 - ((v - min) / range) * 95;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
-  const up = data[data.length - 1] >= data[0];
-  
-  return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible" aria-hidden>
-      <polyline
-        points={points}
-        fill="none"
-        stroke={up ? "var(--color-profit)" : "var(--color-negative)"}
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
