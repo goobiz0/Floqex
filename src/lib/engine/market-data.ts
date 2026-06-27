@@ -109,12 +109,22 @@ export interface QuoteSnapshot {
   timestamp: Date;
 }
 
+// Snapshot quotes are cached for a few seconds so the markets search feels
+// instant: re-selecting a symbol or the 5s poll re-uses the last fetch instead
+// of waiting on Yahoo every time. The open flag is refreshed on every read.
+const snapshotCache: Record<string, { data: QuoteSnapshot; expiresAt: number }> = {};
+const SNAPSHOT_TTL_MS = 4000;
+
 export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapshot | null> {
   const symbol = getYahooSymbol(instrument);
+  const cached = snapshotCache[symbol];
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ...cached.data, isOpen: isInstrumentTradeable(instrument) };
+  }
   try {
     const q = (await yahooFinance.quote(symbol)) as Record<string, unknown>;
     if (!q || q.regularMarketPrice == null) return null;
-    return {
+    const snapshot: QuoteSnapshot = {
       symbol,
       instrument: instrument.trim().toUpperCase(),
       market: getMarketForInstrument(instrument),
@@ -129,6 +139,8 @@ export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapsho
       shortName: (q.shortName as string) || (q.longName as string) || symbol,
       timestamp: (q.regularMarketTime as Date) || new Date(),
     };
+    snapshotCache[symbol] = { data: snapshot, expiresAt: Date.now() + SNAPSHOT_TTL_MS };
+    return snapshot;
   } catch (error) {
     console.error(`Quote snapshot error for ${symbol}:`, error);
     return null;
@@ -191,9 +203,17 @@ export interface SymbolSearchResult {
   market: MarketKind;
 }
 
+// Autocomplete results are cached briefly per query so repeated/typed-again
+// searches return instantly instead of round-tripping to Yahoo each keystroke.
+const searchCache: Record<string, { results: SymbolSearchResult[]; expiresAt: number }> = {};
+const SEARCH_TTL_MS = 1000 * 60; // 1 minute
+
 export async function searchSymbols(query: string, limit = 8): Promise<SymbolSearchResult[]> {
   const q = query.trim();
   if (q.length < 1) return [];
+  const cacheKey = `${q.toLowerCase()}:${limit}`;
+  const cached = searchCache[cacheKey];
+  if (cached && cached.expiresAt > Date.now()) return cached.results;
   try {
     const res = (await yahooFinance.search(q, { newsCount: 0, quotesCount: limit + 4 })) as {
       quotes?: Array<Record<string, unknown>>;
@@ -215,6 +235,7 @@ export async function searchSymbols(query: string, limit = 8): Promise<SymbolSea
       });
       if (out.length >= limit) break;
     }
+    searchCache[cacheKey] = { results: out, expiresAt: Date.now() + SEARCH_TTL_MS };
     return out;
   } catch (error) {
     console.error(`Symbol search error for "${q}":`, error);
