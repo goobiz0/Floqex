@@ -157,3 +157,90 @@ export function rDistribution(trades: TradeRow[]): { label: string; count: numbe
   }
   return buckets.map(({ label, count }) => ({ label, count }));
 }
+
+// ───────────────────────── Execution quality ────────────────────────────────
+// Did the bot fill what it intended, how fast, and did it stay up? Pure over
+// real fills and heartbeats so the Analytics surface never fabricates numbers.
+
+export type ExecRow = {
+  entrySlippageBps: number | null;
+  exitSlippageBps: number | null;
+  entryLatencyMs: number | null;
+};
+
+export type HeartbeatRow = { status: string; lastHeartbeat: string | null };
+
+export type ExecutionQuality = {
+  fills: number;
+  avgEntrySlippageBps: number;
+  medianEntrySlippageBps: number;
+  avgExitSlippageBps: number;
+  avgLatencyMs: number;
+  fillQualityScore: number; // 0-100, higher = tighter fills
+  slippageBuckets: { label: string; count: number }[];
+  missedSignals: number;
+  runningBots: number;
+  liveBots: number; // running bots with a fresh heartbeat
+  uptimePct: number; // share of running bots beating recently
+};
+
+const median = (xs: number[]): number => {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+};
+
+const HEARTBEAT_FRESH_MS = 5 * 60 * 1000;
+
+/**
+ * Aggregate execution quality from filled trades, missed-signal count, and bot
+ * heartbeats. Slippage is in basis points (positive = adverse).
+ */
+export function executionQuality(
+  fills: ExecRow[],
+  missedSignals: number,
+  heartbeats: HeartbeatRow[],
+  now: number = Date.now(),
+): ExecutionQuality {
+  const entry = fills.map((f) => f.entrySlippageBps).filter((v): v is number => v != null);
+  const exit = fills.map((f) => f.exitSlippageBps).filter((v): v is number => v != null);
+  const latency = fills.map((f) => f.entryLatencyMs).filter((v): v is number => v != null);
+
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+
+  const avgEntry = avg(entry);
+  const buckets = [
+    { label: "Better fill", min: -Infinity, max: 0, count: 0 },
+    { label: "0 to 2 bps", min: 0, max: 2, count: 0 },
+    { label: "2 to 5 bps", min: 2, max: 5, count: 0 },
+    { label: "5 to 10 bps", min: 5, max: 10, count: 0 },
+    { label: "10 bps +", min: 10, max: Infinity, count: 0 },
+  ];
+  for (const v of entry) {
+    const b = buckets.find((x) => v >= x.min && v < x.max);
+    if (b) b.count += 1;
+  }
+
+  const running = heartbeats.filter((h) => h.status === "RUNNING");
+  const live = running.filter((h) => h.lastHeartbeat != null && now - new Date(h.lastHeartbeat).getTime() < HEARTBEAT_FRESH_MS);
+  const uptimePct = running.length ? Math.round((live.length / running.length) * 1000) / 10 : 100;
+
+  // Tighter fills score higher: 0 bps adverse -> 100, 20 bps -> 0.
+  const fillQualityScore = Math.max(0, Math.min(100, Math.round(100 - Math.max(0, avgEntry) * 5)));
+
+  return {
+    fills: fills.length,
+    avgEntrySlippageBps: r2(avgEntry),
+    medianEntrySlippageBps: r2(median(entry)),
+    avgExitSlippageBps: r2(avg(exit)),
+    avgLatencyMs: Math.round(avg(latency)),
+    fillQualityScore,
+    slippageBuckets: buckets.map(({ label, count }) => ({ label, count })),
+    missedSignals,
+    runningBots: running.length,
+    liveBots: live.length,
+    uptimePct,
+  };
+}

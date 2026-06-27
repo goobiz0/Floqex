@@ -256,6 +256,15 @@ model Trade {
   mfe        Decimal? @db.Decimal(8, 3) // max favourable excursion (R)
   mae        Decimal? @db.Decimal(8, 3) // max adverse excursion (R)
 
+  // Execution quality: what the bot intended vs what it actually filled, so a
+  // trader can see whether automation is faithful (slippage in basis points,
+  // positive = adverse) and how fast the entry routed.
+  intendedEntryPrice Decimal? @db.Decimal(18, 5)
+  entrySlippageBps   Decimal? @db.Decimal(10, 3)
+  intendedExitPrice  Decimal? @db.Decimal(18, 5)
+  exitSlippageBps    Decimal? @db.Decimal(10, 3)
+  entryLatencyMs     Int?
+
   // Evidence-loop context buckets
   rangeBucket String? // SMALL | MEDIUM | LARGE
   entryBucket String? // FIRST_HOUR | LATER
