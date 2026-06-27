@@ -36,7 +36,7 @@ export default async function NewBotPage() {
   });
 
   // Fetch the user's existing strategies
-  const strategies = await prisma.strategy.findMany({
+  const strategiesRaw = await prisma.strategy.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     select: {
@@ -44,7 +44,22 @@ export default async function NewBotPage() {
       name: true,
       kind: true,
       version: true,
+      params: true,
     }
+  });
+
+  // Surface the latest Edge Score (persisted in params by the Validation Lab) so
+  // the deploy step can warn before a fragile strategy is wired to live capital.
+  const strategies = strategiesRaw.map((s) => {
+    const p = (s.params as Record<string, unknown>) ?? {};
+    return {
+      id: s.id,
+      name: s.name,
+      kind: s.kind,
+      version: s.version,
+      edgeScore: typeof p.edgeScore === "number" ? p.edgeScore : null,
+      edgeVerdict: typeof p.edgeVerdict === "string" ? p.edgeVerdict : null,
+    };
   });
 
   return (

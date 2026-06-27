@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { StrategyLab } from "@/components/dashboard/strategy-lab";
+import { ValidationLab } from "@/components/dashboard/validation-lab";
 import { AIOptimizer } from "@/components/dashboard/ai-optimizer";
 import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
@@ -66,15 +67,32 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
         {data.error ? (
           <DashboardError title="Strategy lab unavailable" message="We couldn't load your active strategies or parameters. Please try again." />
         ) : data.hasStrategy && data.params ? (
-          <StrategyLab
-            initialParams={data.params}
-            changeLog={data.changeLog}
-            pending={data.pending}
-            autoAdjustmentsUsed={data.autoAdjustmentsUsed}
-            plan={data.plan}
-            accountId={data.accountId}
-            strategyId={data.strategyId}
-          />
+          <>
+            <StrategyLab
+              initialParams={data.params}
+              changeLog={data.changeLog}
+              pending={data.pending}
+              autoAdjustmentsUsed={data.autoAdjustmentsUsed}
+              plan={data.plan}
+              accountId={data.accountId}
+              strategyId={data.strategyId}
+            />
+            <div className="pt-2">
+              <ValidationLab
+                strategyId={data.strategyId}
+                instrument={typeof data.params.instrument === "string" && data.params.instrument ? data.params.instrument : "NQ"}
+                defaults={{
+                  riskPct: typeof data.params.riskPct === "number" ? data.params.riskPct : 1,
+                  rrTarget: typeof data.params.rrTarget === "number" ? data.params.rrTarget : 2,
+                  stopLossPct: typeof data.params.stopLossPct === "number" ? data.params.stopLossPct : 0.5,
+                  trendFilter: Boolean(data.params.trendFilter),
+                  direction: data.params.direction === "SHORT" ? "SHORT" : data.params.direction === "LONG" ? "LONG" : "BOTH",
+                  minRange: typeof data.params.minRange === "number" ? data.params.minRange : 0.1,
+                  maxRange: typeof data.params.maxRange === "number" ? data.params.maxRange : 5,
+                }}
+              />
+            </div>
+          </>
         ) : (
           <Card className="p-10 text-center">
             <p className="text-sm text-fg-muted">No strategy found</p>

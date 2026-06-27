@@ -4,6 +4,15 @@ import { decrypt } from "@/lib/crypto";
 import { executeLiveOrder, closeLivePosition } from "./live-broker";
 import { getSessionForInstrument } from "@/lib/market";
 
+// Adverse slippage in basis points: positive means the fill was worse than the
+// intended price for that side. LONG pays up to get in, SHORT gets filled lower.
+function slippageBps(intended: number, filled: number, direction: "LONG" | "SHORT", side: "ENTRY" | "EXIT"): number {
+  if (!intended) return 0;
+  const worseWhenHigher = (direction === "LONG") === (side === "ENTRY");
+  const raw = ((filled - intended) / intended) * 10000;
+  return Math.round((worseWhenHigher ? raw : -raw) * 1000) / 1000;
+}
+
 export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
@@ -12,6 +21,8 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
 
   if (!account) throw new Error("Account not found");
 
+  const intendedEntryPrice = signal.entryPrice;
+  const fillStart = Date.now();
   let filledPrice = signal.entryPrice;
 
   if (account.mode === "LIVE" && account.connection) {
@@ -44,6 +55,8 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     filledPrice = signal.entryPrice + slippage;
   }
 
+  const entryLatencyMs = Date.now() - fillStart;
+
   return await prisma.trade.create({
     data: {
       botId,
@@ -57,6 +70,9 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
       targetPrice: signal.targetPrice,
       sizeUnits: risk.sizeUnits,
       riskPct: risk.riskPct,
+      intendedEntryPrice,
+      entrySlippageBps: slippageBps(intendedEntryPrice, filledPrice, signal.direction, "ENTRY"),
+      entryLatencyMs,
     }
   });
 }
@@ -109,6 +125,8 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
         exitPrice: finalExitPrice,
         netPnl: pnl,
         rMultiple,
+        intendedExitPrice: exitPrice,
+        exitSlippageBps: slippageBps(exitPrice, finalExitPrice, trade.direction, "EXIT"),
       }
     });
 

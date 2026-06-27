@@ -10,6 +10,10 @@ vi.mock('@/lib/db', () => ({
     },
     dailySummary: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
+    user: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -17,6 +21,11 @@ vi.mock('@/lib/db', () => ({
 describe('Risk Engine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Portfolio guard: default to an unrestricted user (no halt, no portfolio cap).
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      tradingHalted: false,
+      maxPortfolioDrawdown: null,
+    } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
   });
 
   const baseSignal = {
@@ -91,5 +100,22 @@ describe('Risk Engine', () => {
     expect(result.passed).toBe(true);
     expect(result.sizeUnits).toBe(10);
     expect(result.riskPct).toBe(0.01);
+  });
+
+  it('rejects every trade when the portfolio kill switch is engaged', async () => {
+    vi.mocked(prisma.account.findUnique).mockResolvedValue({
+      id: 'acc1',
+      mode: 'PAPER',
+      balance: 10000,
+      userId: 'user1',
+      user: { plan: 'TRADER' },
+    } as unknown as Awaited<ReturnType<typeof prisma.account.findUnique>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      tradingHalted: true,
+      maxPortfolioDrawdown: null,
+    } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await validateRisk('bot1', 'acc1', baseSignal);
+    expect(result).toEqual({ passed: false, reason: 'PORTFOLIO_HALTED' });
   });
 });

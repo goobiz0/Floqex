@@ -16,7 +16,7 @@ export default async function BotsPage() {
           Manage your automated trading bots. Connect a bot to a broker account to start trading.
         </p>
       </div>
-      {data.error ? <DashboardError /> : <BotsView bots={data.bots} availableAccounts={data.availableAccounts} plan={data.plan} />}
+      {data.error ? <DashboardError /> : <BotsView bots={data.bots} availableAccounts={data.availableAccounts} plan={data.plan} forwardTests={data.forwardTests} />}
     </div>
   );
 }

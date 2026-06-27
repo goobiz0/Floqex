@@ -49,6 +49,12 @@ model User {
   alertOnRisk          Boolean   @default(true)
   alertOnError         Boolean   @default(true)
 
+  // Portfolio-level risk controls (Portfolio Risk Command Center). The kill
+  // switch (tradingHalted) is enforced server-side in validateRisk, so it stops
+  // every bot's next entry regardless of the per-account limits.
+  maxPortfolioDrawdown Decimal?  @db.Decimal(18, 2)
+  tradingHalted        Boolean   @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -57,6 +63,7 @@ model User {
   strategies         Strategy[]
   dashboardTemplates DashboardTemplate[]
   mochiUsage         MochiUsage[]
+  forwardTests       ForwardTest[]
 
   @@map("users")
   @@schema("public")
@@ -135,12 +142,13 @@ model Account {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bot         Bot?
-  connection  Connection?
-  trades      Trade[]
-  summaries   DailySummary[]
-  agentEvents AgentEvent[]
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot          Bot?
+  connection   Connection?
+  trades       Trade[]
+  summaries    DailySummary[]
+  agentEvents  AgentEvent[]
+  forwardTests ForwardTest[]
 
   @@index([userId])
   @@map("accounts")
@@ -162,9 +170,8 @@ model Bot {
   name                String    @default("My Bot")
   status              BotStatus @default(STOPPED)
   autoAdjustmentsUsed Int       @default(0)
-  edgeDecayPaused     Boolean   @default(false)
-  edgeDecayThreshold  Decimal?  @db.Decimal(6, 4)
-  isPublic            Boolean   @default(false)
+  // Share of the portfolio risk budget allocated to this bot (percent).
+  riskWeight          Decimal?  @db.Decimal(5, 2)
   lastHeartbeat       DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -201,9 +208,10 @@ model Strategy {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bots        Bot[]
-  adjustments BotAdjustment[]
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bots         Bot[]
+  adjustments  BotAdjustment[]
+  forwardTests ForwardTest[]
 
   @@index([userId])
   @@map("strategies")
@@ -252,6 +260,15 @@ model Trade {
   rMultiple  Decimal? @db.Decimal(8, 3)
   mfe        Decimal? @db.Decimal(8, 3) // max favourable excursion (R)
   mae        Decimal? @db.Decimal(8, 3) // max adverse excursion (R)
+
+  // Execution quality: what the bot intended vs what it actually filled, so a
+  // trader can see whether automation is faithful (slippage in basis points,
+  // positive = adverse) and how fast the entry routed.
+  intendedEntryPrice Decimal? @db.Decimal(18, 5)
+  entrySlippageBps   Decimal? @db.Decimal(10, 3)
+  intendedExitPrice  Decimal? @db.Decimal(18, 5)
+  exitSlippageBps    Decimal? @db.Decimal(10, 3)
+  entryLatencyMs     Int?
 
   // Evidence-loop context buckets
   rangeBucket String? // SMALL | MEDIUM | LARGE
@@ -315,6 +332,42 @@ model BotAdjustment {
 
   @@index([botId, createdAt])
   @@map("bot_adjustments")
+  @@schema("public")
+}
+
+// ───────────────── Forward-test promotion gate ──────────────────
+
+enum ForwardTestStatus {
+  RUNNING
+  PASSED
+  FAILED
+  STOPPED
+  @@schema("public")
+}
+
+// A strategy proving itself in live paper ("shadow") trading before live capital
+// is unlocked. Observed metrics are computed from the paper account's closed
+// trades and compared to the validation baseline; status flips to PASSED only
+// once enough trades confirm the edge held.
+model ForwardTest {
+  id                 String            @id @default(cuid())
+  userId             String
+  strategyId         String
+  accountId          String
+  status             ForwardTestStatus @default(RUNNING)
+  targetTrades       Int               @default(20)
+  baselineWinRate    Decimal?          @db.Decimal(6, 3)
+  baselineExpectancy Decimal?          @db.Decimal(8, 3) // R per trade
+  startedAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accountId])
+  @@map("forward_tests")
   @@schema("public")
 }
 

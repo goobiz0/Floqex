@@ -42,6 +42,7 @@ type NavItem = { href: string; label: string; icon: Icon };
 const NAVIGATE: NavItem[] = [
   { href: "/dashboard", label: "Main Dashboard", icon: SquaresFour },
   { href: "/dashboard/bots", label: "Bots & Automations", icon: Robot },
+  { href: "/dashboard/risk", label: "Risk Center", icon: ShieldCheck },
   { href: "/dashboard/markets", label: "Markets", icon: MagnifyingGlass },
   { href: "/dashboard/trades", label: "Trades", icon: ChartLineUp },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarBlank },

@@ -1,10 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "./db";
-import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow } from "./metrics";
+import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow, type ExecRow, type HeartbeatRow } from "./metrics";
 export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import type { Plan } from "./plans";
 import { getMarketForInstrument, type MarketKind } from "./market";
+import { getForwardTests, type ForwardTestRow } from "./engine/forward-test";
+export type { ForwardTestRow };
 
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.
@@ -280,6 +282,63 @@ export async function getTradeData(accountId?: string): Promise<TradeData> {
   }
 }
 
+export type ExecutionData = {
+  hasAccount: boolean;
+  fills: ExecRow[];
+  missedSignals: number;
+  heartbeats: HeartbeatRow[];
+  error: boolean;
+};
+
+const EMPTY_EXECUTION: ExecutionData = { hasAccount: false, fills: [], missedSignals: 0, heartbeats: [], error: false };
+
+/**
+ * Execution-quality inputs for the selected account: filled trades (intended vs
+ * actual), the count of blocked/missed signals from the agent feed, and the
+ * bot's heartbeat. Account resolution matches getTradeData so the Analytics page
+ * stays consistent.
+ */
+export async function getExecutionData(accountId?: string): Promise<ExecutionData> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY_EXECUTION;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { accounts: { orderBy: { createdAt: "asc" } } },
+    });
+    if (!user || user.accounts.length === 0) return EMPTY_EXECUTION;
+
+    const account = accountId ? user.accounts.find((a) => a.id === accountId) || user.accounts[0] : user.accounts[0];
+    if (!account) return EMPTY_EXECUTION;
+
+    const [fills, missedSignals, bot] = await Promise.all([
+      prisma.trade.findMany({
+        where: { accountId: account.id, status: "CLOSED" },
+        orderBy: { closedAt: "desc" },
+        take: 1000,
+        select: { entrySlippageBps: true, exitSlippageBps: true, entryLatencyMs: true },
+      }),
+      prisma.agentEvent.count({ where: { accountId: account.id, kind: "RISK" } }),
+      prisma.bot.findUnique({ where: { accountId: account.id }, select: { status: true, lastHeartbeat: true } }),
+    ]);
+
+    return {
+      hasAccount: true,
+      fills: fills.map((f) => ({
+        entrySlippageBps: numOrNull(f.entrySlippageBps),
+        exitSlippageBps: numOrNull(f.exitSlippageBps),
+        entryLatencyMs: f.entryLatencyMs ?? null,
+      })),
+      missedSignals,
+      heartbeats: bot ? [{ status: bot.status, lastHeartbeat: bot.lastHeartbeat ? bot.lastHeartbeat.toISOString() : null }] : [],
+      error: false,
+    };
+  } catch {
+    return { ...EMPTY_EXECUTION, error: true };
+  }
+}
+
 export type AdjustmentRow = {
   id: string;
   parameter: string;
@@ -504,20 +563,21 @@ export type AvailableAccount = {
   mode: string;
 };
 
-export type BotsData = { 
-  bots: BotRow[]; 
+export type BotsData = {
+  bots: BotRow[];
   availableAccounts: AvailableAccount[];
-  plan: Plan; 
-  error: boolean 
+  forwardTests: ForwardTestRow[];
+  plan: Plan;
+  error: boolean;
 };
 
 /** Every bot the user owns, and accounts available for connection. */
 export async function getBotsData(): Promise<BotsData> {
-  const EMPTY: BotsData = { bots: [], availableAccounts: [], plan: "FREE", error: false };
+  const EMPTY: BotsData = { bots: [], availableAccounts: [], forwardTests: [], plan: "FREE", error: false };
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY;
-    
+
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
@@ -543,11 +603,11 @@ export async function getBotsData(): Promise<BotsData> {
     if (!user) return EMPTY;
 
     const todayKey = new Date().toISOString().slice(0, 10);
-    
+
     const bots: BotRow[] = user.bots.map((b) => {
       const a = b.account;
       const today = a ? a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey) : null;
-      
+
       return {
         id: b.id,
         name: b.name,
@@ -577,7 +637,10 @@ export async function getBotsData(): Promise<BotsData> {
         mode: a.mode,
       }));
 
-    return { bots, availableAccounts, plan: user.plan as Plan, error: false };
+    // Forward tests evaluated fresh (persists any RUNNING→PASSED/FAILED transitions).
+    const forwardTests = await getForwardTests(user.id).catch(() => []);
+
+    return { bots, availableAccounts, forwardTests, plan: user.plan as Plan, error: false };
   } catch (err) {
     console.error("getBotsData error", err);
     return { ...EMPTY, error: true };
