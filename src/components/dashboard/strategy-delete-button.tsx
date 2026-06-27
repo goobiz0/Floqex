@@ -20,6 +20,7 @@ export function StrategyDeleteButton({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount flag for hydration-safe portal
     setMounted(true);
   }, []);
 

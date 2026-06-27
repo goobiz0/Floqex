@@ -46,6 +46,7 @@ export type OverviewData = {
   trades: TradeRow[];
   summaries: DailyRow[];
   openTrade: TradeRow | null;
+  openTrades: TradeRow[];
   agentEvents: AgentEventRow[];
   error: boolean;
 };
@@ -63,6 +64,7 @@ const EMPTY_OVERVIEW: OverviewData = {
   trades: [],
   summaries: [],
   openTrade: null,
+  openTrades: [],
   agentEvents: [],
   error: false,
 };
@@ -86,6 +88,7 @@ type DbTrade = {
   exitPrice: unknown;
   stopPrice: unknown;
   targetPrice: unknown;
+  sizeUnits: unknown;
   netPnl: unknown;
   grossPnl: unknown;
   rMultiple: unknown;
@@ -116,6 +119,7 @@ function serializeTrade(t: DbTrade): TradeRow {
     exitPrice: numOrNull(t.exitPrice),
     stopPrice: num(t.stopPrice),
     targetPrice: num(t.targetPrice),
+    sizeUnits: num(t.sizeUnits),
     netPnl: numOrNull(t.netPnl),
     grossPnl: numOrNull(t.grossPnl),
     rMultiple: numOrNull(t.rMultiple),
@@ -186,7 +190,7 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
 
     if (!account) return EMPTY_OVERVIEW;
 
-    const [trades, summaries, openTrade, agentEvents] = await Promise.all([
+    const [trades, summaries, openTrades, agentEvents] = await Promise.all([
       prisma.trade.findMany({
         where: { accountId: account.id, status: "CLOSED" },
         orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
@@ -197,12 +201,13 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
         orderBy: { date: "asc" },
         take: 400,
       }),
-      prisma.trade.findFirst({
+      prisma.trade.findMany({
         where: { accountId: account.id, status: "OPEN" },
         orderBy: { openedAt: "desc" },
       }),
       getAgentEvents(account.id),
     ]);
+    const openTrade = openTrades[0] ?? null;
 
     return {
       account: {
@@ -224,6 +229,7 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
       trades: trades.map(serializeTrade),
       summaries: summaries.map(serializeSummary),
       openTrade: openTrade ? serializeTrade(openTrade) : null,
+      openTrades: openTrades.map(serializeTrade),
       agentEvents,
       error: false,
     };
@@ -535,6 +541,9 @@ export type BotRow = {
   id: string;
   name: string;
   status: "RUNNING" | "WAITING" | "STOPPED";
+  edgeDecayPaused: boolean;
+  edgeDecayThreshold: number | null;
+  isPublic: boolean;
   strategyName: string;
   strategyId: string;
   lastHeartbeat: string | null;
@@ -603,6 +612,9 @@ export async function getBotsData(): Promise<BotsData> {
         id: b.id,
         name: b.name,
         status: b.status as BotRow["status"],
+        edgeDecayPaused: b.edgeDecayPaused,
+        edgeDecayThreshold: b.edgeDecayThreshold ? Number(b.edgeDecayThreshold) : null,
+        isPublic: b.isPublic,
         strategyName: b.strategy.name,
         strategyId: b.strategyId,
         lastHeartbeat: b.lastHeartbeat?.toISOString() ?? null,

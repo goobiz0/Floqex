@@ -9,6 +9,7 @@ import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
 import { encrypt } from "@/lib/crypto";
 import { getMarketForInstrument, marketLabel, isInstrumentTradeable } from "@/lib/market";
 import { hasLiveAdapter } from "@/lib/engine/live-broker";
+import { isBrokerLive } from "@/lib/brokers";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
 
 export async function connectAccount({
@@ -31,6 +32,12 @@ export async function connectAccount({
     if (!user) return { ok: false, error: "Not signed in" };
 
     const planConfig = PLANS[user.plan as Plan];
+
+    // Defense in depth: the picker disables coming-soon brokers, but a crafted
+    // request must not be able to create an account for one either.
+    if (!isBrokerLive(broker)) {
+      return { ok: false, error: `${broker} live routing is coming soon.` };
+    }
 
     if (mode === "LIVE" && !planConfig.liveTrading) {
       return { ok: false, error: "Upgrade to Trader or Pro to connect a Live account." };
@@ -281,6 +288,33 @@ export async function updateCircuitBreaker(accountId: string, amount: number | n
   } catch (err) {
     console.error("updateCircuitBreaker error", err);
     return { ok: false, error: "Could not update circuit breaker" };
+  }
+}
+
+export async function updatePropFirmSettings(accountId: string, isPropFirmMode: boolean, propFirmMaxTrailingDrawdown: number | null) {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Not signed in" };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    if (!account || account.userId !== user.id) {
+      return { ok: false, error: "Account not found" };
+    }
+
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { isPropFirmMode, propFirmMaxTrailingDrawdown },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/accounts");
+    return { ok: true };
+  } catch (err) {
+    console.error("updatePropFirmSettings error", err);
+    return { ok: false, error: "Could not update prop firm settings" };
   }
 }
 

@@ -41,6 +41,9 @@ import {
   type StrategyLanguage,
 } from "@/lib/custom-strategy";
 import { STRATEGY_TEMPLATES, templateById, type TemplateIconKey } from "@/lib/strategy-templates";
+import { backtestStrategy, type Bar } from "@/lib/engine/backtest";
+import { Sparkline } from "@/components/dashboard/charts/sparkline";
+import { useEffect } from "react";
 import { createStrategyAdvanced } from "@/app/dashboard/strategy/actions";
 
 const TEMPLATE_ICON: Record<TemplateIconKey, Icon> = {
@@ -225,7 +228,10 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
             </button>
 
             {path === "template" ? (
-              <TemplateGallery selectedId={templateId} onSelect={pickTemplate} isFree={isFree} />
+              <>
+                <TemplateGallery selectedId={templateId} onSelect={pickTemplate} isFree={isFree} />
+                {templateId && <TemplatePreview templateId={templateId} />}
+              </>
             ) : (
               <CustomAuthor
                 customMode={customMode}
@@ -420,6 +426,107 @@ function TemplateGallery({
           features require an upgrade.
         </p>
       )}
+    </div>
+  );
+}
+
+function TemplatePreview({ templateId }: { templateId: string }) {
+  const t = templateById(templateId);
+  const params = useMemo(() => (t ? t.buildParams() : null), [t]);
+  const instrument = typeof params?.instrument === "string" && params.instrument ? params.instrument : "NQ";
+  // Only the ORB engine maps onto the breakout backtest, so only ORB templates
+  // fetch history and render a preview.
+  const isOrb = t?.kind === "ORB";
+  const [bars, setBars] = useState<Bar[] | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!isOrb) return;
+    let cancelled = false;
+    (async () => {
+      setBars(null);
+      setError(false);
+      try {
+        const res = await fetch(`/api/market/history?symbol=${encodeURIComponent(instrument)}&days=180`);
+        if (!res.ok) throw new Error("history unavailable");
+        const data = await res.json();
+        if (!cancelled) setBars(data.bars ?? []);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [instrument, isOrb]);
+
+  // Distinguish "still fetching" (bars === null) from "history too short" so the
+  // skeleton resolves to an honest message rather than spinning forever.
+  const loading = !error && bars === null;
+  const notEnoughHistory = !error && bars !== null && bars.length < 5;
+
+  const backtest = useMemo(() => {
+    if (!t || !params || !bars || bars.length < 5) return null;
+    return backtestStrategy(bars, {
+      riskPct: typeof params.riskPct === "number" ? params.riskPct : undefined,
+      rrTarget: typeof params.rrTarget === "number" ? params.rrTarget : undefined,
+      stopLossPct: typeof params.stopLossPct === "number" ? params.stopLossPct : undefined,
+      trendFilter: Boolean(params.trendFilter),
+      direction: params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH",
+    });
+  }, [t, params, bars]);
+
+  if (!t) return null;
+
+  // The breakout backtest only models the opening-range engine. For custom-signal
+  // templates it would not reflect the actual rules, so we are honest and skip
+  // the simulated numbers rather than show a misleading curve.
+  if (t.kind !== "ORB") {
+    return (
+      <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-5">
+        <p className="text-sm font-semibold text-fg">{t.name}</p>
+        <p className="mt-1 text-xs text-fg-subtle">
+          Custom-signal templates run on the indicator engine. Create it, then open the Lab to backtest the exact rules over real history.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-fg">Backtest preview</p>
+        <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+          {instrument} · 180d · estimate
+        </span>
+      </div>
+      <div className="mt-4 min-h-[64px]">
+        {error ? (
+          <p className="text-xs text-fg-subtle">Couldn&apos;t load historical data for a preview.</p>
+        ) : notEnoughHistory ? (
+          <p className="text-xs text-fg-subtle">Not enough history for {instrument} to preview a backtest.</p>
+        ) : loading || !backtest ? (
+          <div className="h-16 w-full animate-pulse rounded-[var(--radius-control)] bg-surface" />
+        ) : backtest.trades === 0 ? (
+          <p className="text-xs text-fg-subtle">Not enough qualifying setups in the window to preview.</p>
+        ) : (
+          <>
+            <div className="h-16 w-full">
+              <Sparkline values={backtest.series.map((p) => p.equity)} tone="auto" fill />
+            </div>
+            <dl className="mt-3 grid grid-cols-3 gap-2">
+              {[
+                { k: "Return", v: `${backtest.totalReturnPct >= 0 ? "+" : ""}${backtest.totalReturnPct.toFixed(0)}%`, tone: backtest.totalReturnPct >= 0 ? "text-profit" : "text-negative" },
+                { k: "Win rate", v: `${backtest.winRate.toFixed(0)}%`, tone: "text-fg" },
+                { k: "Max DD", v: `-${backtest.maxDrawdownPct.toFixed(0)}%`, tone: "text-negative" },
+              ].map((s) => (
+                <div key={s.k} className="rounded-[var(--radius-control)] border border-line bg-surface px-2 py-1.5 text-center">
+                  <dt className="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">{s.k}</dt>
+                  <dd className={cn("tnum mt-0.5 text-sm font-semibold", s.tone)}>{s.v}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
+      </div>
     </div>
   );
 }

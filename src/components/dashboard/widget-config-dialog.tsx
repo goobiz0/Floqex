@@ -91,7 +91,7 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
           </div>
         )}
 
-        {widgetType === "streak-heatmap" && (
+        {(widgetType === "streak-heatmap" || widgetType === "drawdown") && (
           <div className="space-y-2">
             <Label>Timeframe (Days)</Label>
             <select
@@ -102,6 +102,7 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
               <option value="30">Last 30 Days</option>
               <option value="60">Last 60 Days</option>
               <option value="90">Last 90 Days</option>
+              <option value="180">Last 180 Days</option>
             </select>
           </div>
         )}
@@ -120,6 +121,20 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
           </div>
         )}
 
+        {widgetType === "asset-pnl" && (
+          <div className="space-y-2">
+            <Label>Breakdown</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.mode ?? "asset")}
+              onChange={e => setLocalConfig({ ...localConfig, mode: e.target.value })}
+            >
+              <option value="asset">By Asset (Instrument)</option>
+              <option value="day">By Day (Last 14)</option>
+            </select>
+          </div>
+        )}
+
         {widgetType === "risk-matrix" && (
           <div className="space-y-2">
             <Label>Group By</Label>
@@ -129,8 +144,40 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
               onChange={e => setLocalConfig({ ...localConfig, groupBy: e.target.value })}
             >
               <option value="asset">Asset (Instrument)</option>
-              <option value="strategy">Strategy Kind</option>
+              <option value="direction">Direction (Long / Short)</option>
             </select>
+          </div>
+        )}
+
+        {widgetType === "performance-summary" && (
+          <div className="space-y-2">
+            <Label>Window</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.window ?? "all")}
+              onChange={e => setLocalConfig({ ...localConfig, window: e.target.value })}
+            >
+              <option value="all">All trades</option>
+              <option value="30">Last 30 trades</option>
+              <option value="7">Last 7 trades</option>
+            </select>
+            <p className="text-xs text-fg-subtle">Which closed trades to summarise.</p>
+          </div>
+        )}
+
+        {widgetType === "rolling-win-rate" && (
+          <div className="space-y-2">
+            <Label>Window</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.window ?? "10")}
+              onChange={e => setLocalConfig({ ...localConfig, window: e.target.value })}
+            >
+              <option value="10">Trailing 10 trades</option>
+              <option value="20">Trailing 20 trades</option>
+              <option value="30">Trailing 30 trades</option>
+            </select>
+            <p className="text-xs text-fg-subtle">How many trades each rolling win-rate point averages.</p>
           </div>
         )}
 

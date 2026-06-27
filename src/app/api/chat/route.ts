@@ -98,6 +98,7 @@ function toRows(trades: any[]): TradeRow[] {
     exitPrice: t.exitPrice != null ? Number(t.exitPrice) : null,
     stopPrice: Number(t.stopPrice),
     targetPrice: Number(t.targetPrice),
+    sizeUnits: Number(t.sizeUnits),
     netPnl: t.netPnl != null ? Number(t.netPnl) : null,
     grossPnl: t.grossPnl != null ? Number(t.grossPnl) : null,
     rMultiple: t.rMultiple != null ? Number(t.rMultiple) : null,
@@ -110,7 +111,7 @@ function toRows(trades: any[]): TradeRow[] {
 
 const TRADE_SELECT = {
   id: true, instrument: true, direction: true, session: true, status: true,
-  entryPrice: true, exitPrice: true, stopPrice: true, targetPrice: true,
+  entryPrice: true, exitPrice: true, stopPrice: true, targetPrice: true, sizeUnits: true,
   netPnl: true, grossPnl: true, rMultiple: true,
   openedAt: true, closedAt: true, narrative: true, screenshotUrl: true,
 } as const;

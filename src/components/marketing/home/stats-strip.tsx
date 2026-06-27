@@ -1,11 +1,16 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import { BROKERS } from "@/lib/brokers";
+
+// Real count of live broker integrations (excluding the in-house simulator), so
+// this number can never drift from what the product actually supports.
+const LIVE_BROKERS = BROKERS.filter((b) => b.status === "live" && b.id !== "PAPER").length;
 
 const stats = [
   { label: "Bots deployed", skeleton: true },
   { label: "Orders executed", skeleton: true },
-  { label: "Brokers supported", value: "5" },
+  { label: "Brokers supported", value: String(LIVE_BROKERS) },
   { label: "Uptime", skeleton: true },
 ];
 

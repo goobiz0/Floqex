@@ -264,7 +264,7 @@ export async function verifyBrokerConnection(accountId: string): Promise<{ ok: b
       where: { accountId: account.id },
       data: { status: res.ok ? "CONNECTED" : "ERROR", lastVerifiedAt: new Date() },
     })
-    .catch(() => {});
+    .catch((err) => console.error("Failed to persist connection status:", err));
   return { ok: res.ok, message: res.message, latencyMs: res.latencyMs };
 }
 
@@ -308,7 +308,10 @@ export async function getSecurityActivity(): Promise<SecurityEvent[]> {
       take: 5,
     });
     for (const r of risk) events.push({ id: `r_${r.id}`, action: "Risk control triggered", detail: r.message.slice(0, 70), time: r.ts.toISOString() });
-  } catch {}
+  } catch (err) {
+    // Risk events are supplementary; an unmigrated table shouldn't drop the log.
+    console.error("Could not load risk events for security activity:", err);
+  }
 
   return events.sort((x, y) => new Date(y.time).getTime() - new Date(x.time).getTime()).slice(0, 12);
 }

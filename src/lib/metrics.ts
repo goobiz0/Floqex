@@ -23,6 +23,7 @@ export type TradeRow = {
   exitPrice: number | null;
   stopPrice: number;
   targetPrice: number;
+  sizeUnits: number;
   netPnl: number | null;
   grossPnl: number | null;
   rMultiple: number | null;
@@ -84,6 +85,47 @@ export function equitySeries(summaries: DailyRow[]): EquityPoint[] {
     .map((s) => ({ date: s.date, equity: s.endBalance }));
 }
 
+/**
+ * Underwater (drawdown) series: percent below the running peak at each point.
+ * Values are <= 0 (0 at a new high, negative while underwater). Powers the
+ * drawdown-curve widget.
+ */
+export function drawdownSeries(series: EquityPoint[]): { date: string; ddPct: number }[] {
+  let peak = -Infinity;
+  return series.map((point) => {
+    peak = Math.max(peak, point.equity);
+    const ddPct = peak > 0 ? ((point.equity - peak) / peak) * 100 : 0;
+    return { date: point.date, ddPct };
+  });
+}
+
+/**
+ * Open-position exposure grouped by a key (instrument or direction). Notional is
+ * |entryPrice * sizeUnits| per open trade. Returns descending shares of the
+ * total so the risk-exposure widget shows where real capital is committed.
+ */
+export function openExposure(
+  openTrades: TradeRow[],
+  groupBy: "asset" | "direction",
+): { label: string; notional: number; pct: number }[] {
+  const totals = new Map<string, number>();
+  for (const t of openTrades) {
+    if (t.status !== "OPEN") continue;
+    const notional = Math.abs(t.entryPrice * t.sizeUnits);
+    if (!Number.isFinite(notional) || notional <= 0) continue;
+    const key = groupBy === "direction" ? t.direction : t.instrument;
+    totals.set(key, (totals.get(key) ?? 0) + notional);
+  }
+  const grand = [...totals.values()].reduce((s, v) => s + v, 0);
+  return [...totals.entries()]
+    .map(([label, notional]) => ({
+      label,
+      notional,
+      pct: grand > 0 ? (notional / grand) * 100 : 0,
+    }))
+    .sort((a, b) => b.notional - a.notional);
+}
+
 /** Max peak-to-trough drawdown over an equity series, as amount and percent. */
 export function maxDrawdown(series: EquityPoint[]): { amount: number; pct: number } {
   let peak = -Infinity;
@@ -141,6 +183,64 @@ export function rollingWinRate(trades: TradeRow[], window = 10): number[] {
     out.push((wins / slice.length) * 100);
   }
   return out;
+}
+
+/** Gross profit (sum of winners) and gross loss (positive magnitude of losers). */
+export function grossProfitLoss(trades: TradeRow[]): { grossWin: number; grossLoss: number } {
+  const closed = trades.filter(isClosed);
+  const grossWin = closed.filter(isWin).reduce((s, t) => s + (t.netPnl ?? 0), 0);
+  const grossLoss = Math.abs(closed.filter(isLoss).reduce((s, t) => s + (t.netPnl ?? 0), 0));
+  return { grossWin, grossLoss };
+}
+
+/**
+ * Drawdown from the running peak to the latest equity point ("how far underwater
+ * are we right now"), as amount and percent. 0 when at a fresh high.
+ */
+export function currentDrawdown(series: EquityPoint[]): { amount: number; pct: number } {
+  if (series.length === 0) return { amount: 0, pct: 0 };
+  let peak = -Infinity;
+  for (const point of series) peak = Math.max(peak, point.equity);
+  const last = series[series.length - 1].equity;
+  const amount = Math.max(0, peak - last);
+  const pct = peak > 0 ? (amount / peak) * 100 : 0;
+  return { amount, pct };
+}
+
+export type StreakStats = {
+  current: number; // length of the streak ending at the most recent trade
+  currentType: "WIN" | "LOSS" | null;
+  longestWin: number;
+  longestLoss: number;
+};
+
+/**
+ * Win/loss streaks over closed trades. Expects `trades` newest-first (the
+ * dashboard/query order) and walks them chronologically. Break-even trades
+ * (netPnl === 0) reset the current run without counting toward either side.
+ */
+export function streaks(trades: TradeRow[]): StreakStats {
+  const chrono = trades.filter(isClosed).slice().reverse();
+  let longestWin = 0;
+  let longestLoss = 0;
+  let runType: "WIN" | "LOSS" | null = null;
+  let runLen = 0;
+  for (const t of chrono) {
+    const type: "WIN" | "LOSS" | null = isWin(t) ? "WIN" : isLoss(t) ? "LOSS" : null;
+    if (type === null) {
+      runType = null;
+      runLen = 0;
+      continue;
+    }
+    if (type === runType) runLen += 1;
+    else {
+      runType = type;
+      runLen = 1;
+    }
+    if (type === "WIN") longestWin = Math.max(longestWin, runLen);
+    else longestLoss = Math.max(longestLoss, runLen);
+  }
+  return { current: runLen, currentType: runType, longestWin, longestLoss };
 }
 
 export function rDistribution(trades: TradeRow[]): { label: string; count: number }[] {
