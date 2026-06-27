@@ -222,5 +222,5 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
     },
   });
 
-  return result.toTextStreamResponse();
+  return result.toDataStreamResponse();
 }

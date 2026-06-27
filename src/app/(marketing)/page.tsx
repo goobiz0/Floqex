@@ -13,12 +13,7 @@ export const revalidate = 300;
 
 const introGreetings = [
   { text: "Define." },
-  { text: "Backtest." },
-  { text: "Deploy." },
   { text: "Automate." },
-  { text: "Disciplined." },
-  { text: "Relentless." },
-  { text: "In control." },
   { text: "Floqex." },
 ];
 

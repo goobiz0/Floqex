@@ -80,13 +80,13 @@ export function ArcRevealHero({
   //   t=1 → chord at y=-36 (off-screen above) → full-screen curtain risen
   const progress = useMotionValue(0);
   const arcPath = useTransform(progress, (p: number) => {
-    const edge = 110 - p * 146;
+    const edge = 150 - p * 186;
     const control = edge - 26;
-    return `M 0 ${edge} Q 50 ${control} 100 ${edge} L 100 110 L 0 110 Z`;
+    return `M 0 ${edge} Q 50 ${control} 100 ${edge} L 100 150 L 0 150 Z`;
   });
   // The leading edge alone, painted as a soft emerald light line.
   const arcEdge = useTransform(progress, (p: number) => {
-    const edge = 110 - p * 146;
+    const edge = 150 - p * 186;
     const control = edge - 26;
     return `M 0 ${edge} Q 50 ${control} 100 ${edge}`;
   });
@@ -202,7 +202,7 @@ export function ArcRevealHero({
               className="pointer-events-none absolute inset-0"
               style={{
                 backgroundImage:
-                  "linear-gradient(180deg, color-mix(in oklch, var(--color-accent) 13%, transparent) 0%, color-mix(in oklch, var(--color-accent) 5%, transparent) 34%, transparent 62%), radial-gradient(58% 44% at 50% 40%, color-mix(in oklch, var(--color-accent) 22%, transparent) 0%, transparent 70%)",
+                  "radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--color-accent) 15%, transparent), transparent 60%)",
               }}
             />
             <div
