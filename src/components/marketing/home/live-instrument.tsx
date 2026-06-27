@@ -76,7 +76,7 @@ export function LiveInstrument({ className }: { className?: string }) {
             <span className="text-xs font-medium text-fg-subtle">
               Equity curve
             </span>
-            <span className="rounded-[var(--radius-pill)] bg-[color-mix(in_srgb,var(--color-profit)_12%,transparent)] px-2 py-0.5 text-[0.7rem] font-medium text-profit">
+            <span className="rounded-[var(--radius-pill)] bg-accent-soft px-2 py-0.5 text-[0.7rem] font-medium text-accent">
               Trending up
             </span>
           </div>

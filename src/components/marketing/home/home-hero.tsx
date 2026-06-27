@@ -40,7 +40,7 @@ export function HomeHero() {
       <div className="relative z-10 mx-auto grid max-w-[1200px] items-center gap-12 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
         <motion.div
           variants={container}
-          initial="hidden"
+          initial={reduce ? false : "hidden"}
           animate="show"
           className="flex flex-col items-start text-left"
         >
