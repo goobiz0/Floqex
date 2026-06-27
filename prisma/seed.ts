@@ -69,7 +69,7 @@ async function main() {
   const bot = await prisma.bot.upsert({
     where: { accountId: account.id },
     update: { status: "RUNNING", lastHeartbeat: new Date() },
-    create: { accountId: account.id, strategyId: strategy.id, status: "RUNNING", lastHeartbeat: new Date() },
+    create: { userId: user.id, name: "Demo Bot", accountId: account.id, strategyId: strategy.id, status: "RUNNING", lastHeartbeat: new Date() },
   });
 
   // Idempotent: wipe prior demo history before regenerating.

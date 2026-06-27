@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isToolUIPart, getToolName } from "ai";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { X, Robot, Check, Microphone, ArrowUp } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -88,10 +87,10 @@ export function MochiChat() {
   const reduce = useReducedMotion();
   const [input, setInput] = useState("");
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
-  const { messages, sendMessage, status, addToolResult, setMessages, error } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  const { messages, append, isLoading, addToolResult, setMessages, error } = useChat({
+    api: "/api/chat",
   });
-  const isLoading = status === "submitted" || status === "streaming";
+  
   const [usage, setUsage] = useState<MochiUsage | null>(null);
   const restoredRef = useRef(false);
 
@@ -135,7 +134,7 @@ export function MochiChat() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, status]);
+  }, [isOpen, isLoading]);
   const bottomRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -220,10 +219,10 @@ export function MochiChat() {
     if (!text) return;
     setIsOpen(true);
     // Optimistically clear the draft; restore it if the send rejects so the
-    // user doesn't lose their message. sendMessage is async in AI SDK v6.
+    // user doesn't lose their message. append is async in AI SDK v6.
     setInput("");
     try {
-      await sendMessage({ text });
+      await append({ role: 'user', content: text });
     } catch (err) {
       console.error("Chat submit error", err);
       setInput(text);
@@ -235,9 +234,9 @@ export function MochiChat() {
     setPendingToolId(toolCallId);
     try {
       const res = await applyStrategyChanges(args);
-      addToolResult({ tool: "updateStrategyParams", toolCallId, output: res });
+      addToolResult({ toolCallId, result: res });
     } catch {
-      addToolResult({ tool: "updateStrategyParams", toolCallId, output: { ok: false, message: "Server error" } });
+      addToolResult({ toolCallId, result: { ok: false, message: "Server error" } });
     } finally {
       setPendingToolId(null);
     }
@@ -245,7 +244,7 @@ export function MochiChat() {
 
   const handleToolDecline = (toolCallId: string) => {
     if (pendingToolId) return;
-    addToolResult({ tool: "updateStrategyParams", toolCallId, output: { ok: false, message: "User declined the changes." } });
+    addToolResult({ toolCallId, result: { ok: false, message: "User declined the changes." } });
   };
 
   const spring = { type: "spring" as const, damping: 26, stiffness: 280, mass: 0.6 };
@@ -334,37 +333,28 @@ export function MochiChat() {
                             : "rounded-bl-[8px] border border-line bg-surface text-fg",
                         )}
                       >
-                        {m.parts.map((part, i) => {
-                          if (part.type === "text") {
-                            return part.text ? (
-                              <div key={`${m.id}-t${i}`} className="whitespace-pre-wrap">{part.text}</div>
-                            ) : null;
-                          }
-                          if (!isToolUIPart(part)) return null;
-
-                          const toolName = getToolName(part);
-                          const isCall = part.state === "input-available";
-                          const isResult = part.state === "output-available";
-
-                          if (toolName === "updateStrategyParams") {
-                            if (isCall) {
-                              const args = (part.input ?? {}) as Record<string, unknown>;
-                              const busy = pendingToolId === part.toolCallId;
+                        {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
+                        {m.toolInvocations?.map((toolInvocation) => {
+                          const toolCallId = toolInvocation.toolCallId;
+                          if (toolInvocation.toolName === "updateStrategyParams") {
+                            if (!('result' in toolInvocation)) {
+                              const args = toolInvocation.args as Record<string, unknown>;
+                              const busy = pendingToolId === toolCallId;
                               return (
-                                <div key={part.toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
+                                <div key={toolCallId} className="mt-3 overflow-hidden rounded-[12px] border border-accent/20 bg-accent-soft p-3">
                                   <p className="text-[12px] font-medium text-accent mb-2">Mochi proposes changes:</p>
                                   <pre className="text-[11px] text-accent/90 mb-3 bg-base/50 p-2 rounded overflow-x-auto">{JSON.stringify(args, null, 2)}</pre>
                                   <div className="flex gap-2">
                                     <button
                                       disabled={busy}
-                                      onClick={() => handleToolAccept(part.toolCallId, args)}
+                                      onClick={() => handleToolAccept(toolCallId, args)}
                                       className="flex-1 rounded-[6px] bg-accent py-1.5 text-[11px] font-semibold text-[var(--color-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       {busy ? "Applying…" : "Accept & Apply"}
                                     </button>
                                     <button
                                       disabled={busy}
-                                      onClick={() => handleToolDecline(part.toolCallId)}
+                                      onClick={() => handleToolDecline(toolCallId)}
                                       className="flex-1 rounded-[6px] border border-accent/30 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       Decline
@@ -372,24 +362,22 @@ export function MochiChat() {
                                   </div>
                                 </div>
                               );
-                            }
-                            if (isResult) {
-                              const res = part.output as { ok?: boolean } | undefined;
+                            } else {
+                              const res = toolInvocation.result as { ok?: boolean } | undefined;
                               const ok = res?.ok;
                               return (
-                                <div key={part.toolCallId} className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
+                                <div key={toolCallId} className="mt-3 flex items-center gap-2 rounded-full border border-line bg-base px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-fg-muted">
                                   {ok ? <Check size={12} weight="bold" className="text-profit" /> : <X size={12} weight="bold" className="text-negative" />}
                                   {ok ? "Changes Applied" : "Changes Declined / Failed"}
                                 </div>
                               );
                             }
-                            return null;
                           }
-
-                          if (toolName === "calculate" && isResult) {
-                            const out = (part.output ?? {}) as { expression?: string; result?: number; error?: string };
+                          
+                          if (toolInvocation.toolName === "calculate" && 'result' in toolInvocation) {
+                            const out = (toolInvocation.result ?? {}) as { expression?: string; result?: number; error?: string };
                             return (
-                              <div key={part.toolCallId} className="mt-3 rounded-[10px] border border-line bg-base px-3 py-2 font-mono text-[12px] text-fg">
+                              <div key={toolCallId} className="mt-3 rounded-[10px] border border-line bg-base px-3 py-2 font-mono text-[12px] text-fg">
                                 {out.error ? (
                                   <span className="text-negative">{out.error}</span>
                                 ) : (
@@ -399,30 +387,28 @@ export function MochiChat() {
                             );
                           }
 
-                          if (toolName === "runMonteCarlo" && isResult) {
-                            const mc = (part.output ?? {}) as {
-                              startingBalance?: number; trades?: number; simulations?: number;
+                          if (toolInvocation.toolName === "runMonteCarlo" && 'result' in toolInvocation) {
+                            const mc = (toolInvocation.result ?? {}) as {
+                              startingBalance?: number; trades?: number; simulations?: number; mean?: number;
                               p10?: number; p50?: number; p90?: number; ruinProbability?: number; samplePath?: number[];
                             };
                             const money = (n?: number) => `$${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
                             return (
-                              <div key={part.toolCallId} className="mt-3 rounded-[12px] border border-line bg-base p-3">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Monte Carlo · {mc.simulations} runs · {mc.trades} trades</p>
-                                  <span className={cn("text-[11px] font-semibold", (mc.ruinProbability ?? 0) > 25 ? "text-negative" : "text-fg-muted")}>
-                                    {mc.ruinProbability}% risk of 50% drawdown
-                                  </span>
+                                <div key={toolCallId} className="mt-3 rounded-[12px] border border-line bg-base p-3">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Monte Carlo · {mc.simulations} runs · {mc.trades} trades</p>
+                                    <span className={cn("text-[11px] font-semibold", (mc.ruinProbability ?? 0) > 25 ? "text-negative" : "text-fg-muted")}>
+                                      {mc.ruinProbability}% risk of 50% drawdown
+                                    </span>
+                                  </div>
+                                  <MonteCarloChart path={mc.samplePath ?? []} />
+                                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-fg-subtle">
+                                    <div className="flex justify-between border-b border-line pb-1"><span>Worst 10%</span> <span className="font-semibold text-fg">{money(mc.p10)}</span></div>
+                                    <div className="flex justify-between border-b border-line pb-1"><span>Median</span> <span className="font-semibold text-fg">{money(mc.p50)}</span></div>
+                                    <div className="flex justify-between"><span>Top 10%</span> <span className="font-semibold text-fg">{money(mc.p90)}</span></div>
+                                    <div className="flex justify-between"><span>Mean</span> <span className="font-semibold text-fg">{money(mc.mean)}</span></div>
+                                  </div>
                                 </div>
-                                <MonteCarloChart path={mc.samplePath ?? []} />
-                                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                                  {[["Worst 10%", mc.p10, "text-negative"], ["Median", mc.p50, "text-fg"], ["Best 10%", mc.p90, "text-profit"]].map(([k, v, tone]) => (
-                                    <div key={String(k)} className="rounded-[8px] bg-surface py-1.5">
-                                      <p className="text-[9px] uppercase tracking-wider text-fg-subtle">{k as string}</p>
-                                      <p className={cn("tnum text-[12px] font-semibold", tone as string)}>{money(v as number)}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
                             );
                           }
 
@@ -432,10 +418,12 @@ export function MochiChat() {
                             calculate: ["Calculating", "Calculated"],
                             runMonteCarlo: ["Running simulation", "Simulation complete"],
                           };
+                          const toolName = toolInvocation.toolName;
+                          const isResult = 'result' in toolInvocation;
                           const [running, finished] = labels[toolName] ?? [`Running ${toolName}`, `${toolName} done`];
                           return (
                             <div
-                              key={part.toolCallId}
+                              key={toolCallId}
                               className={cn(
                                 "mt-3 flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase",
                                 isResult ? "border-line bg-base text-fg-muted" : "border-accent/30 bg-accent-soft text-accent"

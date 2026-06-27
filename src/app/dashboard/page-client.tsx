@@ -22,6 +22,12 @@ import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 import { WidgetGrid, WidgetItem } from "@/components/dashboard/widget-grid";
 import { WidgetConfigDialog } from "@/components/dashboard/widget-config-dialog";
 import { WidgetLibraryDialog } from "@/components/dashboard/widget-library-dialog";
+import { MarketSessionsWidget } from "@/components/dashboard/market-sessions-widget";
+import { TopMoversWidget } from "@/components/dashboard/top-movers-widget";
+import { NetworkLatencyWidget } from "@/components/dashboard/network-latency-widget";
+import { StreakHeatmapWidget } from "@/components/dashboard/streak-heatmap-widget";
+import { LiveTapeWidget } from "@/components/dashboard/live-tape-widget";
+import { RiskMatrixWidget } from "@/components/dashboard/risk-matrix-widget";
 import type { DashboardTemplate } from "@prisma/client";
 import { getDashboardTemplates, createDashboardTemplate, updateDashboardTemplate, deleteDashboardTemplate, setDefaultTemplate, WidgetLayout } from "./template-actions";
 import { useLiveStream } from "@/lib/use-live-stream";
@@ -477,6 +483,30 @@ export function DashboardPageClient({
           </div>
         </div>
       );
+    }
+
+    if (item.type === "market-sessions") {
+      return <MarketSessionsWidget />;
+    }
+
+    if (item.type === "top-movers") {
+      return <TopMoversWidget />;
+    }
+
+    if (item.type === "network-latency") {
+      return <NetworkLatencyWidget interval={item.config?.interval || "1s"} />;
+    }
+
+    if (item.type === "streak-heatmap") {
+      return <StreakHeatmapWidget timeframe={item.config?.timeframe || "90"} />;
+    }
+
+    if (item.type === "live-tape") {
+      return <LiveTapeWidget rows={Number(item.config?.rows || "6")} />;
+    }
+
+    if (item.type === "risk-matrix") {
+      return <RiskMatrixWidget groupBy={item.config?.groupBy || "asset"} />;
     }
 
     // Fallback

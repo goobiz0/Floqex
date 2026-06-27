@@ -1,4 +1,4 @@
-import { streamText, tool, convertToModelMessages, type UIMessage } from "ai";
+import { streamText, tool, convertToCoreMessages, type Message } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -91,14 +91,14 @@ function monteCarlo(a: {
 }
 
 export async function POST(req: Request) {
-  const { messages } = (await req.json()) as { messages?: UIMessage[] };
-  const { userId: clerkId } = await auth();
-  if (!clerkId) return new Response("Unauthorized", { status: 401 });
-  if (!Array.isArray(messages)) {
-    return new Response("Invalid request: 'messages' must be an array", { status: 400 });
+  const { messages }: { messages: Message[] } = await req.json();
+  const { userId } = await auth();
+
+  if (!userId) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { clerkId }, select: { id: true, plan: true } });
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   // Cost guard: enforce the plan's rolling token budget before doing any work.
@@ -128,7 +128,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
 
   const result = streamText({
     model: chatModel(),
-    messages: await convertToModelMessages(messages),
+    messages: await convertToCoreMessages(messages),
     system: systemPrompt,
     onFinish: ({ usage: u }) => {
       const x = u as unknown as Record<string, number | undefined>;
@@ -141,7 +141,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
     tools: {
       getPerformance: tool({
         description: "Get the user's REAL trading performance over the last 7 days (win rate, net P/L, trade count).",
-        inputSchema: z.object({}),
+        parameters: z.object({}),
         execute: async () => {
           const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           const trades = await prisma.trade.findMany({
@@ -160,7 +160,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
       }),
       getBotStatus: tool({
         description: "Check the user's REAL bots: how many exist, how many are running, open positions, and each bot's strategy.",
-        inputSchema: z.object({}),
+        parameters: z.object({}),
         execute: async () => {
           const bots = await prisma.bot.findMany({
             where: { account: { userId: user.id } },
@@ -171,13 +171,13 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
             bots: bots.length,
             running: bots.filter((b) => b.status === "RUNNING").length,
             openPositions,
-            detail: bots.map((b) => ({ account: b.account.nickname, status: b.status, strategy: b.strategy.name })),
+            detail: bots.map((b) => ({ account: b.account?.nickname ?? "Unassigned", status: b.status, strategy: b.strategy.name })),
           };
         },
       }),
       calculate: tool({
         description: "Evaluate a basic arithmetic expression precisely. Use for ALL math (position sizing, R multiples, percentages).",
-        inputSchema: z.object({ expression: z.string().describe("A math expression, e.g. (10000*0.01)/15") }),
+        parameters: z.object({ expression: z.string().describe("A math expression, e.g. (10000*0.01)/15") }),
         execute: async ({ expression }) => {
           const expr = expression.trim();
           // Only digits, operators, parentheses, decimals, exponents and spaces.
@@ -196,7 +196,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
       }),
       runMonteCarlo: tool({
         description: "Simulate an account's equity over many trades to show the range of outcomes and the risk of a large drawdown. Returns percentiles and a sample equity path for charting.",
-        inputSchema: z.object({
+        parameters: z.object({
           startingBalance: z.number().optional().describe("Starting balance, default 10000"),
           riskPct: z.number().describe("Percent of balance risked per trade, e.g. 1"),
           winRate: z.number().describe("Win probability as a percent, e.g. 55"),
@@ -210,7 +210,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
         description: "Propose an update to the user's trading strategy parameters. The user must accept or decline.",
         // No execute: human-in-the-loop. Stays input-available until the client
         // supplies the result via addToolResult after the user accepts/declines.
-        inputSchema: z.object({
+        parameters: z.object({
           riskPct: z.number().optional().describe("Risk percentage per trade"),
           takeProfit: z.number().optional().describe("Take profit multiplier"),
           stopLoss: z.number().optional().describe("Stop loss multiplier"),
@@ -220,5 +220,5 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toDataStreamResponse();
 }

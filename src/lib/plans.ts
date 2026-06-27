@@ -19,6 +19,7 @@ export type PlanConfig = {
   price: number; // USD / month
   priceId: string | null;
   accountLimit: number; // Number.POSITIVE_INFINITY = unlimited
+  strategyLimit: number;
   liveTrading: boolean;
   copyTrading: boolean;
   popular?: boolean;
@@ -33,6 +34,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     price: 0,
     priceId: null,
     accountLimit: 1,
+    strategyLimit: 2,
     liveTrading: false,
     copyTrading: false,
     tagline: "Paper trade and learn the system.",
@@ -49,6 +51,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     price: 19,
     priceId: PRICE_IDS.TRADER,
     accountLimit: 3,
+    strategyLimit: 4,
     liveTrading: true,
     copyTrading: false,
     tagline: "Go live across multiple accounts.",
@@ -66,6 +69,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     price: 49,
     priceId: PRICE_IDS.PRO,
     accountLimit: 10,
+    strategyLimit: 10,
     liveTrading: true,
     copyTrading: true,
     popular: true,
@@ -84,6 +88,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     price: 99,
     priceId: PRICE_IDS.ELITE,
     accountLimit: 25,
+    strategyLimit: 15,
     liveTrading: true,
     copyTrading: true,
     tagline: "Institutional-grade infrastructure.",

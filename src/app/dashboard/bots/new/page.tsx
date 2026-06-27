@@ -35,6 +35,18 @@ export default async function NewBotPage() {
     orderBy: { createdAt: "asc" }
   });
 
+  // Fetch the user's existing strategies
+  const strategies = await prisma.strategy.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      kind: true,
+      version: true,
+    }
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -46,6 +58,7 @@ export default async function NewBotPage() {
 
       <BotsNewClient
         plan={user.plan}
+        availableStrategies={strategies}
         availableAccounts={availableAccounts.map(a => ({
         ...a,
         balance: Number(a.balance)

@@ -12,6 +12,7 @@ type WidgetMeta = {
   desc: string;
   category: "Performance" | "Activity" | "Markets" | "Utility";
   keywords: string;
+  pro?: boolean;
 };
 
 const AVAILABLE_WIDGETS: WidgetMeta[] = [
@@ -22,8 +23,14 @@ const AVAILABLE_WIDGETS: WidgetMeta[] = [
   { type: "agent-feed", name: "Live Execution Feed", desc: "Real-time feed of bot actions and alerts.", category: "Activity", keywords: "feed live execution bot actions alerts stream events" },
   { type: "recent-operations", name: "Recent Operations", desc: "List of the most recent closed trades.", category: "Activity", keywords: "recent operations trades history closed list" },
   { type: "market-pulse", name: "Market Pulse", desc: "Countdown to next major session open.", category: "Markets", keywords: "market pulse session open countdown nyse asx clock" },
-  { type: "system-health", name: "Engine Health", desc: "Core latency and bot connection status.", category: "Utility", keywords: "system health engine latency status connection api" },
+  { type: "system-health", name: "Engine Health", desc: "Core latency and bot connection status.", category: "Utility", keywords: "system health engine latency status connection api", pro: true },
   { type: "quick-actions", name: "Quick Actions", desc: "Shortcut buttons for new bot, broker, etc.", category: "Utility", keywords: "quick actions shortcuts new bot broker buttons" },
+  { type: "market-sessions", name: "World Clock", desc: "Live market session times across major hubs.", category: "Markets", keywords: "market sessions world clock hours time open closed", pro: true },
+  { type: "top-movers", name: "Top Movers", desc: "Top gaining and losing assets by percentage.", category: "Markets", keywords: "top movers gainers losers volume price change", pro: true },
+  { type: "network-latency", name: "Network Ping", desc: "Live broker API latency visualization.", category: "Utility", keywords: "network ping latency broker speed api chart" },
+  { type: "streak-heatmap", name: "Trading Streak", desc: "Daily PnL consistency contribution graph.", category: "Performance", keywords: "streak heatmap consistency pnl daily graph" },
+  { type: "live-tape", name: "Order Book Tape", desc: "Scrolling ticker of live bot executions.", category: "Activity", keywords: "order book tape live executions ticker scrolling" },
+  { type: "risk-matrix", name: "Risk Exposure Matrix", desc: "Capital distribution across bots and assets.", category: "Markets", keywords: "risk matrix exposure capital distribution donut chart", pro: true },
 ];
 
 const CATEGORY_ORDER: WidgetMeta["category"][] = ["Performance", "Activity", "Markets", "Utility"];
@@ -77,7 +84,10 @@ export function WidgetLibraryDialog({ isOpen, onClose, onAdd }: { isOpen: boolea
                         className="group flex flex-col rounded-[var(--radius-card)] border border-line bg-surface p-4 text-left transition-colors hover:border-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         <div className="mb-2 flex items-start justify-between gap-2">
-                          <h5 className="text-sm font-medium text-fg">{w.name}</h5>
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-sm font-medium text-fg">{w.name}</h5>
+                            {w.pro && <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-accent">Pro</span>}
+                          </div>
                           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent/10 text-accent transition-colors group-hover:bg-accent group-hover:text-[var(--color-on-accent)]">
                             <Plus size={14} weight="bold" />
                           </span>

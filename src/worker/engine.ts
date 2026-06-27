@@ -30,6 +30,9 @@ async function tick() {
     console.log(`[${new Date().toISOString()}] Engine Tick: Processing ${bots.length} running bot(s)...`);
 
     for (const bot of bots) {
+      // Skip bots not attached to an account
+      if (!bot.accountId || !bot.account) continue;
+
       // Update heartbeat
       await prisma.bot.update({
         where: { id: bot.id },
@@ -53,7 +56,7 @@ async function tick() {
       if (!marketData) {
         await recordBotStatus({
           botId: bot.id,
-          accountId: bot.accountId,
+          accountId: bot.accountId!,
           kind: "INFO",
           message: `Couldn't fetch a live price for ${instrument} this tick. The bot will keep retrying.`,
           throttleMs: 10 * 60 * 1000,
@@ -77,12 +80,12 @@ async function tick() {
 
           console.log(`[EXIT SIGNAL] ${exitSignal.reason} on bot ${bot.id}`);
           try {
-            const pnl = await closeTrade(openTrade.id, bot.accountId, exitSignal.reason, exitSignal.exitPrice);
+            const pnl = await closeTrade(openTrade.id, bot.accountId!, exitSignal.reason, exitSignal.exitPrice);
             
             await prisma.agentEvent.create({
               data: {
                 botId: bot.id,
-                accountId: bot.accountId,
+                accountId: bot.accountId!,
                 kind: "TRADE",
                 message: `Closed ${openTrade.direction} on ${instrument} at ${exitSignal.exitPrice.toFixed(2)}. Reason: ${exitSignal.reason}. PnL: $${pnl?.toFixed(2)}`,
                 tradeId: openTrade.id
@@ -101,7 +104,7 @@ async function tick() {
         if (!isInstrumentTradeable(instrument)) {
           await recordBotStatus({
             botId: bot.id,
-            accountId: bot.accountId,
+            accountId: bot.accountId!,
             kind: "INFO",
             message: `${marketLabel(getMarketForInstrument(instrument))} is closed right now. Holding flat on ${instrument}. The bot will look for entries when the market reopens.`,
             throttleMs: 30 * 60 * 1000,
@@ -123,7 +126,7 @@ async function tick() {
             : "price hasn't pushed to the edge of the day's range yet";
           await recordBotStatus({
             botId: bot.id,
-            accountId: bot.accountId,
+            accountId: bot.accountId!,
             kind: "INFO",
             message: `Scanning ${instrument} for a setup. No entry yet (${detail}). Holding flat.`,
             throttleMs: 15 * 60 * 1000,
@@ -131,14 +134,14 @@ async function tick() {
         } else {
           console.log(`[ENTRY SIGNAL] ${entrySignal.direction} on bot ${bot.id}`);
 
-          const risk = await validateRisk(bot.id, bot.accountId, entrySignal, params);
+          const risk = await validateRisk(bot.id, bot.accountId!, entrySignal, params);
           if (!risk.passed) {
             console.warn(`[RISK REJECTED] Bot ${bot.id} trade rejected: ${risk.reason}`);
 
             const reason = risk.reason ?? "RISK_BLOCKED";
             await recordBotStatus({
               botId: bot.id,
-              accountId: bot.accountId,
+              accountId: bot.accountId!,
               kind: "RISK",
               message: `Setup found on ${instrument} but the trade was blocked: ${RISK_REASON_TEXT[reason] ?? reason}`,
               throttleMs: 10 * 60 * 1000,
@@ -159,7 +162,7 @@ async function tick() {
           try {
             const trade = await executeTrade(
               bot.id, 
-              bot.accountId, 
+              bot.accountId!, 
               entrySignal, 
               { sizeUnits: risk.sizeUnits || 0, riskPct: risk.riskPct || 0 }, 
               instrument
@@ -168,7 +171,7 @@ async function tick() {
           await prisma.agentEvent.create({
             data: {
               botId: bot.id,
-              accountId: bot.accountId,
+              accountId: bot.accountId!,
               kind: "SIGNAL",
               message: `Signal Generator triggered ${entrySignal.direction} on ${instrument} at ${entrySignal.entryPrice.toFixed(2)}. Routing to execution.`,
             }
@@ -177,7 +180,7 @@ async function tick() {
           await prisma.agentEvent.create({
             data: {
               botId: bot.id,
-              accountId: bot.accountId,
+              accountId: bot.accountId!,
               kind: "TRADE",
               message: `Executed ${entrySignal.direction} on ${instrument} at ${entrySignal.entryPrice.toFixed(2)}. Size: ${(risk.sizeUnits || 0).toFixed(4)}. Stop: ${entrySignal.stopPrice.toFixed(2)}. Target: ${entrySignal.targetPrice.toFixed(2)}`,
               tradeId: trade.id
@@ -194,7 +197,7 @@ async function tick() {
               await prisma.agentEvent.create({
                 data: {
                   botId: bot.id,
-                  accountId: bot.accountId,
+                  accountId: bot.accountId!,
                   kind: "RISK",
                   message: `Live execution blocked: ${error.message} Bot stopped. Connect a supported broker to trade live.`,
                 }

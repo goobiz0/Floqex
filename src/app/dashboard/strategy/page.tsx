@@ -113,7 +113,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {strategies.map(strategy => (
-          <div key={strategy.id} className="group relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line hover:border-line-strong transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden">
+          <div key={strategy.id} id={`strategy-card-${strategy.id}`} className="group relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line hover:border-line-strong transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="relative z-10 flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
                   {strategy.bots.map(bot => (
                     <div key={bot.id} className="flex items-center gap-2 text-sm text-fg bg-base/50 p-2 rounded-[var(--radius-control)] border border-line">
                       <Robot size={16} weight="duotone" className="text-fg-subtle shrink-0" />
-                      <span className="font-medium truncate">{bot.account.nickname}</span>
+                      <span className="font-medium truncate">{bot.account?.nickname ?? "No Account"}</span>
                       <span className={`ml-auto text-[10px] font-bold tracking-widest px-2 py-0.5 rounded-[var(--radius-pill)] uppercase shrink-0 ${bot.status === 'RUNNING' ? 'bg-profit/10 text-profit' : 'bg-surface border border-line text-fg-subtle'}`}>
                         {bot.status}
                       </span>

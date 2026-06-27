@@ -42,7 +42,7 @@ type AccountProp = {
   balance: number;
 };
 
-type StrategyMode = "ORB" | "BUILDER" | "CODE";
+type StrategyMode = "EXISTING" | "ORB" | "BUILDER" | "CODE";
 
 // Premium parameters (live only on paid plans). Marked in the UI so users know
 // what they get for upgrading.
@@ -99,11 +99,20 @@ const BUILDER_PRESETS: { id: string; label: string; help: string; direction: "LO
   },
 ];
 
-export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: AccountProp[]; plan: string }) {
+export function BotsNewClient({ 
+  availableAccounts, 
+  availableStrategies,
+  plan 
+}: { 
+  availableAccounts: AccountProp[];
+  availableStrategies: { id: string; name: string; kind: string; version: number }[];
+  plan: string 
+}) {
   const router = useRouter();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(availableAccounts[0]?.id ?? "");
   const [instruments, setInstruments] = useState<string[]>(["NQ"]);
-  const [strategyMode, setStrategyMode] = useState<StrategyMode>("ORB");
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>(availableStrategies.length > 0 ? "EXISTING" : "ORB");
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>(availableStrategies[0]?.id ?? "");
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [loading, setLoading] = useState(false);
 
@@ -156,6 +165,25 @@ export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: 
     }
     if (strategyMode === "CODE" && language !== "javascript") {
       toast.error("Live execution for this language is in beta. Switch to JavaScript to deploy.");
+      return;
+    }
+
+    if (strategyMode === "EXISTING") {
+      if (!selectedStrategyId) {
+        toast.error("Please select a strategy.");
+        return;
+      }
+      setLoading(true);
+      const res = await createBot({ accountId: selectedAccountId, strategyId: selectedStrategyId });
+      setLoading(false);
+      
+      if (res.ok) {
+        toast.success("Bot created and linked to strategy.");
+        router.push("/dashboard/bots");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Failed to create bot.");
+      }
       return;
     }
 
@@ -241,57 +269,66 @@ export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: 
         </Section>
 
         {/* Step 2: Instruments (multi-asset) */}
-        <Section
-          step={2}
-          title="What should this bot trade?"
-          hint="Search any stock, ETF, index or crypto. Add several and the bot manages each one independently with your risk limits."
-          badge={instruments.length > 1 ? <PaidPill label="Multi-asset" /> : undefined}
-        >
-          <AssetMultiSelect value={instruments} onChange={setInstruments} />
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-fg-subtle">Quick add:</span>
-            {QUICK_SYMBOLS.map((s) => {
-              const active = instruments.includes(s);
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setInstruments((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
-                  className={cn(
-                    "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
-                    active ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
-                  )}
-                >
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-        </Section>
+        {strategyMode !== "EXISTING" && (
+          <Section
+            step={2}
+            title="What should this bot trade?"
+            hint="Search any stock, ETF, index or crypto. Add several and the bot manages each one independently with your risk limits."
+            badge={instruments.length > 1 ? <PaidPill label="Multi-asset" /> : undefined}
+          >
+            <AssetMultiSelect value={instruments} onChange={setInstruments} />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-fg-subtle">Quick add:</span>
+              {QUICK_SYMBOLS.map((s) => {
+                const active = instruments.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setInstruments((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
+                    className={cn(
+                      "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
+                      active ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
+                    )}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+        )}
 
         {/* Step 3: Strategy Type */}
-        <Section step={3} title="Strategy type" hint="Pick how this bot finds trades. Risk management below applies to all three.">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Section step={strategyMode === "EXISTING" ? 2 : 3} title="Strategy" hint={strategyMode === "EXISTING" ? "Pick an existing strategy from your lab." : "Pick how this bot finds trades. Risk management below applies to all three."}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StrategyCard
+              active={strategyMode === "EXISTING"}
+              onClick={() => setStrategyMode("EXISTING")}
+              icon={<Stack size={20} weight="bold" />}
+              title="Existing Strategy"
+              desc="Link to a strategy already in your lab."
+            />
             <StrategyCard
               active={strategyMode === "ORB"}
               onClick={() => setStrategyMode("ORB")}
               icon={<TrendUp size={20} weight="bold" />}
               title="Opening Range Breakout"
-              desc="Captures momentum as price breaks the day's opening range. A proven, rules-based starting point."
+              desc="Captures momentum as price breaks the day's opening range."
             />
             <StrategyCard
               active={strategyMode === "BUILDER"}
               onClick={() => setStrategyMode("BUILDER")}
               icon={<Sliders size={20} weight="bold" />}
               title="Custom signal"
-              desc="Compose entry rules from 16 live indicators with AND / OR logic. No code needed."
+              desc="Compose entry rules from live indicators with AND / OR logic."
             />
             <StrategyCard
               active={strategyMode === "CODE"}
               onClick={() => setStrategyMode("CODE")}
               icon={<Code size={20} weight="bold" />}
               title="Custom code"
-              desc="Write your own strategy in JavaScript, Python or Pine Script. Full control."
+              desc="Write your own strategy in JS/Python/Pine Script."
               premium
             />
           </div>
@@ -299,11 +336,44 @@ export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: 
 
         {/* Step 4: Logic */}
         <Section
-          step={4}
-          title={strategyMode === "ORB" ? "Execution logic" : strategyMode === "BUILDER" ? "Custom entry rules" : "Strategy code"}
+          step={strategyMode === "EXISTING" ? 3 : 4}
+          title={strategyMode === "ORB" ? "Execution logic" : strategyMode === "BUILDER" ? "Custom entry rules" : strategyMode === "CODE" ? "Strategy code" : "Strategy settings"}
           icon={strategyMode === "CODE" ? <Lightning size={16} className="text-accent" /> : undefined}
         >
-          {strategyMode === "ORB" ? (
+          {strategyMode === "EXISTING" ? (
+            <div className="space-y-6 max-w-xl">
+              {availableStrategies.length > 0 ? (
+                <div>
+                  <label className="text-sm font-medium text-fg mb-2 block">Select strategy to attach</label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {availableStrategies.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedStrategyId(s.id)}
+                        className={cn(
+                          "flex items-center justify-between p-4 rounded-[var(--radius-control)] border text-left transition-colors",
+                          selectedStrategyId === s.id ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line bg-surface hover:border-fg-muted"
+                        )}
+                      >
+                        <div>
+                          <p className="font-semibold text-fg">{s.name}</p>
+                          <p className="text-xs text-fg-subtle uppercase tracking-wider mt-1">{s.kind} • v{s.version}</p>
+                        </div>
+                        {selectedStrategyId === s.id && (
+                          <div className="h-2 w-2 rounded-full bg-accent" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 rounded-[var(--radius-card)] bg-surface border border-line text-center">
+                  <p className="text-sm text-fg-subtle">You don't have any existing strategies. Create one above.</p>
+                </div>
+              )}
+            </div>
+          ) : strategyMode === "ORB" ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {(["rangeMinutes", "minRange", "maxRange", "minVolume"] as NumericParam[]).map((key) => (
@@ -365,31 +435,37 @@ export function BotsNewClient({ availableAccounts, plan }: { availableAccounts: 
         </Section>
 
         {/* Step 5: Risk */}
-        <Section step={5} title="Risk management" icon={<ShieldCheck size={16} className="text-warning" />} hint="Hard limits the engine enforces on every trade, no matter the strategy.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(["riskPct", "rrTarget", "trailingStopPct", "dailyLoss", "maxTrades"] as NumericParam[]).map((key) => (
-              <SliderField key={key} bound={PARAM_BOUNDS[key]} value={params[key]} onChange={(v) => handleNumParam(key, v)} premium={PREMIUM_PARAMS.has(key)} />
-            ))}
-          </div>
-          {isFree && (
-            <p className="mt-5 flex items-start gap-2 rounded-[var(--radius-control)] border border-accent/20 bg-accent/5 px-3 py-2 text-xs text-fg-muted">
-              <Star size={14} weight="fill" className="mt-px shrink-0 text-accent" />
-              Premium features are fully active on your paper account so you can test them. Live trading and the marked Pro features require an upgrade.
-            </p>
-          )}
-        </Section>
+        {strategyMode !== "EXISTING" && (
+          <Section step={5} title="Risk management" icon={<ShieldCheck size={16} className="text-warning" />} hint="Hard limits the engine enforces on every trade, no matter the strategy.">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(["riskPct", "rrTarget", "trailingStopPct", "dailyLoss", "maxTrades"] as NumericParam[]).map((key) => (
+                <SliderField key={key} bound={PARAM_BOUNDS[key]} value={params[key]} onChange={(v) => handleNumParam(key, v)} premium={PREMIUM_PARAMS.has(key)} />
+              ))}
+            </div>
+            {isFree && (
+              <p className="mt-5 flex items-start gap-2 rounded-[var(--radius-control)] border border-accent/20 bg-accent/5 px-3 py-2 text-xs text-fg-muted">
+                <Star size={14} weight="fill" className="mt-px shrink-0 text-accent" />
+                Premium features are fully active on your paper account so you can test them. Live trading and the marked Pro features require an upgrade.
+              </p>
+            )}
+          </Section>
+        )}
       </form>
 
       {/* Sticky action bar with live config summary */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-base/90 backdrop-blur lg:left-60">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
           <div className="hidden min-w-0 flex-1 items-center gap-3 text-xs text-fg-subtle sm:flex">
-            <SummaryChip icon={<Stack size={13} weight="bold" />} label={`${instruments.length} asset${instruments.length === 1 ? "" : "s"}`} />
+            {strategyMode !== "EXISTING" && (
+              <SummaryChip icon={<Stack size={13} weight="bold" />} label={`${instruments.length} asset${instruments.length === 1 ? "" : "s"}`} />
+            )}
             <SummaryChip
-              icon={strategyMode === "CODE" ? <Code size={13} weight="bold" /> : <Sliders size={13} weight="bold" />}
-              label={strategyMode === "ORB" ? "Breakout" : strategyMode === "BUILDER" ? "Custom signal" : "Custom code"}
+              icon={strategyMode === "EXISTING" ? <Stack size={13} weight="bold" /> : strategyMode === "CODE" ? <Code size={13} weight="bold" /> : <Sliders size={13} weight="bold" />}
+              label={strategyMode === "EXISTING" ? "Existing Strategy" : strategyMode === "ORB" ? "Breakout" : strategyMode === "BUILDER" ? "Custom signal" : "Custom code"}
             />
-            <SummaryChip icon={<ShieldCheck size={13} weight="bold" />} label={`${params.riskPct}% risk · ${params.dailyLoss}% daily cap`} />
+            {strategyMode !== "EXISTING" && (
+              <SummaryChip icon={<ShieldCheck size={13} weight="bold" />} label={`${params.riskPct}% risk · ${params.dailyLoss}% daily cap`} />
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
@@ -472,8 +548,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[var(--radius-card)] border border-line bg-elevated overflow-hidden">
-      <div className="p-6 border-b border-line bg-surface/50">
+    <div className="rounded-[var(--radius-card)] border border-line bg-elevated">
+      <div className="p-6 border-b border-line bg-surface/50 rounded-t-[calc(var(--radius-card)-1px)]">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-fg flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-pill)] bg-accent/20 text-accent text-xs font-bold tnum">{step}</span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell } from "@phosphor-icons/react";
+import { Bell, X } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { dashboardUrl } from "@/lib/urls";
@@ -18,6 +18,7 @@ const KIND_COLOR: Record<AgentEventKind, string> = {
 };
 
 const SEEN_KEY = "floqex:notifs:seen";
+const CLEARED_KEY = "floqex:notifs:cleared";
 
 function relTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -34,18 +35,28 @@ export function NotificationsBell({ items }: { items: NotificationRow[] }) {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState(0);
+  const [clearedIds, setClearedIds] = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
   // Mount-time read from localStorage. Starts at 0 on the server so the markup
   // matches during hydration, then syncs to the stored value on the client.
   useEffect(() => {
-    const raw = typeof window !== "undefined" ? localStorage.getItem(SEEN_KEY) : null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot external store read
-    if (raw) setSeen(Number(raw));
+    const rawSeen = typeof window !== "undefined" ? localStorage.getItem(SEEN_KEY) : null;
+    if (rawSeen) setSeen(Number(rawSeen));
+    
+    const rawCleared = typeof window !== "undefined" ? localStorage.getItem(CLEARED_KEY) : null;
+    if (rawCleared) setClearedIds(JSON.parse(rawCleared));
   }, []);
 
-  const newest = items[0] ? new Date(items[0].t).getTime() : 0;
-  const unread = items.filter((i) => new Date(i.t).getTime() > seen).length;
+  const visibleItems = items.filter((i) => !clearedIds.includes(i.id));
+  const newest = visibleItems[0] ? new Date(visibleItems[0].t).getTime() : 0;
+  const unread = visibleItems.filter((i) => new Date(i.t).getTime() > seen).length;
+
+  function clearItem(id: string) {
+    const next = [...clearedIds, id];
+    setClearedIds(next);
+    localStorage.setItem(CLEARED_KEY, JSON.stringify(next));
+  }
 
   function toggle() {
     setOpen((o) => {
@@ -102,13 +113,20 @@ export function NotificationsBell({ items }: { items: NotificationRow[] }) {
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <p className="text-sm font-medium text-fg">Activity</p>
-              <span className="text-xs text-fg-faint">{items.length}</span>
+              <span className="text-xs text-fg-faint">{visibleItems.length}</span>
             </div>
-            {items.length ? (
+            {visibleItems.length ? (
               <ul className="max-h-80 divide-y divide-line overflow-y-auto">
-                {items.map((n) => (
-                  <li key={n.id} className="px-4 py-3">
-                    <div className="flex items-baseline justify-between gap-2">
+                {visibleItems.slice(0, 5).map((n) => (
+                  <li key={n.id} className="relative px-4 py-3 group">
+                    <button
+                      onClick={() => clearItem(n.id)}
+                      className="absolute right-3 top-3 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-hover text-fg-subtle hover:text-fg"
+                      title="Clear notification"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="flex items-baseline justify-between gap-2 pr-6">
                       <span
                         className={cn(
                           "text-[0.65rem] font-medium uppercase tracking-wide",
@@ -125,6 +143,13 @@ export function NotificationsBell({ items }: { items: NotificationRow[] }) {
                     ) : null}
                   </li>
                 ))}
+                {visibleItems.length > 5 && (
+                  <li className="px-4 py-2 bg-surface/30 text-center">
+                    <span className="text-xs font-medium text-fg-subtle">
+                      +{visibleItems.length - 5} more
+                    </span>
+                  </li>
+                )}
               </ul>
             ) : (
               <div className="px-4 py-8 text-center">

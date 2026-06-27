@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { summaryMetrics } from "@/lib/metrics";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam, DEFAULT_PARAMS, type StrategyParams } from "@/lib/strategy-schema";
 import { parseCustomConfig } from "@/lib/custom-strategy";
+import { PLANS, type Plan } from "@/lib/plans";
 import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
@@ -91,13 +92,13 @@ export async function createStrategy(name: string): Promise<{ ok: boolean; id?: 
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { id: true, _count: { select: { strategies: true } } },
+    select: { id: true, plan: true, _count: { select: { strategies: true } } },
   });
   if (!user) return { ok: false, error: "User not found" };
 
-  // A generous ceiling so the hub never grows unbounded, well above real use.
-  if (user._count.strategies >= 50) {
-    return { ok: false, error: "You have reached the maximum number of strategies." };
+  const planConfig = PLANS[user.plan as Plan];
+  if (user._count.strategies >= planConfig.strategyLimit) {
+    return { ok: false, error: `Your ${planConfig.name} plan is limited to ${planConfig.strategyLimit} strategy(s).` };
   }
 
   const strategy = await prisma.strategy.create({
@@ -155,12 +156,13 @@ export async function createStrategyAdvanced(input: {
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { id: true, _count: { select: { strategies: true } } },
+    select: { id: true, plan: true, _count: { select: { strategies: true } } },
   });
   if (!user) return { ok: false, error: "User not found" };
 
-  if (user._count.strategies >= 50) {
-    return { ok: false, error: "You have reached the maximum number of strategies." };
+  const planConfig = PLANS[user.plan as Plan];
+  if (user._count.strategies >= planConfig.strategyLimit) {
+    return { ok: false, error: `Your ${planConfig.name} plan is limited to ${planConfig.strategyLimit} strategy(s).` };
   }
 
   const strategy = await prisma.strategy.create({
@@ -216,7 +218,7 @@ export async function saveStrategy(params: StrategyParams, accountId?: string, s
   // effect immediately. Only surface it when the strategy we just saved is
   // actually the one this bot runs (a botless strategy edited from the hub must
   // not claim an unrelated bot picked it up).
-  if (bot && bot.status === "RUNNING" && bot.strategyId === targetStrategyId) {
+  if (bot && bot.accountId && bot.status === "RUNNING" && bot.strategyId === targetStrategyId) {
     await prisma.agentEvent.create({
       data: {
         botId: bot.id,

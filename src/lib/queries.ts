@@ -473,35 +473,60 @@ export async function getMonthlyUsage(): Promise<number> {
 }
 
 export type BotRow = {
-  accountId: string;
-  botId: string | null;
+  id: string;
+  name: string;
+  status: "RUNNING" | "WAITING" | "STOPPED";
+  strategyName: string;
+  strategyId: string;
+  lastHeartbeat: string | null;
+  accountId: string | null;
+  accountNickname: string | null;
+  accountBroker: string | null;
+  accountMode: string | null;
+  balance: number | null;
+  todayPnl: number | null;
+  spark: number[];
+};
+
+export type AvailableAccount = {
+  id: string;
   nickname: string;
   broker: string;
   mode: string;
-  status: "RUNNING" | "WAITING" | "STOPPED" | "NONE";
-  strategyName: string | null;
-  balance: number;
-  todayPnl: number;
-  spark: number[];
-  lastHeartbeat: string | null;
 };
 
-export type BotsData = { bots: BotRow[]; plan: Plan; error: boolean };
+export type BotsData = { 
+  bots: BotRow[]; 
+  availableAccounts: AvailableAccount[];
+  plan: Plan; 
+  error: boolean 
+};
 
-/** Every account's bot with its status, strategy, today's P&L, and a sparkline. */
+/** Every bot the user owns, and accounts available for connection. */
 export async function getBotsData(): Promise<BotsData> {
-  const EMPTY: BotsData = { bots: [], plan: "FREE", error: false };
+  const EMPTY: BotsData = { bots: [], availableAccounts: [], plan: "FREE", error: false };
   try {
     const { userId } = await auth();
     if (!userId) return EMPTY;
+    
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
         accounts: {
-          orderBy: { createdAt: "asc" },
           include: {
-            bot: { include: { strategy: { select: { name: true } } } },
+            bot: true,
             summaries: { orderBy: { date: "desc" }, take: 14 },
+          },
+        },
+        bots: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            strategy: { select: { name: true } },
+            account: {
+              include: {
+                summaries: { orderBy: { date: "desc" }, take: 14 },
+              },
+            },
           },
         },
       },
@@ -509,24 +534,40 @@ export async function getBotsData(): Promise<BotsData> {
     if (!user) return EMPTY;
 
     const todayKey = new Date().toISOString().slice(0, 10);
-    const bots: BotRow[] = user.accounts.map((a) => {
-      const today = a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey);
+    
+    const bots: BotRow[] = user.bots.map((b) => {
+      const a = b.account;
+      const today = a ? a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey) : null;
+      
       return {
-        accountId: a.id,
-        botId: a.bot?.id ?? null,
+        id: b.id,
+        name: b.name,
+        status: b.status as BotRow["status"],
+        strategyName: b.strategy.name,
+        strategyId: b.strategyId,
+        lastHeartbeat: b.lastHeartbeat?.toISOString() ?? null,
+        accountId: a?.id ?? null,
+        accountNickname: a?.nickname ?? null,
+        accountBroker: a?.broker ?? null,
+        accountMode: a?.mode ?? null,
+        balance: a ? Number(a.balance) : null,
+        todayPnl: today ? Number(today.netPnl) : null,
+        spark: a ? [...a.summaries].reverse().map((s) => Number(s.endBalance)) : [],
+      };
+    });
+
+    const availableAccounts = user.accounts
+      .filter((a) => !a.bot)
+      .map((a) => ({
+        id: a.id,
         nickname: a.nickname,
         broker: a.broker,
         mode: a.mode,
-        status: (a.bot?.status ?? "NONE") as BotRow["status"],
-        strategyName: a.bot?.strategy?.name ?? null,
-        balance: Number(a.balance),
-        todayPnl: today ? Number(today.netPnl) : 0,
-        spark: [...a.summaries].reverse().map((s) => Number(s.endBalance)),
-        lastHeartbeat: a.bot?.lastHeartbeat?.toISOString() ?? null,
-      };
-    });
-    return { bots, plan: user.plan as Plan, error: false };
-  } catch {
+      }));
+
+    return { bots, availableAccounts, plan: user.plan as Plan, error: false };
+  } catch (err) {
+    console.error("getBotsData error", err);
     return { ...EMPTY, error: true };
   }
 }

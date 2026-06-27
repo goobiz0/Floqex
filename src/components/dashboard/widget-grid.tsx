@@ -4,9 +4,11 @@ import React, { useState, useEffect } from "react";
 import { Responsive, Layout, Layouts, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Plus, Gear, X, Info } from "@phosphor-icons/react/dist/ssr";
+import { Plus, Gear, X, Info, DotsSixVertical } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
+import { MarketSessionsWidget } from "./market-sessions-widget";
+import { TopMoversWidget } from "./top-movers-widget";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -43,6 +45,12 @@ export const WIDGET_DIMENSIONS: Record<string, { minW: number; minH: number; max
   "market-pulse": { minW: 2, minH: 3, maxW: 4, maxH: 4 },
   "quick-actions": { minW: 3, minH: 3, maxW: 4, maxH: 4 },
   "custom-graph": { minW: 4, minH: 3, maxW: 12, maxH: 6 },
+  "market-sessions": { minW: 3, minH: 4, maxW: 6, maxH: 6 },
+  "top-movers": { minW: 3, minH: 4, maxW: 6, maxH: 8 },
+  "network-latency": { minW: 3, minH: 3, maxW: 6, maxH: 6 },
+  "streak-heatmap": { minW: 4, minH: 3, maxW: 12, maxH: 6 },
+  "live-tape": { minW: 3, minH: 4, maxW: 8, maxH: 12 },
+  "risk-matrix": { minW: 3, minH: 3, maxW: 6, maxH: 8 },
 };
 
 // Which widgets expose real, working settings. The gear/settings button is only
@@ -51,6 +59,10 @@ export const WIDGET_DIMENSIONS: Record<string, { minW: number; minH: number; max
 export const WIDGET_CONFIGURABLE: Record<string, boolean> = {
   "recent-operations": true,
   "agent-feed": true,
+  "network-latency": true,
+  "streak-heatmap": true,
+  "live-tape": true,
+  "risk-matrix": true,
 };
 
 // The authored grid is 12 columns and is treated as "desktop". Because the
@@ -240,7 +252,7 @@ export function WidgetGrid({
           return (
             <div key={item.i} className={cn(
               "relative group rounded-[var(--radius-card)] bg-elevated border border-line overflow-hidden flex flex-col",
-              isEditMode && isDesktop && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow cursor-move drag-handle"
+              isEditMode && isDesktop && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow"
             )}>
               <div className="flex-1 overflow-hidden pointer-events-auto">
                 {renderWidget(item)}
@@ -256,9 +268,16 @@ export function WidgetGrid({
                     className="absolute inset-0 pointer-events-none rounded-[var(--radius-card)] border-2 border-transparent group-hover:border-accent-soft/50 transition-colors"
                   >
                     <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                      {isDesktop && (
+                        <div className="drag-handle cursor-move p-1.5 text-fg-subtle hover:text-accent transition-colors flex items-center justify-center">
+                          <DotsSixVertical size={16} weight="bold" />
+                        </div>
+                      )}
                       {canConfigure && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onConfigureWidget(item.i); }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
                           className="p-1.5 bg-surface border border-line rounded-md text-fg-subtle hover:text-accent hover:border-accent-soft transition-colors shadow-sm"
                           aria-label="Configure widget"
                           title="Configure widget"
@@ -268,6 +287,8 @@ export function WidgetGrid({
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); onRemoveWidget(item.i); }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="p-1.5 bg-surface border border-line rounded-md text-fg-subtle hover:text-negative hover:border-negative-soft transition-colors shadow-sm"
                         aria-label="Remove widget"
                         title="Remove widget"

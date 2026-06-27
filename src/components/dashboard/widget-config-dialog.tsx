@@ -76,6 +76,64 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
           </div>
         )}
 
+        {widgetType === "network-latency" && (
+          <div className="space-y-2">
+            <Label>Polling Interval</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.interval ?? "1s")}
+              onChange={e => setLocalConfig({ ...localConfig, interval: e.target.value })}
+            >
+              <option value="500ms">500ms (Fast)</option>
+              <option value="1s">1 Second (Normal)</option>
+              <option value="5s">5 Seconds (Slow)</option>
+            </select>
+          </div>
+        )}
+
+        {widgetType === "streak-heatmap" && (
+          <div className="space-y-2">
+            <Label>Timeframe (Days)</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.timeframe ?? "90")}
+              onChange={e => setLocalConfig({ ...localConfig, timeframe: e.target.value })}
+            >
+              <option value="30">Last 30 Days</option>
+              <option value="60">Last 60 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+          </div>
+        )}
+
+        {widgetType === "live-tape" && (
+          <div className="space-y-2">
+            <Label>Rows</Label>
+            <Input
+              type="number"
+              min={3}
+              max={15}
+              value={String(localConfig.rows ?? "6")}
+              onChange={e => setLocalConfig({ ...localConfig, rows: Number(e.target.value) })}
+            />
+            <p className="text-xs text-fg-subtle">Number of executions to show in the tape.</p>
+          </div>
+        )}
+
+        {widgetType === "risk-matrix" && (
+          <div className="space-y-2">
+            <Label>Group By</Label>
+            <select
+              className="flex h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={String(localConfig.groupBy ?? "asset")}
+              onChange={e => setLocalConfig({ ...localConfig, groupBy: e.target.value })}
+            >
+              <option value="asset">Asset (Instrument)</option>
+              <option value="strategy">Strategy Kind</option>
+            </select>
+          </div>
+        )}
+
         {!isConfigurable && (
           <div className="p-4 border border-line rounded-[var(--radius-control)] bg-surface text-sm text-fg-subtle text-center">
             No configurable options available for this widget yet.

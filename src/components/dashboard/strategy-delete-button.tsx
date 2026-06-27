@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Trash, Warning } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteStrategy } from "@/app/dashboard/strategy/actions";
@@ -16,11 +17,21 @@ export function StrategyDeleteButton({
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function handleDelete() {
+    setOpen(false);
+    
+    // Optimistically hide the card instantly to eliminate perceived delay
+    const el = document.getElementById(`strategy-card-${strategyId}`);
+    if (el) el.style.display = 'none';
+
     startTransition(async () => {
       await deleteStrategy(strategyId);
-      setOpen(false);
     });
   }
 
@@ -35,8 +46,8 @@ export function StrategyDeleteButton({
       </button>
 
       <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
+        {open && mounted && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -50,7 +61,7 @@ export function StrategyDeleteButton({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="relative z-10 w-full max-w-sm overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated shadow-xl mx-4"
+              className="relative z-10 w-full max-w-sm overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated shadow-[var(--shadow-xl)] mx-4"
             >
               <div className="p-6 space-y-4">
                 <div className="flex items-start gap-3">
@@ -98,7 +109,8 @@ export function StrategyDeleteButton({
                 </div>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </>
