@@ -1,127 +1,122 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChartPieSlice, CaretDown } from "@phosphor-icons/react/dist/ssr";
-import { motion, AnimatePresence } from "motion/react";
+import { ChartPieSlice } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
+import { openExposure } from "@/lib/metrics";
+import type { TradeRow } from "@/lib/queries";
 
-type Segment = {
-  id: string;
-  label: string;
-  value: number;
-  color: string;
-};
+// Ordered, token-driven palette so segment colours come from CSS variables only
+// (no hardcoded hex). Cycles for accounts with many concurrent instruments.
+const PALETTE = [
+  "var(--color-accent)",
+  "var(--color-profit)",
+  "var(--color-info)",
+  "var(--color-warning)",
+  "var(--color-fg-muted)",
+];
 
-// Simplified mock data
-const MOCK_DATA = {
-  asset: [
-    { id: "1", label: "EUR/USD", value: 45, color: "bg-accent" },
-    { id: "2", label: "BTC/USD", value: 30, color: "bg-profit" },
-    { id: "3", label: "XAU/USD", value: 25, color: "bg-warning" },
-  ],
-  strategy: [
-    { id: "1", label: "Momentum", value: 60, color: "bg-accent" },
-    { id: "2", label: "Mean Reversion", value: 25, color: "bg-profit" },
-    { id: "3", label: "Grid", value: 15, color: "bg-fg-muted" },
-  ]
-};
-
-export function RiskMatrixWidget({ groupBy = "asset" }: { groupBy?: "asset" | "strategy" }) {
+// Real capital-at-risk distribution from currently open positions. Notional is
+// |entry * size| per open trade, grouped by instrument or direction. Shows an
+// honest empty state when nothing is open rather than a fabricated allocation.
+export function RiskMatrixWidget({
+  groupBy = "asset",
+  openTrades = [],
+}: {
+  groupBy?: "asset" | "direction";
+  openTrades?: TradeRow[];
+}) {
   const [hovered, setHovered] = useState<string | null>(null);
-  
-  const segments = useMemo(() => MOCK_DATA[groupBy] || MOCK_DATA.asset, [groupBy]);
-  
-  // Calculate SVG circles
-  let total = 0;
-  segments.forEach(s => total += s.value);
-  
-  let currentOffset = 0;
+
   const cx = 50;
   const cy = 50;
   const r = 40;
   const circum = 2 * Math.PI * r;
 
+  const segments = useMemo(() => {
+    const exposure = openExposure(openTrades, groupBy);
+    // Cumulative offset computed functionally (no in-render reassignment): each
+    // segment starts after the sum of all preceding arc lengths.
+    return exposure.map((e, i) => {
+      const precedingLen = exposure
+        .slice(0, i)
+        .reduce((s, p) => s + (p.pct / 100) * circum, 0);
+      return {
+        id: e.label,
+        label: e.label,
+        value: e.pct,
+        color: PALETTE[i % PALETTE.length],
+        dash: `${(e.pct / 100) * circum} ${circum}`,
+        dashOffset: -precedingLen,
+      };
+    });
+  }, [openTrades, groupBy, circum]);
+
   return (
     <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3 shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
           <ChartPieSlice size={16} weight="duotone" className="text-accent" />
           <h3 className="text-[13px] font-semibold tracking-wide">Risk Exposure</h3>
         </div>
-        <div className="flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 border border-line cursor-pointer text-xs font-medium text-fg-subtle">
-          <span className="capitalize">{groupBy}</span>
-        </div>
+        <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-1.5 py-0.5 text-xs font-medium capitalize text-fg-subtle">
+          {groupBy}
+        </span>
       </div>
-      
-      <div className="flex-1 p-4 flex flex-col md:flex-row items-center justify-center gap-6 overflow-hidden">
-        
-        <div className="relative w-32 h-32 shrink-0">
-          <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 drop-shadow-md">
-            {segments.map((seg) => {
-              const strokeDasharray = `${(seg.value / total) * circum} ${circum}`;
-              const strokeDashoffset = -currentOffset;
-              currentOffset += (seg.value / total) * circum;
-              
-              const isHovered = hovered === seg.id;
-              const isDimmed = hovered !== null && !isHovered;
-              
-              // Map tailwind classes to raw colors for SVG
-              let rawColor = "#10b981"; // default profit
-              if (seg.color.includes("accent")) rawColor = "var(--color-accent)";
-              if (seg.color.includes("warning")) rawColor = "var(--color-warning)";
-              if (seg.color.includes("fg-muted")) rawColor = "var(--color-fg-muted)";
 
+      {segments.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center p-4">
+          <p className="text-center text-xs text-fg-subtle">No open positions. Exposure appears here while trades are live.</p>
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden p-4 md:flex-row">
+          <div className="relative h-32 w-32 shrink-0">
+            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+              {segments.map((seg) => {
+                const isHovered = hovered === seg.id;
+                const isDimmed = hovered !== null && !isHovered;
+                return (
+                  <circle
+                    key={seg.id}
+                    cx={cx}
+                    cy={cy}
+                    r={r}
+                    fill="transparent"
+                    stroke={seg.color}
+                    strokeWidth={isHovered ? 16 : 12}
+                    strokeDasharray={seg.dash}
+                    strokeDashoffset={seg.dashOffset}
+                    className={cn("cursor-pointer transition-all duration-300 ease-out", isDimmed && "opacity-30")}
+                    onMouseEnter={() => setHovered(seg.id)}
+                    onMouseLeave={() => setHovered(null)}
+                  />
+                );
+              })}
+            </svg>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-semibold text-fg-subtle">{segments.length} open</span>
+            </div>
+          </div>
+
+          <div className="flex min-w-[120px] flex-col gap-2">
+            {segments.map((seg) => {
+              const isDimmed = hovered !== null && hovered !== seg.id;
               return (
-                <circle
+                <div
                   key={seg.id}
-                  cx={cx}
-                  cy={cy}
-                  r={r}
-                  fill="transparent"
-                  stroke={rawColor}
-                  strokeWidth={isHovered ? 16 : 12}
-                  strokeDasharray={strokeDasharray}
-                  strokeDashoffset={strokeDashoffset}
-                  className={cn(
-                    "transition-all duration-300 ease-out cursor-pointer",
-                    isDimmed && "opacity-30",
-                    isHovered && "drop-shadow-lg"
-                  )}
+                  className={cn("flex cursor-default items-center gap-2 transition-opacity", isDimmed && "opacity-30")}
                   onMouseEnter={() => setHovered(seg.id)}
                   onMouseLeave={() => setHovered(null)}
-                />
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: seg.color }} />
+                  <span className="whitespace-nowrap text-xs font-medium text-fg">{seg.label}</span>
+                  <span className="tnum ml-auto text-xs text-fg-subtle">{seg.value.toFixed(0)}%</span>
+                </div>
               );
             })}
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-xs font-semibold text-fg-subtle">100%</span>
           </div>
         </div>
-        
-        <div className="flex flex-col gap-2 min-w-[120px]">
-          {segments.map((seg) => {
-            const isHovered = hovered === seg.id;
-            const isDimmed = hovered !== null && !isHovered;
-            
-            return (
-              <div 
-                key={seg.id} 
-                className={cn(
-                  "flex items-center gap-2 transition-opacity cursor-default",
-                  isDimmed && "opacity-30"
-                )}
-                onMouseEnter={() => setHovered(seg.id)}
-                onMouseLeave={() => setHovered(null)}
-              >
-                <span className={cn("w-2 h-2 rounded-full", seg.color)} />
-                <span className="text-xs font-medium text-fg whitespace-nowrap">{seg.label}</span>
-                <span className="text-xs font-mono text-fg-subtle ml-auto">{seg.value}%</span>
-              </div>
-            );
-          })}
-        </div>
-        
-      </div>
+      )}
     </div>
   );
 }

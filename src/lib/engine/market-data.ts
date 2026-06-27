@@ -171,6 +171,56 @@ export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapsho
   }
 }
 
+// Top movers for the dashboard widget. Real Yahoo snapshots for a curated
+// universe of liquid instruments, ranked by the regular-session percent change.
+// The whole result is cached briefly so the widget's poll and multiple users
+// share one upstream fetch rather than hammering Yahoo per render.
+export interface MoverRow {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  currency: string;
+}
+
+export interface MoversResult {
+  gainers: MoverRow[];
+  losers: MoverRow[];
+  asOf: string; // ISO timestamp of the fetch
+}
+
+const moversCache: Record<string, { data: MoversResult; expiresAt: number }> = {};
+const MOVERS_TTL_MS = 1000 * 30; // 30s: fresh enough, kind to rate limits
+
+export async function getMarketMovers(universe: string[], perSide = 5): Promise<MoversResult> {
+  const key = universe.join(",");
+  const cached = moversCache[key];
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const snapshots = await Promise.all(
+    universe.map((sym) => getQuoteSnapshot(sym).catch(() => null)),
+  );
+  const rows: MoverRow[] = snapshots
+    .filter((s): s is QuoteSnapshot => s != null && Number.isFinite(s.changePercent))
+    .map((s) => ({
+      symbol: s.instrument,
+      name: s.shortName,
+      price: s.price,
+      change: s.change,
+      changePercent: s.changePercent,
+      currency: s.currency,
+    }));
+
+  const byChangeDesc = [...rows].sort((a, b) => b.changePercent - a.changePercent);
+  const gainers = byChangeDesc.filter((r) => r.changePercent > 0).slice(0, perSide);
+  const losers = [...byChangeDesc].reverse().filter((r) => r.changePercent < 0).slice(0, perSide);
+
+  const data: MoversResult = { gainers, losers, asOf: new Date().toISOString() };
+  moversCache[key] = { data, expiresAt: Date.now() + MOVERS_TTL_MS };
+  return data;
+}
+
 // Daily OHLC bars for the strategy backtest/sandbox. Real Yahoo history, mapped
 // to a compact shape and cached briefly so repeated previews are cheap.
 export interface HistoryBar {

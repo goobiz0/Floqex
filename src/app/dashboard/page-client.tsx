@@ -64,6 +64,7 @@ export function DashboardPageClient({
   hasBot,
   summaries = [],
   trades = [],
+  openTrades = [],
   agentEvents = [],
   botStatus = "NONE",
   lastHeartbeat = null,
@@ -71,7 +72,7 @@ export function DashboardPageClient({
   initialTemplates = [],
   userPlan = "FREE",
   marketAsxEnabled = true
-}: { 
+}: {
   balance: number;
   nickname: string;
   avatarUrl: string;
@@ -80,6 +81,7 @@ export function DashboardPageClient({
   hasBot: boolean;
   summaries?: DailyRow[];
   trades?: TradeRow[];
+  openTrades?: TradeRow[];
   agentEvents?: AgentEventRow[];
   botStatus?: string;
   lastHeartbeat?: string | null;
@@ -165,6 +167,10 @@ export function DashboardPageClient({
     }, {} as Record<string, number>);
     return Object.entries(assetPnl).sort((a, b) => b[1] - a[1]);
   }, [trades]);
+
+  // Real execution tape: open fills first, then recent closed trades, newest
+  // first. Powers the Execution Tape widget with live data, never a generator.
+  const tapeTrades = useMemo(() => [...openTrades, ...trades], [openTrades, trades]);
 
   // Actions
   const handleSaveLayout = async () => {
@@ -490,7 +496,7 @@ export function DashboardPageClient({
     }
 
     if (item.type === "top-movers") {
-      return <TopMoversWidget />;
+      return <TopMoversWidget includeAsx={marketAsxEnabled} />;
     }
 
     if (item.type === "network-latency") {
@@ -498,20 +504,20 @@ export function DashboardPageClient({
     }
 
     if (item.type === "streak-heatmap") {
-      return <StreakHeatmapWidget timeframe={item.config?.timeframe || "90"} />;
+      return <StreakHeatmapWidget timeframe={item.config?.timeframe || "90"} summaries={summaries} />;
     }
 
     if (item.type === "live-tape") {
-      return <LiveTapeWidget rows={Number(item.config?.rows || "6")} />;
+      return <LiveTapeWidget rows={Number(item.config?.rows || "6")} trades={tapeTrades} isLive={live.connected} />;
     }
 
     if (item.type === "risk-matrix") {
-      return <RiskMatrixWidget groupBy={item.config?.groupBy || "asset"} />;
+      return <RiskMatrixWidget groupBy={item.config?.groupBy === "direction" ? "direction" : "asset"} openTrades={openTrades} />;
     }
 
     // Fallback
     return <div className="p-6 text-sm text-fg-subtle">Unknown Widget</div>;
-  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus]);
+  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus, marketAsxEnabled, summaries, tapeTrades, openTrades]);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">

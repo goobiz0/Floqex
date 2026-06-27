@@ -217,10 +217,12 @@ async function tick() {
   }
 }
 
-console.log("==========================================");
-console.log("🚀 Floqex Background Trading Engine Started");
-console.log(`⏱️  Tick Rate: ${TICK_RATE_MS / 1000} seconds`);
-console.log("==========================================");
+if (process.env.DEBUG) {
+  console.log("==========================================");
+  console.log("Floqex Background Trading Engine Started");
+  console.log(`Tick Rate: ${TICK_RATE_MS / 1000} seconds`);
+  console.log("==========================================");
+}
 
 async function runLoop() {
   await tick();

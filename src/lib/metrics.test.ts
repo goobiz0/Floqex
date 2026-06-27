@@ -22,6 +22,7 @@ function trade(over: Partial<TradeRow>): TradeRow {
     exitPrice: 102,
     stopPrice: 99,
     targetPrice: 104,
+    sizeUnits: 1,
     netPnl: 0,
     grossPnl: 0,
     rMultiple: 0,

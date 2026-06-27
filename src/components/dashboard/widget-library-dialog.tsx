@@ -29,8 +29,8 @@ const AVAILABLE_WIDGETS: WidgetMeta[] = [
   { type: "top-movers", name: "Top Movers", desc: "Top gaining and losing assets by percentage.", category: "Markets", keywords: "top movers gainers losers volume price change", pro: true },
   { type: "network-latency", name: "Network Ping", desc: "Live broker API latency visualization.", category: "Utility", keywords: "network ping latency broker speed api chart" },
   { type: "streak-heatmap", name: "Trading Streak", desc: "Daily PnL consistency contribution graph.", category: "Performance", keywords: "streak heatmap consistency pnl daily graph" },
-  { type: "live-tape", name: "Order Book Tape", desc: "Scrolling ticker of live bot executions.", category: "Activity", keywords: "order book tape live executions ticker scrolling" },
-  { type: "risk-matrix", name: "Risk Exposure Matrix", desc: "Capital distribution across bots and assets.", category: "Markets", keywords: "risk matrix exposure capital distribution donut chart", pro: true },
+  { type: "live-tape", name: "Execution Tape", desc: "Live feed of your bot's most recent fills.", category: "Activity", keywords: "order book tape live executions fills ticker" },
+  { type: "risk-matrix", name: "Risk Exposure", desc: "Capital at risk across open positions.", category: "Markets", keywords: "risk matrix exposure capital open positions donut chart", pro: true },
 ];
 
 const CATEGORY_ORDER: WidgetMeta["category"][] = ["Performance", "Activity", "Markets", "Utility"];

@@ -129,7 +129,7 @@ export function WidgetConfigDialog({ isOpen, onClose, widgetType, config, onSave
               onChange={e => setLocalConfig({ ...localConfig, groupBy: e.target.value })}
             >
               <option value="asset">Asset (Instrument)</option>
-              <option value="strategy">Strategy Kind</option>
+              <option value="direction">Direction (Long / Short)</option>
             </select>
           </div>
         )}
