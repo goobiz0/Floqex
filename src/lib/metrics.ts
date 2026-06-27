@@ -23,6 +23,7 @@ export type TradeRow = {
   exitPrice: number | null;
   stopPrice: number;
   targetPrice: number;
+  sizeUnits: number;
   netPnl: number | null;
   grossPnl: number | null;
   rMultiple: number | null;
@@ -82,6 +83,47 @@ export function equitySeries(summaries: DailyRow[]): EquityPoint[] {
   return [...summaries]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((s) => ({ date: s.date, equity: s.endBalance }));
+}
+
+/**
+ * Underwater (drawdown) series: percent below the running peak at each point.
+ * Values are <= 0 (0 at a new high, negative while underwater). Powers the
+ * drawdown-curve widget.
+ */
+export function drawdownSeries(series: EquityPoint[]): { date: string; ddPct: number }[] {
+  let peak = -Infinity;
+  return series.map((point) => {
+    peak = Math.max(peak, point.equity);
+    const ddPct = peak > 0 ? ((point.equity - peak) / peak) * 100 : 0;
+    return { date: point.date, ddPct };
+  });
+}
+
+/**
+ * Open-position exposure grouped by a key (instrument or direction). Notional is
+ * |entryPrice * sizeUnits| per open trade. Returns descending shares of the
+ * total so the risk-exposure widget shows where real capital is committed.
+ */
+export function openExposure(
+  openTrades: TradeRow[],
+  groupBy: "asset" | "direction",
+): { label: string; notional: number; pct: number }[] {
+  const totals = new Map<string, number>();
+  for (const t of openTrades) {
+    if (t.status !== "OPEN") continue;
+    const notional = Math.abs(t.entryPrice * t.sizeUnits);
+    if (!Number.isFinite(notional) || notional <= 0) continue;
+    const key = groupBy === "direction" ? t.direction : t.instrument;
+    totals.set(key, (totals.get(key) ?? 0) + notional);
+  }
+  const grand = [...totals.values()].reduce((s, v) => s + v, 0);
+  return [...totals.entries()]
+    .map(([label, notional]) => ({
+      label,
+      notional,
+      pct: grand > 0 ? (notional / grand) * 100 : 0,
+    }))
+    .sort((a, b) => b.notional - a.notional);
 }
 
 /** Max peak-to-trough drawdown over an equity series, as amount and percent. */

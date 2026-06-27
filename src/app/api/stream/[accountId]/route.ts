@@ -126,6 +126,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ accountI
               status: t.status,
               entryPrice: Number(t.entryPrice),
               exitPrice: t.exitPrice != null ? Number(t.exitPrice) : null,
+              sizeUnits: Number(t.sizeUnits),
               netPnl: t.netPnl != null ? Number(t.netPnl) : null,
               rMultiple: t.rMultiple != null ? Number(t.rMultiple) : null,
               openedAt: t.openedAt.toISOString(),

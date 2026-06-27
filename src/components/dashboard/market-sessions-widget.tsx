@@ -60,6 +60,7 @@ export function MarketSessionsWidget() {
   const [hoveredMarket, setHoveredMarket] = useState<string | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client clock seed; SSR renders null to stay hydration-safe
     setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 10000);
     return () => clearInterval(timer);

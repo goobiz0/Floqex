@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, X, Plus, Spinner, Star } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,8 @@ import {
 } from "@/lib/strategy-schema";
 import type { AdjustmentRow } from "@/lib/queries";
 import { backtestStrategy, type Bar } from "@/lib/engine/backtest";
+import { optimizeStrategy, monteCarlo, type SweepRow, type Objective } from "@/lib/engine/optimize";
+import { Histogram } from "./charts";
 import {
   saveStrategy,
   approveSuggestion,
@@ -126,6 +128,78 @@ export function StrategyLab({
       direction: params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH",
     });
   }, [bars, params]);
+
+  // Richer backtest analysis derived from the same run: an R-multiple spread and
+  // a seeded Monte Carlo confidence band. Both come from real simulated trades.
+  const rBuckets = useMemo(() => {
+    if (!backtest) return [];
+    // Edge-inclusive predicates that match the displayed labels exactly: an exact
+    // -0.5R lands in "≤ -0.5R" and an exact +1.5R lands in "≥ +1.5R".
+    const defs: { label: string; test: (r: number) => boolean }[] = [
+      { label: "≤ -0.5R", test: (r) => r <= -0.5 },
+      { label: "-0.5 to +0.5R", test: (r) => r > -0.5 && r < 0.5 },
+      { label: "+0.5 to +1.5R", test: (r) => r >= 0.5 && r < 1.5 },
+      { label: "≥ +1.5R", test: (r) => r >= 1.5 },
+    ];
+    return defs.map((d) => ({
+      label: d.label,
+      count: backtest.tradeReturns.filter(d.test).length,
+    }));
+  }, [backtest]);
+
+  const mc = useMemo(() => {
+    if (!backtest) return null;
+    return monteCarlo(backtest.tradeReturns, typeof params.riskPct === "number" ? params.riskPct : 1);
+  }, [backtest, params.riskPct]);
+
+  // Optimization sweep over a bounded grid of the loaded bars.
+  const [objective, setObjective] = useState<Objective>("return");
+  const [sweep, setSweep] = useState<SweepRow[] | null>(null);
+  const [sweeping, setSweeping] = useState(false);
+  // Monotonic id so a queued sweep that finishes after its inputs changed is
+  // discarded instead of repopulating the table with stale rankings.
+  const sweepRunId = useRef(0);
+
+  // Stale results are misleading: clear the ranking whenever an input that feeds
+  // the sweep changes (bars, objective, direction, or risk per trade).
+  useEffect(() => {
+    sweepRunId.current += 1;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- invalidate stale sweep on input change
+    setSweep(null);
+  }, [bars, objective, params.direction, params.riskPct]);
+
+  function runOptimization() {
+    if (!bars || bars.length < 5) return;
+    const runId = ++sweepRunId.current;
+    const sweepBars = bars;
+    const sweepObjective = objective;
+    const sweepRiskPct = typeof params.riskPct === "number" ? params.riskPct : 1;
+    const sweepDirection: "LONG" | "SHORT" | "BOTH" =
+      params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH";
+    setSweeping(true);
+    // Defer so the button shows its pending state before the synchronous sweep.
+    setTimeout(() => {
+      // Bail before the synchronous sweep if inputs already changed.
+      if (runId !== sweepRunId.current) {
+        setSweeping(false);
+        return;
+      }
+      const rows = optimizeStrategy(sweepBars, { riskPct: sweepRiskPct, direction: sweepDirection }, sweepObjective);
+      setSweeping(false);
+      setSweep(rows);
+    }, 0);
+  }
+
+  function applySweep(row: SweepRow) {
+    // Apply the swept edge params into the lab; the user reviews then Saves, where
+    // parseStrategyParams re-enforces every bound (no ceiling bypass).
+    setParams((p) => ({
+      ...p,
+      rrTarget: row.params.rrTarget,
+      trendFilter: row.params.trendFilter,
+      stopLossPct: row.params.stopLossPct,
+    }));
+  }
 
   const activePaidFeatures = useMemo(() => {
     const features = [];
@@ -317,9 +391,112 @@ export function StrategyLab({
                     </div>
                   ))}
                 </dl>
+                <p className="mt-3 text-[11px] leading-relaxed text-fg-faint">
+                  Conservative model: on a day that touches both the stop and the target, the stop is
+                  assumed to hit first. Daily bars can&apos;t resolve true intraday order, so real fills may differ.
+                </p>
               </>
             )}
           </div>
+        </Card>
+
+        {backtest && backtest.trades >= 1 && (
+          <Card className="p-5">
+            <CardTitle>Edge analysis</CardTitle>
+            <p className="mt-1 text-xs text-fg-subtle">How the simulated trades are distributed, and the spread of outcomes if the same edge repeats.</p>
+            <div className="mt-4">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">R-multiple spread</p>
+              <Histogram data={rBuckets} />
+            </div>
+            {mc && (
+              <div className="mt-5">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+                  Monte Carlo ({mc.runs} runs)
+                </p>
+                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { k: "P5 return", v: `${mc.p5ReturnPct >= 0 ? "+" : ""}${mc.p5ReturnPct.toFixed(0)}%`, tone: mc.p5ReturnPct >= 0 ? "text-profit" : "text-negative" },
+                    { k: "Median", v: `${mc.p50ReturnPct >= 0 ? "+" : ""}${mc.p50ReturnPct.toFixed(0)}%`, tone: mc.p50ReturnPct >= 0 ? "text-profit" : "text-negative" },
+                    { k: "P95 return", v: `${mc.p95ReturnPct >= 0 ? "+" : ""}${mc.p95ReturnPct.toFixed(0)}%`, tone: "text-fg" },
+                    { k: "Risk of ruin", v: `${mc.riskOfRuinPct.toFixed(0)}%`, tone: mc.riskOfRuinPct > 10 ? "text-negative" : "text-fg" },
+                  ].map((s) => (
+                    <div key={s.k} className="rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-center">
+                      <dt className="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">{s.k}</dt>
+                      <dd className={cn("mt-0.5 text-sm font-semibold tnum", s.tone)}>{s.v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+          </Card>
+        )}
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <CardTitle>Find better settings</CardTitle>
+            <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+              Sweep
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-fg-subtle">
+            Backtests a grid of reward, stop, and trend-filter combinations over the same bars, then ranks them.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            <select
+              className="h-9 flex-1 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm text-fg focus:border-accent focus:outline-none"
+              value={objective}
+              onChange={(e) => setObjective(e.target.value as Objective)}
+              aria-label="Optimization objective"
+            >
+              <option value="return">Maximise return</option>
+              <option value="profitFactor">Maximise profit factor</option>
+              <option value="winRate">Maximise win rate</option>
+              <option value="drawdown">Minimise drawdown</option>
+            </select>
+            <Button size="sm" onClick={runOptimization} disabled={!bars || bars.length < 5 || sweeping}>
+              {sweeping ? <Spinner size={15} className="animate-spin" /> : <Star size={15} weight="fill" />}
+              {sweeping ? "Searching" : "Optimize"}
+            </Button>
+          </div>
+
+          {sweep && (
+            sweep.length === 0 ? (
+              <p className="mt-4 text-sm text-fg-subtle">No combination produced enough trades to rank on this instrument.</p>
+            ) : (
+              <div className="mt-4 overflow-hidden rounded-[var(--radius-control)] border border-line">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-line bg-surface text-fg-subtle">
+                      <th className="px-2 py-1.5 text-left font-medium">R:R</th>
+                      <th className="px-2 py-1.5 text-left font-medium">Stop</th>
+                      <th className="px-2 py-1.5 text-left font-medium">Trend</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Return</th>
+                      <th className="px-2 py-1.5 text-right font-medium">DD</th>
+                      <th className="px-2 py-1.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sweep.map((row, i) => (
+                      <tr key={i} className="border-b border-line/50 last:border-0">
+                        <td className="tnum px-2 py-1.5">{row.params.rrTarget}R</td>
+                        <td className="tnum px-2 py-1.5">{row.params.stopLossPct}%</td>
+                        <td className="px-2 py-1.5">{row.params.trendFilter ? "On" : "Off"}</td>
+                        <td className={cn("tnum px-2 py-1.5 text-right font-medium", row.totalReturnPct >= 0 ? "text-profit" : "text-negative")}>
+                          {row.totalReturnPct >= 0 ? "+" : ""}{row.totalReturnPct.toFixed(0)}%
+                        </td>
+                        <td className="tnum px-2 py-1.5 text-right text-negative">-{row.maxDrawdownPct.toFixed(0)}%</td>
+                        <td className="px-2 py-1.5 text-right">
+                          <button onClick={() => applySweep(row)} className="rounded-[var(--radius-pill)] bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-[var(--color-on-accent)]">
+                            Apply
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
         </Card>
 
         <Card className="p-5">

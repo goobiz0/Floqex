@@ -144,7 +144,7 @@ export const DemoWalkthrough = () => {
                   
                   <div style={{ display: "flex", gap: 48 }}>
                     <div>
-                      <span style={{ color: COLORS.fgSubtle, fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Today's P/L</span>
+                      <span style={{ color: COLORS.fgSubtle, fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Today&apos;s P/L</span>
                       <span style={{ color: COLORS.profit, fontSize: 32, fontWeight: 700, fontFamily: '"Geist Mono", monospace', fontVariantNumeric: "tabular-nums", letterSpacing: -0.5 }}>+$450.00</span>
                     </div>
                     <div>

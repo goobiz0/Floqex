@@ -7,8 +7,7 @@ import "react-resizable/css/styles.css";
 import { Plus, Gear, X, Info, DotsSixVertical } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
-import { MarketSessionsWidget } from "./market-sessions-widget";
-import { TopMoversWidget } from "./top-movers-widget";
+import { WidgetBoundary } from "./widget-boundary";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -267,7 +266,7 @@ export function WidgetGrid({
               isEditMode && isDesktop && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow"
             )}>
               <div className="flex-1 overflow-hidden pointer-events-auto">
-                {renderWidget(item)}
+                <WidgetBoundary>{renderWidget(item)}</WidgetBoundary>
               </div>
 
               {/* Edit Mode Overlays */}
