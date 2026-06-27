@@ -1,0 +1,623 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Stack,
+  PencilSimpleLine,
+  TrendUp,
+  ShieldCheck,
+  Lightning,
+  ChartLineUp,
+  Pulse,
+  ArrowsClockwise,
+  Sliders,
+  Code,
+  Sparkle,
+  Star,
+  Flask,
+  type Icon,
+} from "@phosphor-icons/react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
+import { InfoTip } from "@/components/ui/tooltip";
+import { AssetMultiSelect } from "@/components/dashboard/asset-multi-select";
+import { CustomSignalBuilder } from "@/components/dashboard/custom-signal-builder";
+import { StrategyCodeEditor } from "@/components/dashboard/strategy-code-editor";
+import { cn } from "@/lib/utils";
+import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
+import {
+  defaultBuilderConfig,
+  defaultCodeConfig,
+  type ConditionGroup,
+  type StrategyLanguage,
+} from "@/lib/custom-strategy";
+import { STRATEGY_TEMPLATES, templateById, type TemplateIconKey } from "@/lib/strategy-templates";
+import { createStrategyAdvanced } from "@/app/dashboard/strategy/actions";
+
+const TEMPLATE_ICON: Record<TemplateIconKey, Icon> = {
+  breakout: TrendUp,
+  shield: ShieldCheck,
+  lightning: Lightning,
+  trend: ChartLineUp,
+  pulse: Pulse,
+  reversion: ArrowsClockwise,
+};
+
+type StartPath = "template" | "custom";
+type CustomMode = "BUILDER" | "CODE";
+
+const ease = [0.23, 1, 0.32, 1] as const;
+
+export function NewStrategyFlow({ plan }: { plan: string }) {
+  const router = useRouter();
+  const reduce = useReducedMotion();
+  const [pending, startTransition] = useTransition();
+
+  const [path, setPath] = useState<StartPath | null>(null);
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Template path state.
+  const [templateId, setTemplateId] = useState<string | null>(null);
+
+  // Custom path state.
+  const [customMode, setCustomMode] = useState<CustomMode>("BUILDER");
+  const [instruments, setInstruments] = useState<string[]>(["NQ"]);
+  const builderDefaults = useMemo(() => defaultBuilderConfig(), []);
+  const [direction, setDirection] = useState<"LONG" | "SHORT">(builderDefaults.direction);
+  const [groups, setGroups] = useState<ConditionGroup[]>(builderDefaults.groups);
+  const codeDefaults = useMemo(() => defaultCodeConfig(), []);
+  const [language, setLanguage] = useState<StrategyLanguage>(codeDefaults.language);
+  const [code, setCode] = useState<string>(codeDefaults.code);
+  const [stopLossPct, setStopLossPct] = useState(0.5);
+  const [targetRatio, setTargetRatio] = useState(2);
+
+  const isFree = plan === "FREE";
+
+  function choosePath(next: StartPath) {
+    setError(null);
+    setPath(next);
+    // Seed a friendly default name so the user can create in one click.
+    if (next === "custom" && !name.trim()) {
+      setName(customMode === "CODE" ? "My Code Strategy" : "My Custom Signal");
+    }
+  }
+
+  function pickTemplate(id: string) {
+    setTemplateId(id);
+    const t = templateById(id);
+    // Prefill the name from the template unless the user already typed one.
+    if (t && (!name.trim() || STRATEGY_TEMPLATES.some((s) => s.name === name))) {
+      setName(t.name);
+    }
+    setError(null);
+  }
+
+  function backToStart() {
+    setPath(null);
+    setTemplateId(null);
+    setError(null);
+  }
+
+  function buildPayload(): { ok: true; kind: "ORB" | "CUSTOM"; params: Record<string, unknown> } | { ok: false; error: string } {
+    const trimmed = name.trim();
+    if (!trimmed) return { ok: false, error: "Give your strategy a name." };
+
+    if (path === "template") {
+      const t = templateId ? templateById(templateId) : undefined;
+      if (!t) return { ok: false, error: "Pick a template to continue." };
+      return { ok: true, kind: t.kind, params: t.buildParams() };
+    }
+
+    // Custom path.
+    if (instruments.length === 0) {
+      return { ok: false, error: "Add at least one asset for the strategy to watch." };
+    }
+    if (customMode === "BUILDER" && groups.every((g) => g.conditions.length === 0)) {
+      return { ok: false, error: "Add at least one entry condition." };
+    }
+    if (customMode === "CODE") {
+      if (!code.trim()) return { ok: false, error: "Write some strategy code before saving." };
+      if (language !== "javascript") {
+        return { ok: false, error: "Live execution for this language is in beta. Switch to JavaScript to save a runnable strategy." };
+      }
+    }
+
+    const params: Record<string, unknown> = {
+      ...DEFAULT_PARAMS,
+      instruments,
+      instrument: instruments[0],
+      stopLossPct,
+      targetRatio,
+      ...(customMode === "BUILDER"
+        ? { mode: "BUILDER", direction, groups }
+        : { mode: "CODE", language, code, direction: "LONG" }),
+    };
+    return { ok: true, kind: "CUSTOM", params };
+  }
+
+  function submit() {
+    const built = buildPayload();
+    if (!built.ok) {
+      setError(built.error);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await createStrategyAdvanced({ name: name.trim(), kind: built.kind, params: built.params });
+      if (!res.ok || !res.id) {
+        setError(res.error ?? "Could not create the strategy.");
+        return;
+      }
+      toast.success("Strategy created. Tune it or assign it to an account next.");
+      router.push("/dashboard/strategy");
+      router.refresh();
+    });
+  }
+
+  const stepTwoActive = path !== null;
+
+  return (
+    <div className="space-y-8">
+      <Link
+        href="/dashboard/strategy"
+        className="inline-flex items-center gap-2 text-sm font-medium text-fg-subtle hover:text-fg transition-colors"
+      >
+        <ArrowLeft size={16} /> Back to Strategies
+      </Link>
+
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-fg">Create a strategy</h1>
+          <p className="mt-1 text-sm text-fg-subtle">
+            Start from a proven template or build your own logic from scratch.
+          </p>
+        </div>
+        <Stepper active={stepTwoActive} />
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        {!stepTwoActive ? (
+          <motion.div
+            key="choose"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.24, ease }}
+            className="grid grid-cols-1 gap-5 md:grid-cols-2"
+          >
+            <PathCard
+              icon={<Stack size={22} weight="bold" />}
+              title="Start from a template"
+              desc="Pick a curated, ready-to-run strategy and tune it later. The fastest way to get going."
+              onClick={() => choosePath("template")}
+              meta={`${STRATEGY_TEMPLATES.length} templates`}
+            />
+            <PathCard
+              icon={<PencilSimpleLine size={22} weight="bold" />}
+              title="Write your own"
+              desc="Compose entry rules from live indicators with no code, or write a JavaScript strategy with full control."
+              onClick={() => choosePath("custom")}
+              meta="No-code or code"
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="configure"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.24, ease }}
+            className="space-y-8"
+          >
+            <button
+              type="button"
+              onClick={backToStart}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-subtle transition-colors hover:text-fg"
+            >
+              <ArrowLeft size={13} /> Change starting point
+            </button>
+
+            {path === "template" ? (
+              <TemplateGallery selectedId={templateId} onSelect={pickTemplate} isFree={isFree} />
+            ) : (
+              <CustomAuthor
+                customMode={customMode}
+                onModeChange={setCustomMode}
+                instruments={instruments}
+                onInstrumentsChange={setInstruments}
+                direction={direction}
+                onDirectionChange={setDirection}
+                groups={groups}
+                onGroupsChange={setGroups}
+                language={language}
+                onLanguageChange={setLanguage}
+                code={code}
+                onCodeChange={setCode}
+                stopLossPct={stopLossPct}
+                setStopLossPct={setStopLossPct}
+                targetRatio={targetRatio}
+                setTargetRatio={setTargetRatio}
+              />
+            )}
+
+            {/* Name + create */}
+            <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor="new-strategy-name">Strategy name</Label>
+                  <Input
+                    id="new-strategy-name"
+                    value={name}
+                    maxLength={60}
+                    placeholder="e.g. NQ Opening Range"
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submit();
+                    }}
+                    invalid={Boolean(error)}
+                  />
+                </div>
+                <Button onClick={submit} disabled={pending} className="px-7 sm:mb-px">
+                  <Flask size={16} weight="fill" className="mr-1" />
+                  {pending ? "Creating…" : "Create strategy"}
+                </Button>
+              </div>
+              {error && (
+                <p className="mt-3 text-xs text-negative" role="alert">
+                  {error}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Stepper({ active }: { active: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-xs font-medium">
+      <span className={cn("inline-flex items-center gap-1.5", "text-fg")}>
+        <span
+          className={cn(
+            "flex h-5 w-5 items-center justify-center rounded-[var(--radius-pill)] text-[10px] font-bold tnum",
+            active ? "bg-accent-soft text-accent" : "bg-accent text-[var(--color-on-accent)]",
+          )}
+        >
+          {active ? <Check size={11} weight="bold" /> : 1}
+        </span>
+        Start
+      </span>
+      <span className="h-px w-6 bg-line" />
+      <span className={cn("inline-flex items-center gap-1.5", active ? "text-fg" : "text-fg-faint")}>
+        <span
+          className={cn(
+            "flex h-5 w-5 items-center justify-center rounded-[var(--radius-pill)] text-[10px] font-bold tnum",
+            active ? "bg-accent text-[var(--color-on-accent)]" : "bg-surface border border-line text-fg-subtle",
+          )}
+        >
+          2
+        </span>
+        Configure
+      </span>
+    </div>
+  );
+}
+
+function PathCard({
+  icon,
+  title,
+  desc,
+  meta,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  meta: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex flex-col items-start overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated p-7 text-left transition-all hover:border-line-strong hover:-translate-y-[2px] hover:shadow-[var(--shadow-lg)]"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/[0.06] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+      <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
+        {icon}
+      </div>
+      <h2 className="relative z-10 mt-5 text-lg font-bold text-fg">{title}</h2>
+      <p className="relative z-10 mt-2 text-sm leading-relaxed text-fg-subtle">{desc}</p>
+      <div className="relative z-10 mt-5 flex w-full items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-faint">{meta}</span>
+        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent transition-transform group-hover:translate-x-0.5">
+          Continue <ArrowRight size={15} weight="bold" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function TemplateGallery({
+  selectedId,
+  onSelect,
+  isFree,
+}: {
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  isFree: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkle size={15} weight="fill" className="text-accent" />
+        <h2 className="text-sm font-semibold text-fg">Choose a template</h2>
+        <InfoTip content="Each template is a complete, runnable starting point. You can fine-tune every parameter after it is created." />
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {STRATEGY_TEMPLATES.map((t) => {
+          const TIcon = TEMPLATE_ICON[t.iconKey];
+          const active = selectedId === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onSelect(t.id)}
+              aria-pressed={active}
+              className={cn(
+                "group relative flex flex-col items-start overflow-hidden rounded-[var(--radius-card)] border p-5 text-left transition-all",
+                active
+                  ? "border-accent bg-accent/5 ring-1 ring-accent"
+                  : "border-line bg-surface hover:border-line-strong hover:-translate-y-[1px]",
+              )}
+            >
+              {active && (
+                <span className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-[var(--radius-pill)] bg-accent text-[var(--color-on-accent)]">
+                  <Check size={13} weight="bold" />
+                </span>
+              )}
+              <div className="flex items-center gap-3">
+                <div
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)]",
+                    active ? "bg-accent/20 text-accent" : "bg-elevated border border-line text-fg-subtle",
+                  )}
+                >
+                  <TIcon size={20} weight="bold" />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-[var(--radius-pill)] border border-line bg-base px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+                    {t.category}
+                  </span>
+                  {t.premium && <ProTag />}
+                </div>
+              </div>
+              <h3 className="mt-4 text-base font-bold text-fg">{t.name}</h3>
+              <p className="mt-1 text-xs font-medium text-accent/90">{t.tagline}</p>
+              <p className="mt-2.5 text-xs leading-relaxed text-fg-subtle">{t.description}</p>
+              <span className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-medium text-fg-faint">
+                {t.kind === "ORB" ? <Sliders size={12} weight="bold" /> : <Code size={12} weight="bold" />}
+                {t.kind === "ORB" ? "Opening range engine" : "Custom signal engine"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {isFree && (
+        <p className="flex items-start gap-2 rounded-[var(--radius-control)] border border-accent/20 bg-accent/5 px-3 py-2 text-xs text-fg-muted">
+          <Star size={14} weight="fill" className="mt-px shrink-0 text-accent" />
+          Pro templates are fully active on your paper account so you can test them. Live trading and the marked Pro
+          features require an upgrade.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CustomAuthor({
+  customMode,
+  onModeChange,
+  instruments,
+  onInstrumentsChange,
+  direction,
+  onDirectionChange,
+  groups,
+  onGroupsChange,
+  language,
+  onLanguageChange,
+  code,
+  onCodeChange,
+  stopLossPct,
+  setStopLossPct,
+  targetRatio,
+  setTargetRatio,
+}: {
+  customMode: CustomMode;
+  onModeChange: (m: CustomMode) => void;
+  instruments: string[];
+  onInstrumentsChange: (s: string[]) => void;
+  direction: "LONG" | "SHORT";
+  onDirectionChange: (d: "LONG" | "SHORT") => void;
+  groups: ConditionGroup[];
+  onGroupsChange: (g: ConditionGroup[]) => void;
+  language: StrategyLanguage;
+  onLanguageChange: (l: StrategyLanguage) => void;
+  code: string;
+  onCodeChange: (c: string) => void;
+  stopLossPct: number;
+  setStopLossPct: (v: number) => void;
+  targetRatio: number;
+  setTargetRatio: (v: number) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Mode toggle */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-fg">How do you want to define the entry?</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ModeCard
+            active={customMode === "BUILDER"}
+            onClick={() => onModeChange("BUILDER")}
+            icon={<Sliders size={20} weight="bold" />}
+            title="Custom signal"
+            desc="Compose entry rules from 16 live indicators with AND / OR logic. No code required."
+          />
+          <ModeCard
+            active={customMode === "CODE"}
+            onClick={() => onModeChange("CODE")}
+            icon={<Code size={20} weight="bold" />}
+            title="Custom code"
+            desc="Write your own strategy in JavaScript with full control over the entry logic."
+            badge="Runs live"
+          />
+        </div>
+      </div>
+
+      {/* Instruments */}
+      <Panel
+        title="What should this strategy watch?"
+        hint="Search any stock, ETF, index or crypto. This seeds the strategy; you can change it when you assign it to an account."
+      >
+        <AssetMultiSelect value={instruments} onChange={onInstrumentsChange} />
+      </Panel>
+
+      {/* Entry logic */}
+      <Panel
+        title={customMode === "BUILDER" ? "Entry rules" : "Strategy code"}
+        icon={customMode === "CODE" ? <Lightning size={15} className="text-accent" /> : <Sliders size={15} className="text-accent" />}
+      >
+        {customMode === "BUILDER" ? (
+          <CustomSignalBuilder
+            groups={groups}
+            onGroupsChange={onGroupsChange}
+            direction={direction}
+            onDirectionChange={onDirectionChange}
+          />
+        ) : (
+          <StrategyCodeEditor
+            language={language}
+            onLanguageChange={onLanguageChange}
+            code={code}
+            onCodeChange={onCodeChange}
+            sampleSymbol={instruments[0]}
+          />
+        )}
+      </Panel>
+
+      {/* Risk defaults */}
+      <Panel title="Risk defaults" icon={<ShieldCheck size={15} className="text-warning" />}>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label className="inline-flex items-center gap-1.5 text-xs font-medium text-fg">
+              Stop loss distance
+              <InfoTip content="How far the protective stop sits from entry, as a percentage. A tighter stop means a larger position for the same dollar risk." />
+            </label>
+            <div className="mt-1.5">
+              <ClampedNumberInput value={stopLossPct} min={0.1} max={20} onCommit={setStopLossPct} trailing="%" className="w-28 tnum" ariaLabel="Stop loss distance" />
+            </div>
+          </div>
+          <div>
+            <label className="inline-flex items-center gap-1.5 text-xs font-medium text-fg">
+              Reward to risk
+              <InfoTip content="Profit target as a multiple of the risk. 2 means the target is twice as far as the stop." />
+            </label>
+            <div className="mt-1.5">
+              <ClampedNumberInput value={targetRatio} min={0.25} max={20} onCommit={setTargetRatio} trailing="R" className="w-28 tnum" ariaLabel="Reward to risk" />
+            </div>
+          </div>
+          {customMode === "CODE" && (
+            <p className="text-[11px] leading-relaxed text-fg-faint sm:col-span-2">
+              These are the defaults. Your code can override them per signal by returning stopLossPct and targetRatio.
+            </p>
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  hint,
+  icon,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated">
+      <div className="border-b border-line bg-surface/50 px-6 py-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-fg">
+          {icon}
+          {title}
+          {hint && <InfoTip content={hint} />}
+        </h2>
+      </div>
+      <div className="p-6">{children}</div>
+    </div>
+  );
+}
+
+function ModeCard({
+  active,
+  onClick,
+  icon,
+  title,
+  desc,
+  badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  badge?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "relative flex flex-col items-start rounded-[var(--radius-control)] border p-5 text-left transition-colors",
+        active ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line bg-surface hover:border-line-strong",
+      )}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <div className={cn("rounded-[8px] p-2", active ? "bg-accent/20 text-accent" : "bg-elevated border border-line text-fg-subtle")}>
+          {icon}
+        </div>
+        <span className="font-semibold text-fg">{title}</span>
+        {badge && (
+          <span className="rounded-[var(--radius-pill)] bg-profit/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-profit">
+            {badge}
+          </span>
+        )}
+      </div>
+      <p className="text-xs leading-relaxed text-fg-subtle">{desc}</p>
+    </button>
+  );
+}
+
+function ProTag() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+      <Star size={9} weight="fill" /> Pro
+    </span>
+  );
+}
