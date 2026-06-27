@@ -1,11 +1,12 @@
 // The advanced custom-signal contract, shared by the bot builder UI and the
 // server validation + engine. A custom strategy is either:
 //   - BUILDER: grouped indicator conditions (AND across groups, ALL/ANY within),
-//   - CODE: user JavaScript (executes live) or another language (validated, beta).
+//   - CODE: user JavaScript, Python, Pine Script, or TradingView (all execute live).
 // Everything here is pure so it is unit tested and safe to import anywhere.
 
 import type { IndicatorContext } from "./engine/indicators";
 import { staticGuard } from "./engine/sandbox";
+import { transpileStrategy } from "./engine/transpile";
 
 export const MAX_INSTRUMENTS = 20;
 export const MAX_GROUPS = 5;
@@ -78,7 +79,7 @@ export type Condition = { left: IndicatorKey; op: Operator; right: Comparand };
 export type GroupJoin = "ALL" | "ANY";
 export type ConditionGroup = { join: GroupJoin; conditions: Condition[] };
 
-export type StrategyLanguage = "javascript" | "python" | "pinescript";
+export type StrategyLanguage = "javascript" | "python" | "pinescript" | "tradingview";
 
 export type BuilderConfig = {
   mode: "BUILDER";
@@ -106,6 +107,8 @@ export type LanguageMeta = {
   label: string;
   /** True when the live engine executes this language today. */
   executesLive: boolean;
+  /** True when this language requires a paid plan. */
+  pro: boolean;
   badge: string;
   template: string;
 };
@@ -125,6 +128,7 @@ function decide(ctx) {
 
 const PY_TEMPLATE = `# Return {"side": "LONG"} / {"side": "SHORT"} to enter, or None to stay flat.
 # 'ctx' exposes the same indicators as the JavaScript runtime.
+# Supported: if/elif/else, is/is not None, and/or/not, ctx["key"] or ctx.key
 
 def decide(ctx):
     if ctx["sma50"] and ctx["price"] > ctx["sma50"] and ctx["rsi14"] is not None and ctx["rsi14"] < 35:
@@ -132,18 +136,66 @@ def decide(ctx):
     return None`;
 
 const PINE_TEMPLATE = `//@version=5
-// Pine-style intent. Validated on save; maps to engine indicators.
+// Pine Script strategy. Supported: ta.sma(close,20|50|200), ta.ema(close,12|26),
+// ta.rsi(close,14), ta.atr(14), ta.crossover/crossunder, close/high/low/volume.
 strategy("My Strategy", overlay=true)
 
-longCondition = ta.crossover(close, ta.sma(close, 50)) and ta.rsi(close, 14) < 35
+fastMA = ta.sma(close, 20)
+slowMA = ta.sma(close, 50)
+myRsi = ta.rsi(close, 14)
+
+longCondition = ta.crossover(fastMA, slowMA) and myRsi < 35
+shortCondition = ta.crossunder(fastMA, slowMA)
+
 if (longCondition)
-    strategy.entry("Long", strategy.long)`;
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)`;
+
+const TV_TEMPLATE = `//@version=5
+// Paste a strategy exported from TradingView's Pine Script editor.
+// Floqex maps supported indicators to live engine data and executes the
+// entry conditions on each tick. Supported: ta.sma(close,20|50|200),
+// ta.ema(close,12|26), ta.rsi(close,N), ta.atr(N), ta.crossover/crossunder,
+// strategy.entry() with when= or if blocks. plot()/indicator()/strategy() calls
+// are ignored. open is not supported.
+strategy("SMA Crossover + RSI", overlay=true)
+
+fastMA = ta.sma(close, 20)
+slowMA = ta.sma(close, 50)
+myRsi  = ta.rsi(close, 14)
+
+longCondition  = ta.crossover(fastMA, slowMA) and myRsi < 40
+shortCondition = ta.crossunder(fastMA, slowMA)
+
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)
+
+plot(fastMA, title="Fast MA", color=color.green)
+plot(slowMA, title="Slow MA", color=color.red)`;
 
 export const LANGUAGES: LanguageMeta[] = [
-  { id: "javascript", label: "JavaScript", executesLive: true, badge: "Runs live", template: JS_TEMPLATE },
-  { id: "python", label: "Python", executesLive: false, badge: "Beta", template: PY_TEMPLATE },
-  { id: "pinescript", label: "Pine Script", executesLive: false, badge: "Beta", template: PINE_TEMPLATE },
+  { id: "javascript", label: "JavaScript", executesLive: true, pro: false, badge: "Runs live", template: JS_TEMPLATE },
+  { id: "python", label: "Python", executesLive: true, pro: true, badge: "Pro", template: PY_TEMPLATE },
+  { id: "pinescript", label: "Pine Script", executesLive: true, pro: true, badge: "Pro", template: PINE_TEMPLATE },
+  { id: "tradingview", label: "TradingView", executesLive: true, pro: true, badge: "Pro", template: TV_TEMPLATE },
 ];
+
+/** One-paragraph description of each language's supported subset. */
+export const LANGUAGE_REFERENCE: Record<StrategyLanguage, string> = {
+  javascript:
+    "Full JavaScript (ES2020 subset). Define a decide(ctx) function returning { side: \"LONG\" | \"SHORT\", stopLossPct?, targetRatio? } or null. No imports, eval, or network calls.",
+  python:
+    "Bounded Python subset: def decide(ctx):, if/elif/else, is/is not None, and/or/not, ctx[\"key\"] or ctx.key, dict return. No imports, loops, comprehensions, or f-strings.",
+  pinescript:
+    "Pine Script v5 subset: ta.sma(close,20|50|200), ta.ema(close,12|26), ta.rsi(close,N), ta.atr(N), ta.crossover/crossunder, close/high/low/volume. Define longCondition/shortCondition or use strategy.entry() with when=. open is not supported.",
+  tradingview:
+    "Paste a TradingView exported strategy. Same Pine parser as Pine Script tab. strategy()/plot()/indicator() lines are tolerated and ignored. Entry logic is extracted from longCondition/shortCondition or strategy.entry() calls.",
+};
 export function languageMeta(id: string): LanguageMeta | undefined {
   return LANGUAGES.find((l) => l.id === id);
 }
@@ -266,17 +318,15 @@ export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
     const language = languageMeta(String(o.language)) ? (o.language as StrategyLanguage) : "javascript";
     const code = typeof o.code === "string" ? o.code : "";
     if (!code.trim()) return { ok: false, error: "Write some strategy code before deploying." };
-    // Only languages the engine executes live are deployable, so a created bot
-    // always functions. Beta languages can be authored and validated, but not
-    // deployed until their runtime ships.
-    if (language !== "javascript") {
-      return {
-        ok: false,
-        error: `Live execution for ${languageMeta(language)?.label ?? language} is in beta. Switch to JavaScript to deploy this bot.`,
-      };
+    // Validate via the transpiler for all languages. For JavaScript we also run
+    // the static guard; for other languages the transpiler handles validation.
+    if (language === "javascript") {
+      const guard = staticGuard(code);
+      if (guard) return { ok: false, error: guard };
+    } else {
+      const transpileResult = transpileStrategy(language, code);
+      if (!transpileResult.ok) return { ok: false, error: transpileResult.error };
     }
-    const guard = staticGuard(code);
-    if (guard) return { ok: false, error: guard };
     return { ok: true, instruments, config: { mode: "CODE", language, code, direction, stopLossPct, targetRatio } };
   }
 

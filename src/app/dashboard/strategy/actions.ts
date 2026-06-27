@@ -160,9 +160,28 @@ export async function createStrategyAdvanced(input: {
   });
   if (!user) return { ok: false, error: "User not found" };
 
+  // Server-side pro language gate (defense in depth).
+  if (
+    kind === "CUSTOM" &&
+    (params as Record<string, unknown>).mode === "CODE" &&
+    (params as Record<string, unknown>).language !== "javascript" &&
+    user.plan === "FREE"
+  ) {
+    return { ok: false, error: "Python, Pine Script and TradingView strategies require a paid plan." };
+  }
+
   const planConfig = PLANS[user.plan as Plan];
   if (user._count.strategies >= planConfig.strategyLimit) {
     return { ok: false, error: `Your ${planConfig.name} plan is limited to ${planConfig.strategyLimit} strategy(s).` };
+  }
+
+  // Generate a webhook secret for CUSTOM CODE strategies so the TradingView
+  // webhook bridge can authenticate incoming alerts without a migration.
+  if (
+    kind === "CUSTOM" &&
+    (params as Record<string, unknown>).mode === "CODE"
+  ) {
+    (params as Record<string, unknown>).tvWebhookSecret = crypto.randomUUID();
   }
 
   const strategy = await prisma.strategy.create({

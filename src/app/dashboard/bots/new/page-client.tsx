@@ -163,10 +163,6 @@ export function BotsNewClient({
       toast.error("Write some strategy code before deploying.");
       return;
     }
-    if (strategyMode === "CODE" && language !== "javascript") {
-      toast.error("Live execution for this language is in beta. Switch to JavaScript to deploy.");
-      return;
-    }
 
     if (strategyMode === "EXISTING") {
       if (!selectedStrategyId) {
@@ -328,7 +324,7 @@ export function BotsNewClient({
               onClick={() => setStrategyMode("CODE")}
               icon={<Code size={20} weight="bold" />}
               title="Custom code"
-              desc="Write your own strategy in JS/Python/Pine Script."
+              desc="Write your own strategy in JavaScript, Python, Pine Script or TradingView."
               premium
             />
           </div>
@@ -369,7 +365,7 @@ export function BotsNewClient({
                 </div>
               ) : (
                 <div className="p-6 rounded-[var(--radius-card)] bg-surface border border-line text-center">
-                  <p className="text-sm text-fg-subtle">You don't have any existing strategies. Create one above.</p>
+                  <p className="text-sm text-fg-subtle">You don&apos;t have any existing strategies. Create one above.</p>
                 </div>
               )}
             </div>
@@ -422,6 +418,7 @@ export function BotsNewClient({
                 code={code}
                 onCodeChange={setCode}
                 sampleSymbol={instruments[0]}
+                isFree={isFree}
               />
               <CustomRiskFields
                 stopLossPct={stopLossPct}
@@ -471,7 +468,7 @@ export function BotsNewClient({
             <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
             <Button
               type="button"
-              disabled={loading || !selectedAccountId || (strategyMode === "CODE" && language !== "javascript")}
+              disabled={loading || !selectedAccountId}
               onClick={handleSubmit}
               className="px-8"
             >
