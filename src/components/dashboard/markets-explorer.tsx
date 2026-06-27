@@ -149,6 +149,7 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
   const [activeIdx, setActiveIdx] = useState(-1);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const justPickedRef = useRef(false);
+  const currentSymbolRef = useRef(initialSymbol);
   // Client-side cache so re-typing a query returns matches instantly.
   const searchCacheRef = useRef<Map<string, SymbolSuggestion[]>>(new Map());
 
@@ -181,6 +182,7 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
     if (withSpinner) setQuoteLoading(true);
     try {
       const res = await fetch(`/api/market/quote?symbol=${encodeURIComponent(sym)}`);
+      if (currentSymbolRef.current !== sym) return;
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Could not load that symbol");
@@ -188,10 +190,11 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
       setQuote(await res.json());
       setError(null);
     } catch (e) {
+      if (currentSymbolRef.current !== sym) return;
       setError((e as Error).message);
       setQuote(null);
     } finally {
-      setQuoteLoading(false);
+      if (currentSymbolRef.current === sym) setQuoteLoading(false);
     }
   }, []);
 
@@ -200,11 +203,12 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
     setActivityLoading(true);
     try {
       const res = await fetch(`/api/market/activity?symbol=${encodeURIComponent(sym)}`);
+      if (currentSymbolRef.current !== sym) return;
       if (res.ok) setActivity(await res.json());
     } catch {
       /* non-fatal: the panel falls back to its empty state */
     } finally {
-      setActivityLoading(false);
+      if (currentSymbolRef.current === sym) setActivityLoading(false);
     }
   }, []);
 
@@ -278,6 +282,7 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
     const clean = sym.trim().toUpperCase();
     if (!clean) return;
     justPickedRef.current = true;
+    currentSymbolRef.current = clean;
     // Clear stale data so the new symbol never flashes the previous one's numbers.
     setQuote(null);
     setActivity(null);
@@ -328,10 +333,8 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
     return set;
   }, [overview]);
 
-  const sortedAssets = useMemo(() => {
-    const assets = overview?.assets ?? [];
-    const filtered = marketFilter === "ALL" ? assets : assets.filter((a) => a.market === marketFilter);
-    const copy = [...filtered];
+  const rankedAssets = useMemo(() => {
+    const copy = [...(overview?.assets ?? [])];
     copy.sort((a, b) => {
       if (sort === "pnl") return b.realizedPnl - a.realizedPnl;
       if (sort === "recent") return (b.lastTradedAt ?? "").localeCompare(a.lastTradedAt ?? "");
@@ -341,7 +344,12 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
       return b.executions - a.executions || b.realizedPnl - a.realizedPnl;
     });
     return copy;
-  }, [overview, sort, marketFilter]);
+  }, [overview, sort]);
+
+  const sortedAssets = useMemo(() => {
+    if (marketFilter === "ALL") return rankedAssets;
+    return rankedAssets.filter((a) => a.market === marketFilter);
+  }, [rankedAssets, marketFilter]);
 
   return (
     <div className="space-y-6">
@@ -454,7 +462,7 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
             <ActivitySidePanel
               overview={overview}
               loading={overviewLoading}
-              assets={sortedAssets}
+              assets={rankedAssets}
               activeSymbol={symbol}
               onSelect={pick}
             />
@@ -642,7 +650,7 @@ function AssetRow({ asset, rank, onSelect }: { asset: AssetActivity; rank: numbe
 
         {/* Win rate */}
         <div className="col-span-3 hidden text-right sm:col-span-1 sm:block">
-          <p className="tnum text-sm font-semibold text-fg">{winRate !== null ? `${winRate.toFixed(0)}%` : "—"}</p>
+          <p className="tnum text-sm font-semibold text-fg">{winRate !== null ? `${winRate.toFixed(0)}%` : "N/A"}</p>
           <p className="text-[11px] text-fg-subtle">win</p>
         </div>
 
@@ -893,7 +901,7 @@ function ActivityDetail({
               value={formatUSD(activity.realizedPnl)}
               tone={activity.realizedPnl > 0 ? "profit" : activity.realizedPnl < 0 ? "negative" : "muted"}
             />
-            <Metric label="Win rate" value={winRate !== null ? `${winRate.toFixed(0)}%` : "—"} tone="muted" />
+            <Metric label="Win rate" value={winRate !== null ? `${winRate.toFixed(0)}%` : "N/A"} tone="muted" />
           </div>
 
           {/* Per-account split */}
