@@ -1,18 +1,16 @@
 import { ArcRevealHero } from "@/components/ui/arc-preloader-hero";
 import { HomeHero } from "@/components/marketing/home/home-hero";
 import { BrokerStrip } from "@/components/marketing/home/broker-strip";
-import { Workflow } from "@/components/marketing/home/workflow";
+import { PlatformDemo } from "@/components/marketing/home/platform-demo";
 import { FeatureBento } from "@/components/marketing/home/feature-bento";
+import { Workflow } from "@/components/marketing/home/workflow";
+import { StatsStrip } from "@/components/marketing/home/stats-strip";
 import { PricingSection } from "@/components/marketing/home/pricing-section";
+import { FaqSection } from "@/components/marketing/home/faq-section";
 import { ClosingCta } from "@/components/marketing/home/closing-cta";
 
 export const revalidate = 300;
 
-/**
- * Greeting words cycled by the arc-reveal curtain before the landing surface
- * appears. Same intro motion as before, new copy: a short build of the Floqex
- * workflow ending on the brand.
- */
 const introGreetings = [
   { text: "Define." },
   { text: "Backtest." },
@@ -32,9 +30,12 @@ export default function LandingPage() {
       </ArcRevealHero>
 
       <BrokerStrip />
-      <Workflow />
+      <PlatformDemo />
       <FeatureBento />
+      <Workflow />
+      <StatsStrip />
       <PricingSection />
+      <FaqSection />
       <ClosingCta />
 
       {/* Regulatory disclaimer */}

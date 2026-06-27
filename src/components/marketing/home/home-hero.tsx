@@ -3,14 +3,9 @@
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { authUrl } from "@/lib/urls";
-import { LiveInstrument } from "./live-instrument";
+import { RemotionPlayer } from "../remotion/remotion-provider";
+import { HeroSession } from "../remotion/hero-session";
 
-/**
- * Landing hero (revealed behind the arc curtain). Asymmetric split: value prop
- * and CTAs on the left, the live agent instrument on the right. One small text
- * element in the stack (the eyebrow), headline, subtext, two CTAs. Free is stated
- * directly in the primary CTA label, not as a trailing tagline.
- */
 export function HomeHero() {
   const reduce = useReducedMotion();
 
@@ -21,6 +16,7 @@ export function HomeHero() {
       transition: { staggerChildren: 0.09, delayChildren: 0.04 },
     },
   };
+  
   const item = {
     hidden: { opacity: 0, y: 18 },
     show: {
@@ -61,17 +57,18 @@ export function HomeHero() {
             variants={item}
             className="mt-6 text-balance text-5xl font-semibold leading-[1.03] tracking-tight text-fg md:text-6xl lg:text-[4.25rem]"
           >
-            Automate your edge.
+            Your rules.
             <br />
-            <span className="text-accent">Keep the control.</span>
+            Your broker.
+            <br />
+            <span className="text-accent">Running while you sleep.</span>
           </motion.h1>
 
           <motion.p
             variants={item}
             className="mt-6 max-w-md text-pretty text-lg text-fg-muted"
           >
-            Floqex turns your trading rules into bots that run at your broker,
-            with hard risk limits you set and a feed that shows every move.
+            Floqex turns trading strategies into bots that execute at your broker with hard risk limits, a transparent decision log, and one-click control.
           </motion.p>
 
           <motion.div
@@ -86,12 +83,12 @@ export function HomeHero() {
               Start free
             </Button>
             <Button
-              href="#pricing"
+              href="#demo"
               variant="secondary"
               size="lg"
               className="h-12 w-full px-7 text-[0.95rem] font-medium sm:w-auto"
             >
-              See pricing
+              Watch it work
             </Button>
           </motion.div>
         </motion.div>
@@ -102,7 +99,15 @@ export function HomeHero() {
           transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
           className="w-full"
         >
-          <LiveInstrument />
+          {/* Remotion Embed instead of static SVG */}
+          <RemotionPlayer
+            component={HeroSession}
+            durationInFrames={240}
+            fps={30}
+            compositionWidth={560}
+            compositionHeight={420}
+            className="w-full shadow-2xl"
+          />
         </motion.div>
       </div>
     </section>

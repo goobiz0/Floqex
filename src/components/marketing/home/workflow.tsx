@@ -35,7 +35,7 @@ export function Workflow() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="relative py-24 md:py-28">
+    <section className="relative bg-base py-24 md:py-28">
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="max-w-2xl">
           <h2 className="text-balance text-3xl font-semibold tracking-tight text-fg md:text-4xl">
@@ -47,37 +47,47 @@ export function Workflow() {
           </p>
         </div>
 
-        <ol className="mt-16 grid gap-6 md:grid-cols-3">
-          {steps.map((step, i) => (
-            <motion.li
-              key={step.n}
-              initial={reduce ? false : { opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{
-                duration: 0.5,
-                delay: i * 0.1,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              className="group relative flex flex-col rounded-[var(--radius-card)] border border-line bg-elevated p-7 transition-colors duration-300 hover:border-line-strong"
-            >
-              <div className="flex items-center justify-between">
-                <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
-                  <step.icon size={22} weight="fill" />
-                </span>
-                <span className="tnum text-2xl font-semibold text-fg-faint transition-colors group-hover:text-fg-subtle">
-                  {step.n}
-                </span>
-              </div>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-fg">
-                {step.title}
-              </h3>
-              <p className="mt-2.5 text-[0.95rem] leading-relaxed text-fg-muted">
-                {step.body}
-              </p>
-            </motion.li>
-          ))}
-        </ol>
+        <div className="relative mt-16">
+          {/* Connecting vertical line on desktop */}
+          <div className="absolute left-[39px] top-6 bottom-6 hidden w-px bg-line md:block" />
+          
+          <div className="grid gap-8 md:grid-cols-3 md:gap-6">
+            {steps.map((step, i) => (
+              <motion.div
+                key={step.n}
+                initial={reduce ? false : { opacity: 0, y: 22 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                transition={{
+                  duration: 0.5,
+                  delay: i * 0.1,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="group relative flex flex-col"
+              >
+                {/* Horizontal connector on desktop */}
+                <div className="absolute left-[39px] top-5 hidden h-px w-[20px] bg-line md:block" />
+                
+                <div className="relative flex flex-col rounded-[var(--radius-card)] border border-line bg-elevated p-7 transition-colors duration-300 hover:border-line-strong md:ml-[60px]">
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent">
+                      <step.icon size={22} weight="fill" />
+                    </span>
+                    <span className="tnum text-2xl font-semibold text-fg-faint transition-colors group-hover:text-fg-subtle">
+                      {step.n}
+                    </span>
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold tracking-tight text-fg">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2.5 text-[0.95rem] leading-relaxed text-fg-muted">
+                    {step.body}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
