@@ -4,7 +4,13 @@ import { decrypt } from "@/lib/crypto";
 import { executeLiveOrder, closeLivePosition } from "./live-broker";
 import { getSessionForInstrument } from "@/lib/market";
 
-export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string) {
+type ExecOpts = {
+  /** When false, this trade is itself a copy and must not be replicated again
+   *  (prevents recursion and copy chains). Defaults to true for first-party trades. */
+  replicate?: boolean;
+};
+
+export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string, opts: ExecOpts = {}) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: { connection: true },
@@ -44,7 +50,7 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     filledPrice = signal.entryPrice + slippage;
   }
 
-  return await prisma.trade.create({
+  const trade = await prisma.trade.create({
     data: {
       botId,
       accountId,
@@ -59,9 +65,23 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
       riskPct: risk.riskPct,
     }
   });
+
+  // Fan this fill out to any follower accounts (copy trading). Lazily imported
+  // to break the module cycle, and fully guarded so a copy failure never affects
+  // the master trade that just succeeded.
+  if (opts.replicate !== false) {
+    try {
+      const { replicateOpen } = await import("./copy-trading");
+      await replicateOpen(trade);
+    } catch (e) {
+      console.error("[execution-router] copy replication (open) failed", e);
+    }
+  }
+
+  return trade;
 }
 
-export async function closeTrade(tradeId: string, accountId: string, exitReason: string, exitPrice: number) {
+export async function closeTrade(tradeId: string, accountId: string, exitReason: string, exitPrice: number, opts: ExecOpts = {}) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: { connection: true },
@@ -145,6 +165,18 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
       }
     });
   });
+
+  // Mirror this exit onto any follower trades that copied it. Same recursion
+  // guard and best-effort handling as the open path; followers re-apply their
+  // own slippage to the raw market exit price.
+  if (opts.replicate !== false) {
+    try {
+      const { replicateClose } = await import("./copy-trading");
+      await replicateClose(trade, exitPrice);
+    } catch (e) {
+      console.error("[execution-router] copy replication (close) failed", e);
+    }
+  }
 
   return pnl;
 }

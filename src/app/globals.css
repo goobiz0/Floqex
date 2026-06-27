@@ -365,6 +365,20 @@
   }
 }
 
+/* Copy-trading diagram: a dashed edge whose offset animates so the stroke
+   appears to flow from master to follower (live trade replication). Only the
+   active edges carry this class; paused edges stay static. Motion-gated. */
+@keyframes copy-edge-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .copy-edge-flow {
+    animation: copy-edge-flow 0.9s linear infinite;
+  }
+}
+
 .privacy-mode .tnum {
   filter: blur(5px);
   user-select: none;

@@ -27,6 +27,7 @@ import {
   TrendDown,
   Lifebuoy,
   ShieldCheck,
+  FlowArrow,
   type Icon,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -45,6 +46,7 @@ const COMMANDS: Command[] = [
   // Navigate
   { label: "Dashboard", href: "/dashboard", icon: SquaresFour, section: "Navigate", keywords: "overview home equity widgets" },
   { label: "Bots", href: "/dashboard/bots", icon: Robot, section: "Navigate", keywords: "start stop status engine" },
+  { label: "Copy Trading", href: "/dashboard/copy-trading", icon: FlowArrow, section: "Navigate", keywords: "copy mirror master follower replicate accounts cross broker pro" },
   { label: "Strategy Hub", href: "/dashboard/strategy", icon: Flask, section: "Navigate", keywords: "parameters risk tuning lab" },
   { label: "Markets", href: "/dashboard/markets", icon: ChartLineUp, section: "Navigate", keywords: "quotes symbols search instruments price" },
   { label: "Accounts", href: "/dashboard/accounts", icon: Wallet, section: "Navigate", keywords: "broker connect balance" },
@@ -77,6 +79,7 @@ const COMMANDS: Command[] = [
   { label: "New bot", href: "/dashboard/bots/new", icon: Plus, section: "Actions", keywords: "create start deploy bot" },
   { label: "Connect a broker", href: "/dashboard/accounts/new", icon: Plug, section: "Actions", keywords: "connect broker account add new live" },
   { label: "Generate a strategy with AI", href: "/dashboard/strategy?view=builder", icon: MagicWand, section: "Actions", keywords: "ai strategy builder generate create new" },
+  { label: "Link an account (copy trading)", href: "/dashboard/copy-trading", icon: FlowArrow, section: "Actions", keywords: "copy trading mirror master follower replicate link accounts" },
   { label: "Upgrade plan", href: "/dashboard/billing", icon: Star, section: "Actions", keywords: "upgrade plan subscription pay pro elite" },
 
   // Settings

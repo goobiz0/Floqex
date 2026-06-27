@@ -30,6 +30,7 @@ import {
   CalendarBlank,
   MagnifyingGlass,
   Calculator,
+  FlowArrow,
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -37,11 +38,12 @@ import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import type { NavAccount } from "@/lib/queries";
 
-type NavItem = { href: string; label: string; icon: Icon };
+type NavItem = { href: string; label: string; icon: Icon; pro?: boolean };
 
 const NAVIGATE: NavItem[] = [
   { href: "/dashboard", label: "Main Dashboard", icon: SquaresFour },
   { href: "/dashboard/bots", label: "Bots & Automations", icon: Robot },
+  { href: "/dashboard/copy-trading", label: "Copy Trading", icon: FlowArrow, pro: true },
   { href: "/dashboard/markets", label: "Markets", icon: MagnifyingGlass },
   { href: "/dashboard/trades", label: "Trades", icon: ChartLineUp },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarBlank },
@@ -104,6 +106,10 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       <span className="relative z-10 flex-1 truncate">{item.label}</span>
       {active ? (
         <CaretRight size={14} weight="bold" className="relative z-10 shrink-0 text-fg-subtle" />
+      ) : item.pro ? (
+        <span className="relative z-10 shrink-0 rounded-[var(--radius-pill)] bg-accent-soft px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+          Pro
+        </span>
       ) : null}
     </Link>
   );

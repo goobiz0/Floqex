@@ -57,6 +57,7 @@ model User {
   strategies         Strategy[]
   dashboardTemplates DashboardTemplate[]
   mochiUsage         MochiUsage[]
+  copyLinks          CopyLink[]
 
   @@map("users")
   @@schema("public")
@@ -141,6 +142,10 @@ model Account {
   trades      Trade[]
   summaries   DailySummary[]
   agentEvents AgentEvent[]
+  // Copy trading: an account can lead one or more follower accounts (as master)
+  // and/or mirror a single master (as follower). The links carry the routing.
+  copyMasterLinks   CopyLink[] @relation("CopyMaster")
+  copyFollowerLinks CopyLink[] @relation("CopyFollower")
 
   @@index([userId])
   @@map("accounts")
@@ -410,5 +415,83 @@ model AgentEvent {
 
   @@index([accountId, ts])
   @@map("agent_events")
+  @@schema("public")
+}
+
+// ─────────────────────── Copy trading (paid) ────────────────────
+
+// How a follower's order size is derived from the master's fill. The engine
+// maps each mode to a size in src/lib/engine/copy-trading.ts.
+enum CopySizingMode {
+  MIRROR       // same size as the master order
+  MULTIPLIER   // master size * multiplier
+  PROPORTIONAL // scale by equity ratio (follower balance / master balance) * multiplier
+  FIXED        // a fixed unit size on every copied trade
+  @@schema("public")
+}
+
+enum CopyLinkStatus {
+  ACTIVE
+  PAUSED
+  @@schema("public")
+}
+
+// One master account fanning trades out to one follower account. The pair is
+// unique, so a follower mirrors at most one master per master. Cross-broker by
+// design: master and follower can sit on different brokers; the engine routes
+// each follower order through that account's own execution path.
+model CopyLink {
+  id                String         @id @default(cuid())
+  userId            String
+  masterAccountId   String
+  followerAccountId String
+  status            CopyLinkStatus @default(ACTIVE)
+  sizingMode        CopySizingMode @default(PROPORTIONAL)
+  multiplier        Decimal        @default(1) @db.Decimal(8, 4)
+  fixedUnits        Decimal?       @db.Decimal(18, 4)
+  maxRiskPct        Decimal?       @db.Decimal(6, 3) // cap risk per copied trade
+  reverse           Boolean        @default(false)   // copy the opposite direction
+  copyOpen          Boolean        @default(true)
+  copyClose         Boolean        @default(true)
+  copiedCount       Int            @default(0)
+  lastCopiedAt      DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  masterAccount   Account @relation("CopyMaster", fields: [masterAccountId], references: [id], onDelete: Cascade)
+  followerAccount Account @relation("CopyFollower", fields: [followerAccountId], references: [id], onDelete: Cascade)
+  events          CopyTradeEvent[]
+
+  @@unique([masterAccountId, followerAccountId])
+  @@index([userId])
+  @@index([masterAccountId])
+  @@index([followerAccountId])
+  @@map("copy_links")
+  @@schema("public")
+}
+
+// Audit log of every replication attempt, success or skip, so the user can see
+// exactly what mirrored where. followerTradeId ties an OPEN copy back to the
+// follower's trade row, which the CLOSE replication then resolves and closes.
+model CopyTradeEvent {
+  id              String   @id @default(cuid())
+  copyLinkId      String
+  sourceTradeId   String
+  followerTradeId String?
+  action          String   // OPEN | CLOSE
+  status          String   // FILLED | SKIPPED | FAILED
+  reason          String?
+  instrument      String
+  direction       String
+  sizeUnits       Decimal? @db.Decimal(18, 4)
+  pnl             Decimal? @db.Decimal(18, 2)
+  createdAt       DateTime @default(now())
+
+  copyLink CopyLink @relation(fields: [copyLinkId], references: [id], onDelete: Cascade)
+
+  @@index([copyLinkId, createdAt])
+  @@index([sourceTradeId])
+  @@map("copy_trade_events")
   @@schema("public")
 }

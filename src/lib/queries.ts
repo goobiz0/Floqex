@@ -3,7 +3,8 @@ import { prisma } from "./db";
 import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow } from "./metrics";
 export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
-import type { Plan } from "./plans";
+import { PLANS, type Plan } from "./plans";
+import type { CopySizingMode, CopyLinkStatus } from "./copy-trading";
 import { getMarketForInstrument, type MarketKind } from "./market";
 
 /**
@@ -851,6 +852,236 @@ export async function getBotActivityOverview(): Promise<BotActivityOverview> {
   } catch (err) {
     console.error("Error in getBotActivityOverview:", err);
     return { ...EMPTY, error: true };
+  }
+}
+
+// ─────────────────────── Copy trading (paid) ────────────────────
+
+export type CopyAccountLite = {
+  id: string;
+  nickname: string;
+  broker: string;
+  mode: string; // PAPER | LIVE
+  balance: number;
+  currency: string;
+  hasBot: boolean;
+};
+
+export type CopyLinkRow = {
+  id: string;
+  status: CopyLinkStatus;
+  sizingMode: CopySizingMode;
+  multiplier: number;
+  fixedUnits: number | null;
+  maxRiskPct: number | null;
+  reverse: boolean;
+  copyOpen: boolean;
+  copyClose: boolean;
+  copiedCount: number;
+  lastCopiedAt: string | null;
+  createdAt: string;
+  master: CopyAccountLite;
+  follower: CopyAccountLite;
+};
+
+export type CopyEventRow = {
+  id: string;
+  action: string; // OPEN | CLOSE
+  status: string; // FILLED | SKIPPED | FAILED
+  reason: string | null;
+  instrument: string;
+  direction: string;
+  sizeUnits: number | null;
+  pnl: number | null;
+  createdAt: string;
+  masterNickname: string;
+  followerNickname: string;
+};
+
+export type CopyTradingStats = {
+  activeLinks: number;
+  totalLinks: number;
+  followerAccounts: number;
+  masterAccounts: number;
+  totalCopied: number;
+  copiedToday: number;
+  realizedPnl: number;
+};
+
+export type CopyTradingData = {
+  entitled: boolean;
+  plan: Plan;
+  accounts: CopyAccountLite[];
+  links: CopyLinkRow[];
+  recentEvents: CopyEventRow[];
+  stats: CopyTradingStats;
+  error: boolean;
+};
+
+const EMPTY_COPY_TRADING: CopyTradingData = {
+  entitled: false,
+  plan: "FREE",
+  accounts: [],
+  links: [],
+  recentEvents: [],
+  stats: {
+    activeLinks: 0,
+    totalLinks: 0,
+    followerAccounts: 0,
+    masterAccounts: 0,
+    totalCopied: 0,
+    copiedToday: 0,
+    realizedPnl: 0,
+  },
+  error: false,
+};
+
+type DbCopyAccount = {
+  id: string;
+  nickname: string;
+  broker: string;
+  mode: string;
+  balance: unknown;
+  currency: string;
+  bot: { id: string } | null;
+};
+
+function serializeCopyAccount(a: DbCopyAccount): CopyAccountLite {
+  return {
+    id: a.id,
+    nickname: a.nickname,
+    broker: a.broker,
+    mode: a.mode,
+    balance: num(a.balance),
+    currency: a.currency,
+    hasBot: Boolean(a.bot),
+  };
+}
+
+/**
+ * Everything the Copy Trading view needs: the user's plan + entitlement (the
+ * page hard-blocks the surface for plans without copy trading), their accounts,
+ * the master->follower links, recent replication events, and headline stats.
+ * Defensive like the rest of this module: any failure yields composed empty
+ * states rather than a crash or fabricated numbers.
+ */
+export async function getCopyTradingData(): Promise<CopyTradingData> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY_COPY_TRADING;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: {
+        accounts: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true, nickname: true, broker: true, mode: true,
+            balance: true, currency: true, bot: { select: { id: true } },
+          },
+        },
+        copyLinks: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            masterAccount: {
+              select: {
+                id: true, nickname: true, broker: true, mode: true,
+                balance: true, currency: true, bot: { select: { id: true } },
+              },
+            },
+            followerAccount: {
+              select: {
+                id: true, nickname: true, broker: true, mode: true,
+                balance: true, currency: true, bot: { select: { id: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) return EMPTY_COPY_TRADING;
+
+    const plan = (user.plan as Plan) || "FREE";
+    const entitled = Boolean(PLANS[plan]?.copyTrading);
+    const accounts = user.accounts.map(serializeCopyAccount);
+
+    const links: CopyLinkRow[] = user.copyLinks.map((l) => ({
+      id: l.id,
+      status: l.status as CopyLinkStatus,
+      sizingMode: l.sizingMode as CopySizingMode,
+      multiplier: num(l.multiplier),
+      fixedUnits: l.fixedUnits === null ? null : num(l.fixedUnits),
+      maxRiskPct: l.maxRiskPct === null ? null : num(l.maxRiskPct),
+      reverse: l.reverse,
+      copyOpen: l.copyOpen,
+      copyClose: l.copyClose,
+      copiedCount: l.copiedCount,
+      lastCopiedAt: l.lastCopiedAt ? l.lastCopiedAt.toISOString() : null,
+      createdAt: l.createdAt.toISOString(),
+      master: serializeCopyAccount(l.masterAccount),
+      follower: serializeCopyAccount(l.followerAccount),
+    }));
+
+    // Recent replication events for the activity log, mapped back to the human
+    // account names via the links we already loaded (no extra nested include).
+    const linkMeta = new Map(links.map((l) => [l.id, { master: l.master.nickname, follower: l.follower.nickname }]));
+    const linkIds = links.map((l) => l.id);
+
+    const eventRows = linkIds.length
+      ? await prisma.copyTradeEvent.findMany({
+          where: { copyLinkId: { in: linkIds } },
+          orderBy: { createdAt: "desc" },
+          take: 40,
+        })
+      : [];
+
+    const recentEvents: CopyEventRow[] = eventRows.map((e) => {
+      const meta = linkMeta.get(e.copyLinkId);
+      return {
+        id: e.id,
+        action: e.action,
+        status: e.status,
+        reason: e.reason,
+        instrument: e.instrument,
+        direction: e.direction,
+        sizeUnits: e.sizeUnits === null ? null : num(e.sizeUnits),
+        pnl: e.pnl === null ? null : num(e.pnl),
+        createdAt: e.createdAt.toISOString(),
+        masterNickname: meta?.master ?? "Master",
+        followerNickname: meta?.follower ?? "Follower",
+      };
+    });
+
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+
+    const [copiedToday, realizedAgg] = linkIds.length
+      ? await Promise.all([
+          prisma.copyTradeEvent.count({
+            where: { copyLinkId: { in: linkIds }, action: "OPEN", status: "FILLED", createdAt: { gte: startOfToday } },
+          }),
+          prisma.copyTradeEvent.aggregate({
+            where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED" },
+            _sum: { pnl: true },
+          }),
+        ])
+      : [0, { _sum: { pnl: null } }];
+
+    const stats: CopyTradingStats = {
+      activeLinks: links.filter((l) => l.status === "ACTIVE").length,
+      totalLinks: links.length,
+      followerAccounts: new Set(links.map((l) => l.follower.id)).size,
+      masterAccounts: new Set(links.map((l) => l.master.id)).size,
+      totalCopied: links.reduce((s, l) => s + l.copiedCount, 0),
+      copiedToday,
+      realizedPnl: realizedAgg._sum.pnl === null ? 0 : num(realizedAgg._sum.pnl),
+    };
+
+    return { entitled, plan, accounts, links, recentEvents, stats, error: false };
+  } catch (err) {
+    console.error("Error in getCopyTradingData:", err);
+    return { ...EMPTY_COPY_TRADING, error: true };
   }
 }
 
