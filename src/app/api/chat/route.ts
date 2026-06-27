@@ -206,8 +206,8 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
           trades: z.number().optional().describe("Number of trades to simulate, default 100"),
           simulations: z.number().optional().describe("Number of simulated paths, default 500"),
         }),
-        execute: async (args) => monteCarlo(args),
-      }),
+        execute: async (args: any) => monteCarlo(args),
+      } as any),
       updateStrategyParams: tool({
         description: "Propose an update to the user's trading strategy parameters. The user must accept or decline.",
         // No execute: human-in-the-loop. Stays input-available until the client
