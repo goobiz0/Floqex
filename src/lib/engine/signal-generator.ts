@@ -1,7 +1,7 @@
 import { MarketData } from './market-data';
 import type { Trade } from '@prisma/client';
 import { evaluateBuilder, type ConditionGroup } from '../custom-strategy';
-import { runStrategyCode } from './sandbox';
+import { runTranspiled } from './transpile';
 import type { IndicatorContext } from './indicators';
 
 export type Signal = {
@@ -145,19 +145,19 @@ export function evaluateCustomStrategy(params: Record<string, unknown>, marketDa
   const stopLossPct = Number(params.stopLossPct) || 0.5;
   const targetRatio = Number(params.targetRatio) || 2.0;
 
-  // Code mode: run the user's sandboxed JavaScript. Beta languages do not execute
-  // live yet, so the bot simply holds flat for those until the runtime ships.
+  // Code mode: run the user's strategy via the transpiler (supports JS, Python,
+  // Pine Script, and TradingView).
   if (params.mode === 'CODE') {
-    if (params.language && params.language !== 'javascript') return null;
     const code = typeof params.code === 'string' ? params.code : '';
     if (!code.trim()) return null;
-    const run = runStrategyCode(code, ctx);
-    if (!run.ok || !run.decision) return null;
+    const language = (typeof params.language === 'string' ? params.language : 'javascript') as import('../custom-strategy').StrategyLanguage;
+    const decision = runTranspiled(language, code, ctx);
+    if (!decision) return null;
     return buildSignal(
-      run.decision.side,
+      decision.side,
       marketData.price,
-      run.decision.stopLossPct ?? stopLossPct,
-      run.decision.targetRatio ?? targetRatio,
+      decision.stopLossPct ?? stopLossPct,
+      decision.targetRatio ?? targetRatio,
     );
   }
 

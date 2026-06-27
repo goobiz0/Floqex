@@ -38,12 +38,16 @@ export function TradeChart({ data, entryTime, entryPrice, exitTime, exitPrice, d
       height: 400,
     });
 
+    const upCol = "#10b981";
+    const downCol = "#ef4444";
+    const accentCol = "#10b981";
+
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "var(--color-profit)", 
-      downColor: "var(--color-negative)",
+      upColor: upCol, 
+      downColor: downCol,
       borderVisible: false,
-      wickUpColor: "var(--color-profit)",
-      wickDownColor: "var(--color-negative)",
+      wickUpColor: upCol,
+      wickDownColor: downCol,
     });
     series.setData(data);
 
@@ -53,7 +57,7 @@ export function TradeChart({ data, entryTime, entryPrice, exitTime, exitPrice, d
       markers.push({
         time: entryTime as Time,
         position: direction === "LONG" ? 'belowBar' : 'aboveBar',
-        color: 'var(--color-accent)',
+        color: accentCol,
         shape: direction === "LONG" ? 'arrowUp' : 'arrowDown',
         text: `Entry @ ${entryPrice.toFixed(2)}`,
       });
@@ -64,7 +68,7 @@ export function TradeChart({ data, entryTime, entryPrice, exitTime, exitPrice, d
       markers.push({
         time: exitTime as Time,
         position: direction === "LONG" ? 'aboveBar' : 'belowBar',
-        color: isWin ? 'var(--color-profit)' : 'var(--color-negative)',
+        color: isWin ? upCol : downCol,
         shape: 'circle',
         text: `Exit @ ${exitPrice.toFixed(2)}`,
       });
