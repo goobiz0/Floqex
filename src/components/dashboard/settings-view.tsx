@@ -16,6 +16,7 @@ import {
   resetPaperAccount,
   deleteUserAccount,
   updateNotificationPreferences,
+  changePassword,
 } from "@/app/dashboard/settings/actions";
 import { marketingUrl } from "@/lib/urls";
 
@@ -623,7 +624,6 @@ function Threshold({
 function PasswordSettings() {
   const { user, isLoaded } = useUser();
   const hasPassword = Boolean(user?.passwordEnabled);
-  const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
@@ -632,7 +632,6 @@ function PasswordSettings() {
   const [success, setSuccess] = useState(false);
 
   async function handleSave() {
-    if (!user) return;
     setError(null);
     setSuccess(false);
     if (next.length < 8) {
@@ -645,19 +644,21 @@ function PasswordSettings() {
     }
     setSaving(true);
     try {
-      await user.updatePassword({
-        newPassword: next,
-        ...(hasPassword ? { currentPassword: current } : {}),
-        signOutOfOtherSessions: true,
-      });
-      setSuccess(true);
-      setCurrent("");
-      setNext("");
-      setConfirm("");
-      setTimeout(() => setSuccess(false), 4000);
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: { message?: string; longMessage?: string }[] };
-      setError(clerkErr?.errors?.[0]?.longMessage || clerkErr?.errors?.[0]?.message || "Could not update your password. Check your current password and try again.");
+      // Set the password server-side via the Clerk backend. No current-password
+      // challenge or reverification: the user is signed in, so they can change
+      // it freely.
+      const res = await changePassword(next);
+      if (res.ok) {
+        setSuccess(true);
+        setNext("");
+        setConfirm("");
+        await user?.reload().catch(() => {});
+        setTimeout(() => setSuccess(false), 4000);
+      } else {
+        setError(res.error ?? "Could not update your password. Please try again.");
+      }
+    } catch {
+      setError("Could not update your password. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -671,7 +672,7 @@ function PasswordSettings() {
       </div>
       <p className="mt-1 mb-5 text-sm text-fg-subtle">
         {hasPassword
-          ? "Update the password you use to sign in. Other sessions will be signed out."
+          ? "Set a new password you use to sign in. No current password needed."
           : "You signed up with a social login. Set a password to also sign in with email."}
       </p>
 
@@ -679,18 +680,6 @@ function PasswordSettings() {
         <div className="h-10 w-full animate-pulse rounded-[var(--radius-control)] bg-surface/40" />
       ) : (
         <div className="space-y-4">
-          {hasPassword && (
-            <div className="space-y-1.5">
-              <Label htmlFor="current-password">Current password</Label>
-              <Input
-                id="current-password"
-                type={show ? "text" : "password"}
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
-          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="new-password">New password</Label>
@@ -730,7 +719,7 @@ function PasswordSettings() {
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={saving || !next || !confirm || (hasPassword && !current)}
+              disabled={saving || !next || !confirm}
             >
               {saving ? "Saving…" : hasPassword ? "Update password" : "Set password"}
             </Button>

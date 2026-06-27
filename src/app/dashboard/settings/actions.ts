@@ -75,6 +75,32 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
 }
 
 /**
+ * Set the signed-in user's password directly via the Clerk backend, with no
+ * additional verification (no current-password challenge or reverification
+ * prompt). The user is already authenticated, so they may change their password
+ * freely. Validates length here and surfaces Clerk's own policy errors (e.g. a
+ * breached password) so the form can show them.
+ */
+export async function changePassword(newPassword: string): Promise<Result> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "You are not signed in." };
+
+  if (typeof newPassword !== "string" || newPassword.length < 8) {
+    return { ok: false, error: "Use at least 8 characters for your new password." };
+  }
+
+  try {
+    const client = await clerkClient();
+    await client.users.updateUser(userId, { password: newPassword });
+    return { ok: true };
+  } catch (err: unknown) {
+    const e = err as { errors?: { longMessage?: string; message?: string }[] };
+    const msg = e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message;
+    return { ok: false, error: msg || "Could not update your password. Please choose a stronger one." };
+  }
+}
+
+/**
  * Reset every paper account back to its starting state: clear trades, summaries
  * and agent events, restore the $10,000 balance, and stop the bot. Live accounts
  * are never touched.
