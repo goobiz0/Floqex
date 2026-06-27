@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { DisplayValue } from "@/components/ui/display-value";
+import { CountUp } from "@/components/ui/count-up";
 import { DashboardError } from "@/components/dashboard/states";
 import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 
@@ -449,7 +450,11 @@ export function DashboardPageClient({
               {winRate !== null && <circle cx="50" cy="50" r="40" fill="transparent" stroke={strokeColor} strokeWidth="8" strokeDasharray="251" strokeDashoffset={dashOffset} className="transition-all duration-1000 ease-out" />}
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xl font-bold text-fg-subtle tnum">{winRate !== null ? `${winRate.toFixed(1)}%` : "N/A"}</span>
+              {winRate !== null ? (
+                <CountUp value={winRate} decimals={1} suffix="%" className="text-xl font-bold text-fg-subtle tnum" />
+              ) : (
+                <span className="text-xl font-bold text-fg-subtle tnum">N/A</span>
+              )}
             </div>
           </div>
           {winRateSpark.length >= 2 && (

@@ -7,6 +7,7 @@ import {
   TreeStructure,
   Broadcast,
   Notebook,
+  ChartLineUp,
   type Icon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import { FeatureRisk } from "../remotion/feature-risk";
 import { FeatureStrategy } from "../remotion/feature-strategy";
 import { FeatureFeed } from "../remotion/feature-feed";
 import { FeatureJournal } from "../remotion/feature-journal";
+import { FeatureAnalytics } from "../remotion/feature-analytics";
 
 function CellShell({
   icon: IconCmp,
@@ -127,6 +129,23 @@ export function FeatureBento() {
             body="Each execution is logged and analysed automatically, turning your history into a record you can actually learn from."
           >
             <RemotionPlayer component={FeatureJournal} {...playerProps} />
+          </CellShell>
+
+          {/* Full-width analytics showcase */}
+          <CellShell
+            icon={ChartLineUp}
+            title="Performance you can read"
+            body="Equity, drawdown, R-multiple spread and Monte Carlo, computed from real fills. Know exactly where the edge lives and where the risk is."
+            className="lg:col-span-3"
+          >
+            <RemotionPlayer
+              component={FeatureAnalytics}
+              durationInFrames={180}
+              fps={30}
+              compositionWidth={1160}
+              compositionHeight={240}
+              className="h-full w-full rounded-none border-none"
+            />
           </CellShell>
         </motion.div>
       </div>
