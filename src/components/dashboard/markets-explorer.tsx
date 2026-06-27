@@ -15,6 +15,14 @@ import {
   Bank,
 } from "@phosphor-icons/react";
 import { cn, formatUSD } from "@/lib/utils";
+import { MarketChart } from "./market-chart";
+
+function formatCompactNumber(n: number) {
+  return Intl.NumberFormat('en-US', {
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(n);
+}
 
 type Market = "US" | "ASX" | "CRYPTO";
 
@@ -31,6 +39,11 @@ type Quote = {
   previousClose: number;
   currency: string;
   shortName: string;
+  marketCap?: number;
+  volume?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  trailingPE?: number;
 };
 
 type SymbolSuggestion = {
@@ -442,31 +455,33 @@ export function MarketsExplorer({ initialSymbol = "" }: { initialSymbol?: string
         />
       ) : (
         /* Detail: quote + per-account activity, with the list as a side panel. */
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 space-y-6">
-            <button
-              type="button"
-              onClick={clearSymbol}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-subtle transition-colors hover:text-fg"
-            >
-              <ArrowLeft size={14} />
-              All bot activity
-            </button>
+        <div className="flex flex-col gap-6">
+          <button
+            type="button"
+            onClick={clearSymbol}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-subtle transition-colors hover:text-fg self-start"
+          >
+            <ArrowLeft size={14} />
+            All bot activity
+          </button>
 
-            <QuoteCard quote={quote} loading={quoteLoading} symbol={symbol} up={up} />
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0 space-y-6">
+              <QuoteCard quote={quote} loading={quoteLoading} symbol={symbol} up={up} />
 
-            <ActivityDetail activity={activity} loading={activityLoading} instrument={quote?.instrument ?? symbol} />
+              <ActivityDetail activity={activity} loading={activityLoading} instrument={quote?.instrument ?? symbol} />
+            </div>
+
+            <aside className="lg:sticky lg:top-6 lg:self-start">
+              <ActivitySidePanel
+                overview={overview}
+                loading={overviewLoading}
+                assets={rankedAssets}
+                activeSymbol={symbol}
+                onSelect={pick}
+              />
+            </aside>
           </div>
-
-          <aside className="lg:sticky lg:top-6 lg:self-start">
-            <ActivitySidePanel
-              overview={overview}
-              loading={overviewLoading}
-              assets={rankedAssets}
-              activeSymbol={symbol}
-              onSelect={pick}
-            />
-          </aside>
         </div>
       )}
     </div>
@@ -791,8 +806,11 @@ function QuoteCard({
           </div>
           <Spinner size={20} className={cn("text-fg-subtle", loading && "animate-spin")} />
         </div>
-        <div className="grid grid-cols-3 divide-x divide-line/60">
-          {["Day high", "Day low", "Prev close"].map((l) => (
+        <div className="p-6">
+          <div className="h-[400px] w-full animate-pulse rounded bg-surface-hover/50" />
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-line/60 sm:grid-cols-4 border-t border-line/60">
+          {["Day high", "Day low", "Prev close", "Market Cap"].map((l) => (
             <div key={l} className="p-5">
               <p className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">{l}</p>
               <div className="mt-2 h-5 w-16 animate-pulse rounded bg-surface-hover" />
@@ -827,16 +845,26 @@ function QuoteCard({
             {quote.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             <span className="ml-1 text-sm font-medium text-fg-subtle">{quote.currency}</span>
           </p>
-          <p className={cn("tnum mt-2 inline-flex items-center gap-1 text-sm font-semibold", up ? "text-profit" : "text-negative")}>
+          <p className={cn("tnum mt-2 inline-flex items-center justify-end gap-1 text-sm font-semibold", up ? "text-profit" : "text-negative")}>
             {up ? <ArrowUpRight size={14} weight="bold" /> : <ArrowDownRight size={14} weight="bold" />}
             {up ? "+" : ""}{quote.change.toFixed(2)} ({quote.changePercent.toFixed(2)}%)
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-3 divide-x divide-line/60">
+      
+      <div className="p-6">
+        <MarketChart symbol={quote.symbol} />
+      </div>
+
+      <div className="grid grid-cols-2 divide-x divide-y divide-line/60 sm:grid-cols-4 border-t border-line/60">
         <Stat label="Day high" value={quote.dayHigh.toFixed(2)} />
         <Stat label="Day low" value={quote.dayLow.toFixed(2)} />
         <Stat label="Prev close" value={quote.previousClose.toFixed(2)} />
+        <Stat label="52W High" value={quote.fiftyTwoWeekHigh?.toFixed(2) || "N/A"} />
+        <Stat label="52W Low" value={quote.fiftyTwoWeekLow?.toFixed(2) || "N/A"} />
+        <Stat label="Volume" value={quote.volume ? formatCompactNumber(quote.volume) : "N/A"} />
+        <Stat label="Market Cap" value={quote.marketCap ? formatCompactNumber(quote.marketCap) : "N/A"} />
+        <Stat label="P/E Ratio" value={quote.trailingPE?.toFixed(2) || "N/A"} />
       </div>
     </div>
   );

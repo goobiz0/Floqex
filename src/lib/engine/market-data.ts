@@ -107,6 +107,11 @@ export interface QuoteSnapshot {
   currency: string;
   shortName: string;
   timestamp: Date;
+  marketCap?: number;
+  volume?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  trailingPE?: number;
 }
 
 function pruneCache<T extends { expiresAt: number }>(cache: Record<string, T>, max: number): void {
@@ -151,6 +156,11 @@ export async function getQuoteSnapshot(instrument: string): Promise<QuoteSnapsho
       currency: (q.currency as string) ?? 'USD',
       shortName: (q.shortName as string) || (q.longName as string) || symbol,
       timestamp: (q.regularMarketTime as Date) || new Date(),
+      marketCap: (q.marketCap as number) ?? undefined,
+      volume: (q.regularMarketVolume as number) ?? undefined,
+      fiftyTwoWeekHigh: (q.fiftyTwoWeekHigh as number) ?? undefined,
+      fiftyTwoWeekLow: (q.fiftyTwoWeekLow as number) ?? undefined,
+      trailingPE: (q.trailingPE as number) ?? undefined,
     };
     pruneCache(snapshotCache, SNAPSHOT_MAX);
     snapshotCache[symbol] = { data: snapshot, expiresAt: Date.now() + SNAPSHOT_TTL_MS };

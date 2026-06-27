@@ -1,4 +1,4 @@
-import { streamText, tool, convertToCoreMessages, type Message } from "ai";
+import { streamText, tool, type Message } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -128,7 +128,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
 
   const result = streamText({
     model: chatModel(),
-    messages: await convertToCoreMessages(messages),
+    messages: messages.map((m) => ({ role: m.role, content: m.content }) as any),
     system: systemPrompt,
     onFinish: ({ usage: u }) => {
       const x = u as unknown as Record<string, number | undefined>;
