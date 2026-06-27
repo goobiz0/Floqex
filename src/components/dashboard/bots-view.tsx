@@ -17,6 +17,8 @@ import {
   XCircle,
   HourglassMedium,
   ChartLineUp,
+  Warning,
+  Copy,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
@@ -24,8 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
+import { EdgeDecayChart } from "@/components/dashboard/edge-decay-chart";
 import { toggleBotStatus } from "@/app/dashboard/accounts/actions";
-import { detachBot, connectBotToAccount, deleteBot, startForwardTest, stopForwardTest } from "@/app/dashboard/bots/actions";
+import { detachBot, connectBotToAccount, deleteBot, startForwardTest, stopForwardTest, resumeEdgeDecay, updateBotEdgeDecayThreshold } from "@/app/dashboard/bots/actions";
 import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
 import type { BotRow, AvailableAccount, ForwardTestRow } from "@/lib/queries";

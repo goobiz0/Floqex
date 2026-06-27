@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 
 import { DisplayValue } from "@/components/ui/display-value";
 import { CountUp } from "@/components/ui/count-up";
+import { Sparkline } from "@/components/dashboard/charts/sparkline";
 import { DashboardError } from "@/components/dashboard/states";
 import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 
@@ -35,6 +36,8 @@ import { DrawdownWidget } from "@/components/dashboard/drawdown-widget";
 import { ProfitFactorWidget } from "@/components/dashboard/profit-factor-widget";
 import { RDistributionWidget } from "@/components/dashboard/r-distribution-widget";
 import { SessionPerformanceWidget } from "@/components/dashboard/session-performance-widget";
+import { ExposureWidget } from "@/components/dashboard/exposure-widget";
+import { CalendarPnlWidget } from "@/components/dashboard/calendar-pnl-widget";
 import { WeekdayPerformanceWidget } from "@/components/dashboard/weekday-performance-widget";
 import { RollingWinRateWidget } from "@/components/dashboard/rolling-win-rate-widget";
 import { StreakTrackerWidget } from "@/components/dashboard/streak-tracker-widget";
@@ -613,7 +616,7 @@ export function DashboardPageClient({
     }
 
     if (item.type === "drawdown") {
-      return <DrawdownWidget summaries={summaries} timeframe={item.config?.timeframe || "90"} />;
+      return <DrawdownWidget summaries={summaries} />;
     }
 
     if (item.type === "r-distribution") {

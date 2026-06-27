@@ -13,7 +13,7 @@ export const revalidate = 60; // Cache for 60 seconds
 export default async function PublicBotEmbedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
-  const bot = await prisma.bot.findUnique({
+  const bot = await prisma.bot.findFirst({
     where: { id, isPublic: true },
     include: {
       account: {

@@ -38,7 +38,7 @@ function buildPaths(series: EquityPoint[]) {
   return { line, area, min, max, last: values[values.length - 1], pts };
 }
 
-export function EquityCurve({ series, enableNews = true }: { series: EquityPoint[]; enableNews?: boolean }) {
+export function EquityCurve({ series }: { series: EquityPoint[] }) {
   const [tf, setTf] = useState<Timeframe>("3M");
   const svgRef = useRef<SVGSVGElement>(null);
   const lineRef = useRef<SVGPathElement>(null);
@@ -108,20 +108,6 @@ export function EquityCurve({ series, enableNews = true }: { series: EquityPoint
             value={tf}
             onChange={setTf}
           />
-          {enableNews && (
-            <button
-              onClick={() => setShowNews(s => !s)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                showNews
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-line bg-surface text-fg-subtle hover:text-fg hover:border-line-strong"
-              )}
-            >
-              <Newspaper size={14} />
-              News
-            </button>
-          )}
         </div>
         {data ? <span className="tnum text-xs text-fg-subtle"><DisplayValue type="BALANCE" money={data.last} /></span> : null}
       </div>

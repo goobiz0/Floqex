@@ -172,6 +172,11 @@ model Bot {
   autoAdjustmentsUsed Int       @default(0)
   // Share of the portfolio risk budget allocated to this bot (percent).
   riskWeight          Decimal?  @db.Decimal(5, 2)
+  // Edge-decay protection: pause flag + the relative win-rate drop that trips it.
+  edgeDecayPaused     Boolean   @default(false)
+  edgeDecayThreshold  Decimal?  @db.Decimal(5, 2)
+  // Public proof-of-execution embed page toggle.
+  isPublic            Boolean   @default(false)
   lastHeartbeat       DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt

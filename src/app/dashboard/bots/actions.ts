@@ -307,3 +307,54 @@ export async function stopForwardTest(ftId: string) {
     return { ok: false, error: "Failed to stop forward test." };
   }
 }
+
+/**
+ * Resume a bot that the edge-decay guard paused: clears the pause flag and
+ * restarts it. Scoped to the signed-in user's own bot.
+ */
+export async function resumeEdgeDecay(botId: string) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Not signed in" };
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findFirst({ where: { id: botId, userId: user.id }, select: { id: true } });
+    if (!bot) return { ok: false, error: "Bot not found" };
+
+    await prisma.bot.update({ where: { id: botId }, data: { edgeDecayPaused: false, status: "RUNNING" } });
+    revalidatePath("/dashboard/bots");
+    return { ok: true };
+  } catch (err) {
+    console.error("resumeEdgeDecay error", err);
+    return { ok: false, error: "Failed to resume the bot." };
+  }
+}
+
+/**
+ * Update a bot's edge-decay threshold (the relative win-rate drop that pauses it).
+ * Clamped to the UI's 0.01–1.0 range; null clears it (engine falls back to its
+ * default). Scoped to the signed-in user's own bot.
+ */
+export async function updateBotEdgeDecayThreshold(botId: string, threshold: number | null) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Not signed in" };
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findFirst({ where: { id: botId, userId: user.id }, select: { id: true } });
+    if (!bot) return { ok: false, error: "Bot not found" };
+
+    const clamped =
+      threshold == null || !Number.isFinite(threshold) ? null : Math.min(1, Math.max(0.01, threshold));
+    await prisma.bot.update({ where: { id: botId }, data: { edgeDecayThreshold: clamped } });
+    revalidatePath("/dashboard/bots");
+    return { ok: true };
+  } catch (err) {
+    console.error("updateBotEdgeDecayThreshold error", err);
+    return { ok: false, error: "Failed to update the threshold." };
+  }
+}

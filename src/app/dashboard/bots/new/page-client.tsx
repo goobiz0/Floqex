@@ -17,7 +17,7 @@ import {
   Sparkle,
   Warning,
   SealCheck,
-  FlaskFill,
+  Flask,
 } from "@phosphor-icons/react";
 import { createBot } from "../actions";
 import { toast } from "sonner";
@@ -504,7 +504,7 @@ function EdgeGate({ strategy, goingLive }: { strategy: StrategyProp; goingLive: 
         "mt-4 flex items-start gap-3 rounded-[var(--radius-control)] border p-3 text-xs",
         goingLive ? "border-warning/30 bg-warning-soft text-fg-muted" : "border-line bg-surface text-fg-muted",
       )}>
-        <FlaskFill size={16} weight="duotone" className="mt-px shrink-0 text-warning" />
+        <Flask size={16} weight="duotone" className="mt-px shrink-0 text-warning" />
         <p>
           This strategy has not been validated yet.{" "}
           {goingLive && <span className="font-medium text-fg">Before risking live capital, </span>}
