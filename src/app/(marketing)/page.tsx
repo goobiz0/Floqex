@@ -1,139 +1,60 @@
-import { ArrowRight, ChartLineUp, Flask, Notebook, ShieldCheck } from "@phosphor-icons/react/dist/ssr";
-import { Button } from "@/components/ui/button";
-import { LogoWall } from "@/components/marketing/logo-wall";
-import { authUrl } from "@/lib/urls";
-import { BentoCard } from "@/components/marketing/bento-card";
-import { HowItWorks } from "@/components/marketing/how-it-works";
-import { PricingTable } from "@/components/marketing/pricing-table";
-import { HeroClient } from "@/components/marketing/hero-client";
-import { InfrastructureVisual } from "@/components/marketing/bento-visuals/infrastructure-visual";
-import { StrategyLabVisual } from "@/components/marketing/bento-visuals/strategy-lab-visual";
-import { RiskControlVisual } from "@/components/marketing/bento-visuals/risk-control-visual";
-
 import { ArcRevealHero } from "@/components/ui/arc-preloader-hero";
+import { HomeHero } from "@/components/marketing/home/home-hero";
+import { BrokerStrip } from "@/components/marketing/home/broker-strip";
+import { Workflow } from "@/components/marketing/home/workflow";
+import { FeatureBento } from "@/components/marketing/home/feature-bento";
+import { PricingSection } from "@/components/marketing/home/pricing-section";
+import { ClosingCta } from "@/components/marketing/home/closing-cta";
 
 export const revalidate = 300;
 
+/**
+ * Greeting words cycled by the arc-reveal curtain before the landing surface
+ * appears. Same intro motion as before, new copy: a short build of the Floqex
+ * workflow ending on the brand.
+ */
+const introGreetings = [
+  { text: "Define." },
+  { text: "Backtest." },
+  { text: "Deploy." },
+  { text: "Automate." },
+  { text: "Disciplined." },
+  { text: "Relentless." },
+  { text: "In control." },
+  { text: "Floqex." },
+];
+
 export default function LandingPage() {
   return (
-    <div className="bg-base overflow-hidden selection:bg-accent/20 relative">
-
-      <ArcRevealHero storageKey="floqex-intro">
-        <HeroClient />
+    <div className="relative overflow-hidden bg-base selection:bg-accent/20">
+      <ArcRevealHero storageKey="floqex-intro" greetings={introGreetings}>
+        <HomeHero />
       </ArcRevealHero>
 
-      <LogoWall />
+      <BrokerStrip />
+      <Workflow />
+      <FeatureBento />
+      <PricingSection />
+      <ClosingCta />
 
-      <HowItWorks />
-
-      {/* Bento Grid Features */}
-      <section id="features" className="py-24 relative">
-        <div className="absolute inset-0 bg-base border-y border-line" />
-        <div className="mx-auto max-w-[1200px] px-6 relative z-10">
-          <div className="max-w-2xl mb-16">
-            <h2 className="text-3xl font-semibold tracking-tight text-fg md:text-4xl mb-4">
-              Everything you need to scale.
-            </h2>
-            <p className="text-lg text-fg-muted">
-              We abstracted away the complex engineering so you can focus entirely on your trading edge.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
-              <InfrastructureVisual />
-              <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center border border-accent/20">
-                  <ChartLineUp size={20} className="text-accent" weight="fill" />
-                </div>
-              </div>
-              <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
-                  Low-latency execution.
-                </h3>
-                <p className="text-fg-muted text-[15px] leading-relaxed">
-                  Our engine processes market data and executes orders in milliseconds, directly at the broker level for zero slippage.
-                </p>
-              </div>
-            </BentoCard>
-
-            <BentoCard className="min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
-              <StrategyLabVisual />
-              <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center border border-accent/20">
-                  <Flask size={20} className="text-accent" weight="fill" />
-                </div>
-              </div>
-              <div className="mt-auto relative z-10">
-                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
-                  Tune instantly.
-                </h3>
-                <p className="text-fg-muted text-[15px] leading-relaxed">
-                  Visual node-based backtesting without a single line of code.
-                </p>
-              </div>
-            </BentoCard>
-
-            <BentoCard className="min-h-[320px] group" innerClassName="bg-surface border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
-              <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft shadow-[var(--shadow-sm)] flex items-center justify-center border border-accent/20">
-                  <Notebook size={20} className="text-accent" weight="fill" />
-                </div>
-              </div>
-              <div className="mt-auto relative z-10">
-                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
-                  Automated records.
-                </h3>
-                <p className="text-fg-muted text-[15px] leading-relaxed">
-                  Every execution is logged and analyzed automatically.
-                </p>
-              </div>
-            </BentoCard>
-
-            <BentoCard className="md:col-span-2 min-h-[320px] group" innerClassName="bg-base border border-line shadow-[var(--shadow-sm)] p-10 flex flex-col justify-between rounded-[var(--radius-card)] transition-colors duration-300 hover:border-line-strong">
-              <RiskControlVisual />
-              <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft flex items-center justify-center border border-accent/20">
-                  <ShieldCheck size={20} className="text-accent" weight="fill" />
-                </div>
-              </div>
-              <div className="mt-auto max-w-sm relative z-10">
-                <h3 className="text-xl font-semibold tracking-tight mb-2 text-fg">
-                  Hard limits that actually work.
-                </h3>
-                <p className="text-fg-muted text-[15px] leading-relaxed">
-                  Set daily drawdown limits and max position sizing. Our engine enforces them at the broker level, keeping your capital safe.
-                </p>
-              </div>
-            </BentoCard>
-          </div>
-        </div>
-      </section>
-
-      <PricingTable />
-
-      {/* CTA */}
-      <section className="py-32 relative overflow-hidden bg-elevated border-t border-line">
-        <div className="relative z-10 mx-auto max-w-3xl text-center px-6">
-          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-fg mb-6">
-            Ready to trade?
-          </h2>
-          <Button href={authUrl("/sign-up")} size="lg" className="rounded-[var(--radius-control)] h-12 px-8 text-[15px] font-semibold">
-            Open your account
-            <ArrowRight size={18} weight="bold" className="ml-2" />
-          </Button>
-        </div>
-      </section>
-
-      {/* Regulatory Disclaimer */}
-      <section className="bg-base border-t border-line py-12 relative z-10">
+      {/* Regulatory disclaimer */}
+      <section className="border-t border-line bg-base py-12">
         <div className="mx-auto max-w-[1200px] px-6 text-center">
-          <p className="max-w-4xl mx-auto text-xs leading-relaxed text-fg-muted/80">
-            <strong className="font-semibold text-fg-subtle">Risk Warning:</strong> Trading involves a high level of risk and may not be suitable for all investors. 
-            The high degree of leverage can work against you as well as for you. Before deciding to trade, you should carefully consider your investment objectives, 
-            level of experience, and risk appetite. Past performance is not indicative of future results. Any simulated or hypothetical performance results shown 
-            on this website are for illustrative purposes only and do not represent actual live trading. The results do not promise or guarantee any specific outcome 
-            or profit. You should be aware of all the risks associated with trading and seek advice from an independent financial advisor if you have any doubts.
+          <p className="mx-auto max-w-4xl text-xs leading-relaxed text-fg-muted/80">
+            <strong className="font-semibold text-fg-subtle">
+              Risk warning:
+            </strong>{" "}
+            Trading involves a high level of risk and may not be suitable for all
+            investors. The high degree of leverage can work against you as well
+            as for you. Before deciding to trade, you should carefully consider
+            your investment objectives, level of experience, and risk appetite.
+            Past performance is not indicative of future results. Any simulated
+            or hypothetical performance results shown on this website are for
+            illustrative purposes only and do not represent actual live trading.
+            The results do not promise or guarantee any specific outcome or
+            profit. You should be aware of all the risks associated with trading
+            and seek advice from an independent financial advisor if you have any
+            doubts.
           </p>
         </div>
       </section>
