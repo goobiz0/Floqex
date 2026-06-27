@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { summaryMetrics } from "@/lib/metrics";
 import { parseStrategyParams, coerceStrategyParams, applyRawParam, DEFAULT_PARAMS, type StrategyParams } from "@/lib/strategy-schema";
+import { parseCustomConfig } from "@/lib/custom-strategy";
 import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
@@ -105,6 +106,69 @@ export async function createStrategy(name: string): Promise<{ ok: boolean; id?: 
       name: trimmed,
       kind: "ORB",
       params: DEFAULT_PARAMS as unknown as Prisma.InputJsonValue,
+    },
+  });
+
+  revalidatePath("/dashboard/strategy");
+  return { ok: true, id: strategy.id };
+}
+
+/**
+ * Create a strategy from the advanced "New strategy" flow: either a template
+ * (ORB or a no-code custom signal) or a strategy the user authored themselves
+ * (custom signal builder or live JavaScript). Validates the risk bounds AND the
+ * custom-signal contract server-side so a crafted request can never widen the
+ * engine's safety envelope, then persists a botless strategy the user can attach
+ * to an account later. Returns the new id for deep-linking.
+ */
+export async function createStrategyAdvanced(input: {
+  name: string;
+  kind: "ORB" | "CUSTOM";
+  params: Record<string, unknown>;
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const trimmed = (input?.name ?? "").trim();
+  if (!trimmed) return { ok: false, error: "Give your strategy a name." };
+  if (trimmed.length > 60) return { ok: false, error: "Keep the name under 60 characters." };
+
+  const kind = input.kind === "CUSTOM" ? "CUSTOM" : "ORB";
+
+  // Validate the risk parameters against their hard bounds for both kinds.
+  const risk = parseStrategyParams(input.params ?? {});
+  if (!risk.ok) return { ok: false, error: risk.error };
+
+  let params: Record<string, unknown> = { ...risk.params };
+
+  if (kind === "CUSTOM") {
+    // Validate the entry logic (builder groups or live code) and instruments.
+    const custom = parseCustomConfig(input.params ?? {});
+    if (!custom.ok) return { ok: false, error: custom.error };
+    params = {
+      ...risk.params,
+      instruments: custom.instruments,
+      instrument: custom.instruments[0],
+      ...custom.config,
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, _count: { select: { strategies: true } } },
+  });
+  if (!user) return { ok: false, error: "User not found" };
+
+  if (user._count.strategies >= 50) {
+    return { ok: false, error: "You have reached the maximum number of strategies." };
+  }
+
+  const strategy = await prisma.strategy.create({
+    data: {
+      userId: user.id,
+      name: trimmed,
+      kind,
+      params: params as unknown as Prisma.InputJsonValue,
     },
   });
 

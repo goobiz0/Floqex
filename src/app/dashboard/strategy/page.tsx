@@ -8,10 +8,11 @@ import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
 import { DashboardError } from "@/components/dashboard/states";
 import Link from "next/link";
-import { Robot, Flask, MagicWand, ArrowLeft } from "@phosphor-icons/react/dist/ssr";
+import { Robot, Flask, MagicWand, ArrowLeft, Plus } from "@phosphor-icons/react/dist/ssr";
 import AIStrategyBuilder from "@/components/dashboard/ai-strategy-builder";
 import { StrategyDeleteButton } from "@/components/dashboard/strategy-delete-button";
 import { NewStrategyButton } from "@/components/dashboard/new-strategy-button";
+import { NewStrategyFlow } from "@/components/dashboard/new-strategy-flow";
 
 export const metadata: Metadata = { title: "Strategy Management" };
 
@@ -19,6 +20,19 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
   const searchParams = await props.searchParams;
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
+
+  // If view is 'new', render the full strategy creation flow (template vs. own).
+  if (searchParams.view === 'new') {
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { plan: true },
+    });
+    return (
+      <div className="max-w-5xl mx-auto p-6 lg:p-10">
+        <NewStrategyFlow plan={user?.plan ?? "FREE"} />
+      </div>
+    );
+  }
 
   // If view is 'builder', render the AI builder
   if (searchParams.view === 'builder') {
@@ -156,12 +170,18 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             </div>
             <h3 className="text-lg font-bold text-fg mb-2">No strategies defined</h3>
             <p className="text-sm text-fg-subtle text-center max-w-md mb-6">
-              You haven&apos;t created any trading algorithms yet. Use our AI builder to instantly generate a strategy based on your criteria.
+              You haven&apos;t created any trading algorithms yet. Start from a curated template, write your own logic, or let AI draft one for you.
             </p>
-            <Link href="/dashboard/strategy?view=builder" className="relative group inline-flex items-center gap-2 px-6 py-3 bg-accent border border-accent/50 rounded-[var(--radius-pill)] text-sm font-bold text-base transition-all hover:shadow-[0_0_30px_rgba(var(--color-accent-rgb),0.4)] hover:-translate-y-[1px]">
-              <MagicWand size={18} weight="fill" className="text-base" />
-              Generate with AI
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <Link href="/dashboard/strategy?view=new" className="relative group inline-flex items-center gap-2 px-6 py-3 bg-accent border border-accent/50 rounded-[var(--radius-pill)] text-sm font-bold text-base transition-all hover:shadow-[0_0_30px_rgba(var(--color-accent-rgb),0.4)] hover:-translate-y-[1px]">
+                <Plus size={18} weight="bold" className="text-base" />
+                Create a strategy
+              </Link>
+              <Link href="/dashboard/strategy?view=builder" className="inline-flex items-center gap-2 px-6 py-3 bg-surface border border-line rounded-[var(--radius-pill)] text-sm font-semibold text-fg transition-all hover:border-line-strong hover:-translate-y-[1px]">
+                <MagicWand size={18} weight="fill" className="text-accent" />
+                Generate with AI
+              </Link>
+            </div>
           </div>
         )}
       </div>
