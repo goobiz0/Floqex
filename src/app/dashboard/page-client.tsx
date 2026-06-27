@@ -567,8 +567,8 @@ export function DashboardPageClient({
         <div className="relative flex h-full w-full flex-col p-5">
           <div className="flex items-center gap-2 mb-4"><ArrowUpRight size={16} className="text-accent" /><h3 className="text-xs font-medium text-fg">Quick Actions</h3></div>
           <div className="mt-auto grid grid-cols-2 gap-2 h-full">
-            <Link href="/dashboard/bots/new" className="flex flex-col items-center justify-center gap-1 rounded-md bg-surface text-[10px] text-fg-subtle hover:bg-surface-hover border border-line"><Robot size={16} />New Bot</Link>
-            <Link href="/dashboard/accounts/new" className="flex flex-col items-center justify-center gap-1 rounded-md bg-surface text-[10px] text-fg-subtle hover:bg-surface-hover border border-line"><Plug size={16} />Broker</Link>
+            <Link href="/dashboard/bots/new" className="flex flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-surface text-[10px] text-fg-subtle hover:bg-surface-hover border border-line"><Robot size={16} />New Bot</Link>
+            <Link href="/dashboard/accounts/new" className="flex flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-surface text-[10px] text-fg-subtle hover:bg-surface-hover border border-line"><Plug size={16} />Broker</Link>
           </div>
         </div>
       );
