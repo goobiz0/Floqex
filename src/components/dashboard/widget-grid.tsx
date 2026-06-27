@@ -7,8 +7,7 @@ import "react-resizable/css/styles.css";
 import { Plus, Gear, X, Info, DotsSixVertical } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
-import { MarketSessionsWidget } from "./market-sessions-widget";
-import { TopMoversWidget } from "./top-movers-widget";
+import { WidgetBoundary } from "./widget-boundary";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -51,6 +50,11 @@ export const WIDGET_DIMENSIONS: Record<string, { minW: number; minH: number; max
   "streak-heatmap": { minW: 4, minH: 3, maxW: 12, maxH: 6 },
   "live-tape": { minW: 3, minH: 4, maxW: 8, maxH: 12 },
   "risk-matrix": { minW: 3, minH: 3, maxW: 6, maxH: 8 },
+  "drawdown": { minW: 4, minH: 3, maxW: 12, maxH: 6 },
+  "r-distribution": { minW: 3, minH: 4, maxW: 8, maxH: 6 },
+  "session-performance": { minW: 3, minH: 4, maxW: 8, maxH: 6 },
+  "exposure": { minW: 2, minH: 3, maxW: 4, maxH: 4 },
+  "calendar-pnl": { minW: 3, minH: 4, maxW: 6, maxH: 6 },
 };
 
 // Which widgets expose real, working settings. The gear/settings button is only
@@ -63,6 +67,8 @@ export const WIDGET_CONFIGURABLE: Record<string, boolean> = {
   "streak-heatmap": true,
   "live-tape": true,
   "risk-matrix": true,
+  "drawdown": true,
+  "asset-pnl": true,
 };
 
 // The authored grid is 12 columns and is treated as "desktop". Because the
@@ -255,7 +261,7 @@ export function WidgetGrid({
               isEditMode && isDesktop && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow"
             )}>
               <div className="flex-1 overflow-hidden pointer-events-auto">
-                {renderWidget(item)}
+                <WidgetBoundary>{renderWidget(item)}</WidgetBoundary>
               </div>
 
               {/* Edit Mode Overlays */}

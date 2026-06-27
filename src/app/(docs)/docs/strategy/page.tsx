@@ -47,7 +47,7 @@ export default function StrategyPage() {
           <div className="space-y-4">
             <h3 className="font-medium text-accent flex items-center gap-2"><ChartLineUp size={20} /> 1. The Opening Range</h3>
             <p className="text-sm text-fg-muted leading-relaxed">
-              The engine marks the highest high and the lowest low of the first 15 minutes of the session (e.g., 09:30 - 09:45 EST for NY). This establishes the "range". 
+              The engine marks the highest high and the lowest low of the first 15 minutes of the session (e.g., 09:30 - 09:45 EST for NY). This establishes the &quot;range&quot;.
               If this range is extremely tight or unusually massive (outside of a 0.3x to 3x multiplier of the historical typical range), the bot will skip trading that instrument for the session to avoid chop or outlier volatility.
             </p>
           </div>
@@ -90,7 +90,7 @@ export default function StrategyPage() {
         <h2 className="text-2xl font-semibold text-fg">News Blackouts</h2>
         <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
           <p className="text-sm text-fg-muted leading-relaxed mb-4">
-            Floqex integrates with ForexFactory's weekly calendar to ingest high-impact economic data releases (e.g., CPI, FOMC, NFP).
+            Floqex integrates with ForexFactory&apos;s weekly calendar to ingest high-impact economic data releases (e.g., CPI, FOMC, NFP).
           </p>
           <ul className="space-y-2 text-sm text-fg-subtle">
             <li><span className="text-fg font-medium">Pre-news filter:</span> No new entries are allowed 15 minutes prior to and 15 minutes after a high-impact USD news event.</li>

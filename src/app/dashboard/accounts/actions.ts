@@ -9,6 +9,7 @@ import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
 import { encrypt } from "@/lib/crypto";
 import { getMarketForInstrument, marketLabel, isInstrumentTradeable } from "@/lib/market";
 import { hasLiveAdapter } from "@/lib/engine/live-broker";
+import { isBrokerLive } from "@/lib/brokers";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
 
 export async function connectAccount({
@@ -31,6 +32,12 @@ export async function connectAccount({
     if (!user) return { ok: false, error: "Not signed in" };
 
     const planConfig = PLANS[user.plan as Plan];
+
+    // Defense in depth: the picker disables coming-soon brokers, but a crafted
+    // request must not be able to create an account for one either.
+    if (!isBrokerLive(broker)) {
+      return { ok: false, error: `${broker} live routing is coming soon.` };
+    }
 
     if (mode === "LIVE" && !planConfig.liveTrading) {
       return { ok: false, error: "Upgrade to Trader or Pro to connect a Live account." };

@@ -3,25 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { Plug, Key, ShieldCheck, CheckCircle, WarningCircle, CaretLeft } from "@phosphor-icons/react/dist/ssr";
+import { Plug, ShieldCheck, WarningCircle, CaretLeft } from "@phosphor-icons/react/dist/ssr";
 import { connectAccount } from "../actions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { Broker, AccountMode } from "@prisma/client";
-
-const BROKERS: { id: Broker; name: string; type: "CRYPTO" | "TRADFI" | "FOREX" | "SIMULATION", requiresKeys: boolean }[] = [
-  { id: "PAPER", name: "Floqex Simulator", type: "SIMULATION", requiresKeys: false },
-  { id: "ALPACA", name: "Alpaca", type: "TRADFI", requiresKeys: true },
-  { id: "OANDA", name: "Oanda", type: "FOREX", requiresKeys: true },
-  { id: "IBKR", name: "Interactive Brokers", type: "TRADFI", requiresKeys: true },
-  { id: "TRADOVATE", name: "Tradovate", type: "TRADFI", requiresKeys: true },
-  { id: "SCHWAB", name: "Charles Schwab", type: "TRADFI", requiresKeys: true },
-  { id: "COINBASE", name: "Coinbase Advanced", type: "CRYPTO", requiresKeys: true },
-  { id: "BINANCE", name: "Binance", type: "CRYPTO", requiresKeys: true },
-  { id: "KRAKEN", name: "Kraken", type: "CRYPTO", requiresKeys: true },
-];
+import { BROKERS } from "@/lib/brokers";
 
 export function AccountsNewClient({ plan }: { plan: string }) {
   const router = useRouter();
@@ -35,9 +24,24 @@ export function AccountsNewClient({ plan }: { plan: string }) {
 
   const brokerData = BROKERS.find(b => b.id === selectedBroker);
 
+  // Switch (or clear) the selected broker, resetting broker-specific form state so
+  // a nickname or API credentials never carry over from a previously picked broker.
+  function selectBroker(broker: Broker | null) {
+    setSelectedBroker(broker);
+    setMode("PAPER");
+    setNickname("");
+    setApiKey("");
+    setApiSecret("");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedBroker || !brokerData) return;
+
+    if (brokerData.status === "coming-soon") {
+      toast.error(`${brokerData.name} live routing is coming soon.`);
+      return;
+    }
 
     if (brokerData.requiresKeys && (!apiKey || !apiSecret)) {
       toast.error("API keys are required for live brokers.");
@@ -72,7 +76,7 @@ export function AccountsNewClient({ plan }: { plan: string }) {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
         <button 
-          onClick={() => setSelectedBroker(null)}
+          onClick={() => selectBroker(null)}
           className="flex items-center gap-2 text-sm font-medium text-fg-subtle hover:text-fg transition-colors mb-6"
         >
           <CaretLeft size={16} /> Back to broker list
@@ -176,7 +180,7 @@ export function AccountsNewClient({ plan }: { plan: string }) {
           </div>
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setSelectedBroker(null)}>
+            <Button type="button" variant="secondary" onClick={() => selectBroker(null)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading || (mode === "LIVE" && plan === "FREE")}>
@@ -190,26 +194,50 @@ export function AccountsNewClient({ plan }: { plan: string }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {BROKERS.map((broker) => (
-        <button
-          key={broker.id}
-          onClick={() => setSelectedBroker(broker.id)}
-          className="group flex flex-col items-start rounded-[var(--radius-card)] border border-line bg-elevated p-6 text-left transition-all hover:-translate-y-1 hover:shadow-md hover:border-accent"
-        >
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface transition-colors group-hover:bg-accent group-hover:border-accent/30 group-hover:text-[var(--color-on-accent)] text-fg">
-            <Plug size={24} />
-          </div>
-          <h3 className="text-[15px] font-semibold text-fg">{broker.name}</h3>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-fg-faint">
-              {broker.type}
-            </span>
-          </div>
-          <p className="mt-3 text-xs text-fg-subtle">
-            {broker.requiresKeys ? "Connect via API Keys" : "Instantly provisioned simulator"}
-          </p>
-        </button>
-      ))}
+      {BROKERS.map((broker) => {
+        const comingSoon = broker.status === "coming-soon";
+        return (
+          <button
+            key={broker.id}
+            onClick={() => !comingSoon && selectBroker(broker.id)}
+            disabled={comingSoon}
+            aria-disabled={comingSoon}
+            className={cn(
+              "group flex flex-col items-start rounded-[var(--radius-card)] border border-line bg-elevated p-6 text-left transition-all",
+              comingSoon
+                ? "cursor-not-allowed opacity-60"
+                : "hover:-translate-y-1 hover:border-accent hover:shadow-md",
+            )}
+          >
+            <div className={cn(
+              "mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-fg transition-colors",
+              !comingSoon && "group-hover:border-accent/30 group-hover:bg-accent group-hover:text-[var(--color-on-accent)]",
+            )}>
+              <Plug size={24} />
+            </div>
+            <div className="flex w-full items-center justify-between gap-2">
+              <h3 className="text-[15px] font-semibold text-fg">{broker.name}</h3>
+              {comingSoon && (
+                <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+                  Coming soon
+                </span>
+              )}
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-faint">
+                {broker.type}
+              </span>
+            </div>
+            <p className="mt-3 text-xs text-fg-subtle">
+              {comingSoon
+                ? "Live routing in progress"
+                : broker.requiresKeys
+                  ? "Connect via API Keys"
+                  : "Instantly provisioned simulator"}
+            </p>
+          </button>
+        );
+      })}
     </div>
   );
 }

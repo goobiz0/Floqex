@@ -6,6 +6,9 @@ import type { PlayerProps } from "@remotion/player";
 import { useInView } from "motion/react";
 import { cn } from "@/lib/utils";
 
+// Remotion's Player is generic over the composition's props; these wrappers are
+// composition-agnostic, so the generics are intentionally unconstrained.
+/* eslint-disable @typescript-eslint/no-explicit-any -- Remotion Player generics */
 // Dynamically import Player to avoid SSR
 const Player = dynamic(
   () => import("@remotion/player").then((mod) => mod.Player),
@@ -19,6 +22,7 @@ export function RemotionPlayer({
   controls = false,
   ...props
 }: PlayerProps<any, any> & { className?: string }) {
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const containerRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(containerRef, { once: true, margin: "600px" });
 

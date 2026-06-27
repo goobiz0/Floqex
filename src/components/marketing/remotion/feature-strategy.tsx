@@ -1,9 +1,20 @@
 "use client";
 
 import { useCurrentFrame, interpolate, Easing, AbsoluteFill, spring } from "remotion";
+import type { ReactNode, CSSProperties } from "react";
 import { COLORS, RADIUS } from "./shared";
 
-const Block = ({ children, style, accentLeft = false, isAction = false }: any) => (
+const Block = ({
+  children,
+  style,
+  accentLeft = false,
+  isAction = false,
+}: {
+  children?: ReactNode;
+  style?: CSSProperties;
+  accentLeft?: boolean;
+  isAction?: boolean;
+}) => (
   <div
     style={{
       backgroundColor: isAction ? COLORS.accentSoft : "rgba(28, 28, 32, 0.8)",

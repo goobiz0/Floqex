@@ -12,33 +12,31 @@ export function MarketChart({ symbol }: { symbol: string }) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
-    setData(null);
 
-    fetch(`/api/market/history?symbol=${encodeURIComponent(symbol)}&days=180`)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Could not load historical data");
-        }
+    (async () => {
+      setLoading(true);
+      setError(null);
+      setData(null);
+      try {
+        const res = await fetch(`/api/market/history?symbol=${encodeURIComponent(symbol)}&days=180`);
+        if (!res.ok) throw new Error("Could not load historical data");
         const json = await res.json();
-        if (active) {
-          const bars: CandlestickData[] = (json.bars || []).map((b: any) => ({
-            time: b.date as Time,
-            open: b.open,
-            high: b.high,
-            low: b.low,
-            close: b.close,
-          }));
-          setData(bars.sort((a, b) => new Date(a.time as string).getTime() - new Date(b.time as string).getTime()));
-        }
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      })
-      .finally(() => {
+        if (!active) return;
+        type HistoryBar = { date: string; open: number; high: number; low: number; close: number };
+        const bars: CandlestickData[] = ((json.bars || []) as HistoryBar[]).map((b) => ({
+          time: b.date as Time,
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+        }));
+        setData(bars.sort((a, b) => new Date(a.time as string).getTime() - new Date(b.time as string).getTime()));
+      } catch (e) {
+        if (active) setError((e as Error).message);
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       active = false;

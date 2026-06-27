@@ -2,71 +2,95 @@
 
 import { useMemo } from "react";
 import { CalendarBlank } from "@phosphor-icons/react/dist/ssr";
-import { cn } from "@/lib/utils";
+import { cn, formatUSD } from "@/lib/utils";
+import type { DailyRow } from "@/lib/queries";
 
-export function StreakHeatmapWidget({ timeframe = "90" }: { timeframe?: string }) {
-  const days = parseInt(timeframe, 10);
-  
-  // Generate mock data for the heatmap
-  const data = useMemo(() => {
-    const arr = [];
+// Real daily P&L consistency grid. Each cell is one calendar day over the
+// lookback, coloured by that day's net P&L from the account's daily summaries.
+// Weekends (no session) render dimmed and neutral. No fabricated data.
+export function StreakHeatmapWidget({
+  timeframe = "90",
+  summaries = [],
+}: {
+  timeframe?: string;
+  summaries?: DailyRow[];
+}) {
+  const days = parseInt(timeframe, 10) || 90;
+
+  const byDate = useMemo(() => {
+    const m = new Map<string, DailyRow>();
+    for (const s of summaries) m.set(s.date, s);
+    return m;
+  }, [summaries]);
+
+  const cells = useMemo(() => {
+    // Magnitude scale relative to the largest absolute day in the window so the
+    // intensity is meaningful for both a $50 scalper and a $5k swing account.
+    const arr: { date: string; pnl: number | null; count: number; isWeekend: boolean }[] = [];
     const now = new Date();
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      
-      // Weekends have no trading data
-      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-      let val = 0;
-      if (!isWeekend) {
-        // Randomly assign win/loss/neutral
-        const r = Math.random();
-        if (r > 0.4) val = Math.ceil(Math.random() * 3); // Win (1 to 3 intensity)
-        else if (r > 0.2) val = -Math.ceil(Math.random() * 2); // Loss (-1 to -2 intensity)
-        // else 0 (neutral)
-      }
-      
-      arr.push({ date: d, val, isWeekend });
+      d.setUTCDate(d.getUTCDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const day = d.getUTCDay();
+      const row = byDate.get(key);
+      arr.push({
+        date: key,
+        pnl: row ? row.netPnl : null,
+        count: row ? row.tradeCount : 0,
+        isWeekend: day === 0 || day === 6,
+      });
     }
     return arr;
-  }, [days]);
+  }, [days, byDate]);
+
+  const maxAbs = useMemo(() => {
+    let max = 0;
+    for (const c of cells) if (c.pnl != null) max = Math.max(max, Math.abs(c.pnl));
+    return max;
+  }, [cells]);
+
+  const hasData = summaries.length > 0;
+
+  function colorFor(pnl: number | null): string {
+    if (pnl == null || pnl === 0 || maxAbs === 0) return "bg-surface";
+    const intensity = Math.min(1, Math.abs(pnl) / maxAbs);
+    if (pnl > 0) return intensity > 0.66 ? "bg-profit" : intensity > 0.33 ? "bg-profit/70" : "bg-profit/40";
+    return intensity > 0.5 ? "bg-negative/80" : "bg-negative/50";
+  }
 
   return (
     <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3 shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
           <CalendarBlank size={16} weight="duotone" className="text-accent" />
           <h3 className="text-[13px] font-semibold tracking-wide">Trading Streak</h3>
         </div>
         <span className="text-xs text-fg-subtle">{days} Days</span>
       </div>
-      
-      <div className="flex-1 p-4 flex flex-col justify-center items-center overflow-hidden">
-        <div className="flex flex-wrap gap-1 justify-center content-center h-full w-full max-w-[400px]">
-          {data.map((d, i) => {
-            let color = "bg-surface"; // neutral/weekend
-            if (d.val > 0) {
-              if (d.val === 1) color = "bg-profit/40";
-              else if (d.val === 2) color = "bg-profit/70";
-              else color = "bg-profit";
-            } else if (d.val < 0) {
-              if (d.val === -1) color = "bg-negative/50";
-              else color = "bg-negative/80";
-            }
-            
-            return (
-              <div 
-                key={i} 
+
+      <div className="flex flex-1 flex-col items-center justify-center overflow-hidden p-4">
+        {!hasData ? (
+          <p className="text-center text-xs text-fg-subtle">Your trading days fill in here once your account has daily results.</p>
+        ) : (
+          <div className="flex h-full w-full max-w-[400px] flex-wrap content-center justify-center gap-1">
+            {cells.map((c) => (
+              <div
+                key={c.date}
                 className={cn(
-                  "w-3 h-3 rounded-[2px] transition-colors hover:ring-1 hover:ring-fg",
-                  color,
-                  d.isWeekend && "opacity-20"
+                  "h-3 w-3 rounded-[2px] transition-colors hover:ring-1 hover:ring-fg",
+                  colorFor(c.pnl),
+                  c.isWeekend && c.pnl == null && "opacity-20",
                 )}
-                title={`${d.date.toDateString()}: ${d.val > 0 ? 'Profit' : d.val < 0 ? 'Loss' : 'Flat'}`}
+                title={
+                  c.pnl == null
+                    ? `${c.date}: no session`
+                    : `${c.date}: ${formatUSD(c.pnl)} over ${c.count} trade${c.count === 1 ? "" : "s"}`
+                }
               />
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

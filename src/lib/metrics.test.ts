@@ -3,6 +3,8 @@ import {
   summaryMetrics,
   equitySeries,
   maxDrawdown,
+  drawdownSeries,
+  openExposure,
   bySession,
   rDistribution,
   rollingWinRate,
@@ -22,6 +24,7 @@ function trade(over: Partial<TradeRow>): TradeRow {
     exitPrice: 102,
     stopPrice: 99,
     targetPrice: 104,
+    sizeUnits: 1,
     netPnl: 0,
     grossPnl: 0,
     rMultiple: 0,
@@ -144,5 +147,51 @@ describe("rollingWinRate", () => {
     );
     // windows: [W]=100, [W,L]=50, [L,W]=50, [W,W]=100
     expect(out).toEqual([100, 50, 50, 100]);
+  });
+});
+
+describe("drawdownSeries", () => {
+  it("is zero at a new peak and negative while underwater", () => {
+    const dd = drawdownSeries([
+      { date: "d1", equity: 100 },
+      { date: "d2", equity: 120 }, // new peak
+      { date: "d3", equity: 90 }, // underwater from 120
+      { date: "d4", equity: 120 }, // back to peak
+    ]);
+    expect(dd[0].ddPct).toBe(0);
+    expect(dd[1].ddPct).toBe(0);
+    expect(dd[2].ddPct).toBeCloseTo(-25, 5); // (90-120)/120
+    expect(dd[3].ddPct).toBe(0);
+  });
+});
+
+describe("openExposure", () => {
+  it("groups open-position notional by asset and shares to 100%", () => {
+    const out = openExposure(
+      [
+        trade({ status: "OPEN", instrument: "NQ", entryPrice: 100, sizeUnits: 3 }), // 300
+        trade({ status: "OPEN", instrument: "ES", entryPrice: 50, sizeUnits: 2 }), // 100
+        trade({ status: "CLOSED", instrument: "NQ", entryPrice: 100, sizeUnits: 5 }), // ignored
+      ],
+      "asset",
+    );
+    expect(out[0]).toMatchObject({ label: "NQ", notional: 300 });
+    expect(out[1]).toMatchObject({ label: "ES", notional: 100 });
+    expect(Math.round(out[0].pct + out[1].pct)).toBe(100);
+  });
+
+  it("can group by direction", () => {
+    const out = openExposure(
+      [
+        trade({ status: "OPEN", direction: "LONG", entryPrice: 100, sizeUnits: 1 }),
+        trade({ status: "OPEN", direction: "SHORT", entryPrice: 100, sizeUnits: 1 }),
+      ],
+      "direction",
+    );
+    expect(out.map((o) => o.label).sort()).toEqual(["LONG", "SHORT"]);
+  });
+
+  it("returns nothing when there are no open trades", () => {
+    expect(openExposure([trade({ status: "CLOSED" })], "asset")).toEqual([]);
   });
 });
