@@ -1,5 +1,6 @@
 import YahooFinance from 'yahoo-finance2';
-import { getYahooSymbol, getMarketForInstrument, isInstrumentTradeable, type MarketKind } from '@/lib/market';
+import ccxt from 'ccxt';
+import { getYahooSymbol, getMarketForInstrument, normalizeInstrument, isInstrumentTradeable, type MarketKind } from '@/lib/market';
 import { computeIndicatorContext, type IndicatorContext } from './indicators';
 
 // yahoo-finance2 v3 ships the API as a CLASS that must be instantiated — calling
@@ -267,4 +268,92 @@ export async function searchSymbols(query: string, limit = 8): Promise<SymbolSea
     console.error(`Symbol search error for "${q}":`, error);
     return [];
   }
+}
+
+// ─────────────────────── Intraday bars (Validation Lab) ─────────────────────
+//
+// The flagship ORB strategy is intraday, so honest validation needs intraday
+// bars, not daily. Equities/indices come from Yahoo's chart endpoint (which has
+// real lookback limits per granularity, surfaced to the user). Crypto comes from
+// CCXT, which serves deep history at any granularity. We never fabricate bars: if
+// a source can't supply the window, we return what's real and label it.
+
+export type Interval = "1m" | "5m" | "15m" | "1h";
+
+// Yahoo's documented intraday lookback ceilings (calendar days) per granularity.
+const YAHOO_MAX_LOOKBACK: Record<Interval, number> = { "1m": 7, "5m": 58, "15m": 58, "1h": 720 };
+const CCXT_TIMEFRAME: Record<Interval, string> = { "1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h" };
+
+export interface IntradayResult {
+  bars: HistoryBar[]; // `date` is a full ISO timestamp, ordered oldest -> newest
+  interval: Interval;
+  days: number;
+  source: string;
+}
+
+const intradayCache: Record<string, { data: IntradayResult; expiresAt: number }> = {};
+const INTRADAY_TTL_MS = 1000 * 60 * 10; // 10 minutes
+
+let binanceClient: InstanceType<typeof ccxt.binance> | null = null;
+function getBinance(): InstanceType<typeof ccxt.binance> {
+  if (!binanceClient) binanceClient = new ccxt.binance({ enableRateLimit: true });
+  return binanceClient;
+}
+
+// Map an instrument to a CCXT spot pair (e.g. "BTC" or "BTC-USD" -> "BTC/USDT").
+function ccxtPair(instrument: string): string {
+  const sym = normalizeInstrument(instrument);
+  const base = sym.replace(/-USD$/, "").replace(/USDT$/, "").replace(/USD$/, "");
+  return `${base}/USDT`;
+}
+
+export async function getIntradayBars(instrument: string, interval: Interval = "5m", lookbackDays = 30): Promise<IntradayResult> {
+  const market = getMarketForInstrument(instrument);
+  const cacheKey = `${normalizeInstrument(instrument)}:${interval}:${lookbackDays}`;
+  const cached = intradayCache[cacheKey];
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  let result: IntradayResult = { bars: [], interval, days: 0, source: market === "CRYPTO" ? "Binance" : "Yahoo Finance" };
+
+  try {
+    if (market === "CRYPTO") {
+      const ex = getBinance();
+      const since = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
+      const raw = (await ex.fetchOHLCV(ccxtPair(instrument), CCXT_TIMEFRAME[interval], since, 1000)) as number[][];
+      const bars: HistoryBar[] = raw
+        .filter((r) => Array.isArray(r) && r[1] != null && r[2] != null && r[3] != null && r[4] != null)
+        .map((r) => ({ date: new Date(r[0]).toISOString(), open: Number(r[1]), high: Number(r[2]), low: Number(r[3]), close: Number(r[4]) }));
+      result = { bars, interval, days: countDays(bars), source: "Binance" };
+    } else {
+      const symbol = getYahooSymbol(instrument);
+      const clampedLookback = Math.min(lookbackDays, YAHOO_MAX_LOOKBACK[interval]);
+      const start = new Date(Date.now() - clampedLookback * 24 * 60 * 60 * 1000);
+      const chart = (await yahooFinance.chart(symbol, {
+        period1: start,
+        period2: new Date(),
+        interval: interval === "1h" ? "60m" : interval,
+      })) as unknown as { quotes?: Array<{ date: Date | string; open: number | null; high: number | null; low: number | null; close: number | null }> };
+      const bars: HistoryBar[] = (chart?.quotes ?? [])
+        .filter((r) => r && r.open != null && r.high != null && r.low != null && r.close != null)
+        .map((r) => ({
+          date: r.date instanceof Date ? r.date.toISOString() : new Date(r.date).toISOString(),
+          open: Number(r.open),
+          high: Number(r.high),
+          low: Number(r.low),
+          close: Number(r.close),
+        }));
+      result = { bars, interval, days: countDays(bars), source: "Yahoo Finance" };
+    }
+  } catch (error) {
+    console.error(`Intraday fetch error for ${instrument} (${interval}):`, error);
+    return result;
+  }
+
+  intradayCache[cacheKey] = { data: result, expiresAt: Date.now() + INTRADAY_TTL_MS };
+  return result;
+}
+
+function countDays(bars: HistoryBar[]): number {
+  const days = new Set(bars.map((b) => b.date.slice(0, 10)));
+  return days.size;
 }

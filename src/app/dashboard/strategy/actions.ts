@@ -11,6 +11,99 @@ import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
+import { getIntradayBars, type Interval } from "@/lib/engine/market-data";
+import { runValidation, DEFAULT_COSTS, type ValidationReport } from "@/lib/engine/validation";
+
+const INTERVAL_MINUTES: Record<Interval, number> = { "1m": 1, "5m": 5, "15m": 15, "1h": 60 };
+
+export type ValidationResponse =
+  | { ok: true; locked: boolean; report: ValidationReport }
+  | { ok: false; error: string };
+
+/**
+ * Run the rigorous Validation Lab over REAL intraday bars for a strategy's
+ * instrument. The quick Sandbox preview (daily bars, client-side) stays free;
+ * the deep suite (walk-forward out-of-sample, Monte Carlo, robustness sweep,
+ * Edge Score) is a PRO+ capability, matching the plan catalogue. We still return
+ * a real report for lower tiers (so the value is visible) but flag it `locked`
+ * so the UI can gate the advanced panels behind an upgrade.
+ */
+export async function runStrategyValidation(input: {
+  strategyId?: string;
+  instrument?: string;
+  interval?: Interval;
+  riskPct?: number;
+  rrTarget?: number;
+  stopLossPct?: number;
+  trendFilter?: boolean;
+  direction?: "LONG" | "SHORT" | "BOTH";
+  minRange?: number;
+  maxRange?: number;
+}): Promise<ValidationResponse> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
+  if (!user) return { ok: false, error: "User not found" };
+
+  // Resolve params from the saved strategy when an id is given, overlaid with any
+  // live tweaks from the client so the trader can validate before saving.
+  let saved: Record<string, unknown> = {};
+  if (input.strategyId) {
+    const strat = await prisma.strategy.findFirst({ where: { id: input.strategyId, userId: user.id }, select: { params: true } });
+    saved = (strat?.params as Record<string, unknown>) ?? {};
+  }
+
+  const instrument = (input.instrument || (typeof saved.instrument === "string" ? saved.instrument : "") || "NQ").trim();
+  const interval: Interval = input.interval ?? "5m";
+  const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+
+  const { bars, days, source } = await getIntradayBars(instrument, interval, interval === "1m" ? 7 : interval === "1h" ? 360 : 58);
+  if (bars.length < 30) {
+    return { ok: false, error: `Not enough intraday history for ${instrument} at ${interval} to validate. Try a longer timeframe.` };
+  }
+
+  const report = runValidation(
+    bars,
+    {
+      riskPct: num(input.riskPct ?? saved.riskPct, 1),
+      rrTarget: num(input.rrTarget ?? saved.rrTarget, 2),
+      stopLossPct: num(input.stopLossPct ?? saved.stopLossPct, 0.5),
+      trendFilter: Boolean(input.trendFilter ?? saved.trendFilter),
+      direction: input.direction ?? (saved.direction as "LONG" | "SHORT" | "BOTH") ?? "BOTH",
+      minRange: num(input.minRange ?? saved.minRange, 0.1),
+      maxRange: num(input.maxRange ?? saved.maxRange, 5),
+    },
+    DEFAULT_COSTS,
+    { interval, intervalMinutes: INTERVAL_MINUTES[interval], source, seed: 7 },
+  );
+
+  // Persist the latest Edge Score on the strategy params so the Go-Live flow can
+  // warn when a Fragile strategy is wired to a live account (no migration: it
+  // rides in the existing params JSON).
+  if (input.strategyId) {
+    try {
+      await prisma.strategy.update({
+        where: { id: input.strategyId },
+        data: {
+          params: {
+            ...saved,
+            edgeScore: report.edge.score,
+            edgeVerdict: report.edge.verdict,
+            edgeCheckedAt: new Date().toISOString(),
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (e) {
+      console.error("Could not persist edge score:", e);
+    }
+  }
+
+  const planConfig = PLANS[user.plan as Plan];
+  const locked = !(planConfig.id === "PRO" || planConfig.id === "ELITE");
+  void days;
+  return { ok: true, locked, report };
+}
 
 export async function runAiOptimization(accountId: string) {
   const { userId } = await auth();
