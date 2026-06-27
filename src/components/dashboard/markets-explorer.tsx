@@ -989,6 +989,42 @@ function ActivityDetail({
           </div>
         </>
       )}
+    >
+      {live ? "Live" : "Paper"}
+    </span>
+  );
+}
+
+function ActivityBar({ pct }: { pct: number }) {
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-line" aria-hidden="true">
+      <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${Math.max(3, Math.min(100, pct))}%` }} />
+    </div>
+  );
+}
+
+function SummaryCell({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "profit" | "negative" | "muted" }) {
+  return (
+    <div className="bg-elevated p-5">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">{label}</p>
+      <p
+        className={cn(
+          "tnum mt-1 text-lg font-semibold",
+          tone === "profit" ? "text-profit" : tone === "negative" ? "text-negative" : "text-fg",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function EmptyPanel({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-line bg-surface/30 py-20 text-center">
+      <ChartLineUp size={28} className="mb-3 text-fg-subtle" />
+      <h3 className="text-sm font-medium text-fg">{title}</h3>
+      <p className="mt-1 max-w-sm text-xs text-fg-subtle">{body}</p>
     </div>
   );
 }
