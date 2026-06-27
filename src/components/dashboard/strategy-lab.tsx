@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, X, Plus, Spinner, Star } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -156,27 +156,32 @@ export function StrategyLab({
   const [objective, setObjective] = useState<Objective>("return");
   const [sweep, setSweep] = useState<SweepRow[] | null>(null);
   const [sweeping, setSweeping] = useState(false);
+  // Monotonic id so a queued sweep that finishes after its inputs changed is
+  // discarded instead of repopulating the table with stale rankings.
+  const sweepRunId = useRef(0);
 
   // Stale results are misleading: clear the ranking whenever an input that feeds
   // the sweep changes (bars, objective, direction, or risk per trade).
   useEffect(() => {
+    sweepRunId.current += 1;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- invalidate stale sweep on input change
     setSweep(null);
   }, [bars, objective, params.direction, params.riskPct]);
 
   function runOptimization() {
     if (!bars || bars.length < 5) return;
+    const runId = ++sweepRunId.current;
+    const sweepBars = bars;
+    const sweepObjective = objective;
+    const sweepRiskPct = typeof params.riskPct === "number" ? params.riskPct : 1;
+    const sweepDirection: "LONG" | "SHORT" | "BOTH" =
+      params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH";
     setSweeping(true);
     // Defer so the button shows its pending state before the synchronous sweep.
     setTimeout(() => {
-      const rows = optimizeStrategy(
-        bars,
-        {
-          riskPct: typeof params.riskPct === "number" ? params.riskPct : 1,
-          direction: params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH",
-        },
-        objective,
-      );
+      const rows = optimizeStrategy(sweepBars, { riskPct: sweepRiskPct, direction: sweepDirection }, sweepObjective);
+      // Ignore results whose inputs have since changed.
+      if (runId !== sweepRunId.current) return;
       setSweep(rows);
       setSweeping(false);
     }, 0);

@@ -23,6 +23,10 @@ export function ExposureWidget({
     return { notional: total, pct: balance > 0 ? (total / balance) * 100 : 0 };
   }, [openTrades, balance]);
 
+  // A connected account with open exposure but no cash balance is a distinct,
+  // higher-risk state, not 0% utilization. Surface it explicitly.
+  const noBalance = hasAccount && balance <= 0 && notional > 0;
+
   // Utilization itself is neutral; only colour high usage as a caution.
   const stroke = pct > 80 ? "var(--color-negative)" : pct > 50 ? "var(--color-warning)" : "var(--color-accent)";
   const circ = 251;
@@ -38,6 +42,11 @@ export function ExposureWidget({
       <div className="flex flex-1 flex-col items-center justify-center p-4">
         {!hasAccount ? (
           <p className="text-center text-xs text-fg-subtle">Connect an account to see capital utilization.</p>
+        ) : noBalance ? (
+          <div className="flex flex-col items-center gap-1 text-center">
+            <span className="tnum text-lg font-bold text-negative">{formatUSD(notional)}</span>
+            <p className="text-xs text-negative">Open exposure with no cash balance.</p>
+          </div>
         ) : (
           <>
             <div className="relative flex h-24 w-24 items-center justify-center">

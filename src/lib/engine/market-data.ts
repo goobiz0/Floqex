@@ -197,7 +197,7 @@ const moversInflight: Record<string, Promise<MoversResult>> = {};
 const MOVERS_TTL_MS = 1000 * 30; // 30s: fresh enough, kind to rate limits
 
 export async function getMarketMovers(universe: string[], perSide = 5): Promise<MoversResult> {
-  const key = universe.join(",");
+  const key = `${universe.join(",")}::${perSide}`;
   const cached = moversCache[key];
   if (cached && cached.expiresAt > Date.now()) return cached.data;
   if (key in moversInflight) return moversInflight[key];

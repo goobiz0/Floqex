@@ -23,12 +23,16 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     // Sequential polling: each probe completes before the next is scheduled, so
-    // slow responses never overlap or race the chart.
+    // slow responses never overlap or race the chart. Each probe has a deadline,
+    // and a non-OK response counts as a failure rather than healthy latency.
     async function measure() {
       const start = performance.now();
+      const ctrl = new AbortController();
+      const deadline = setTimeout(() => ctrl.abort(), 5000);
       try {
-        await fetch("/api/ping", { cache: "no-store" });
+        const res = await fetch("/api/ping", { cache: "no-store", signal: ctrl.signal });
         if (cancelled) return;
+        if (!res.ok) throw new Error(`status ${res.status}`);
         const val = Math.round(performance.now() - start);
         setCurrentPing(val);
         setPings((prev) => {
@@ -36,10 +40,11 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
           return next.length > 40 ? next.slice(next.length - 40) : next;
         });
       } catch {
-        // A failed probe is a real signal too: surface it as a timeout.
+        // A failed or timed-out probe is a real signal too: surface it.
         if (cancelled) return;
         setCurrentPing(null);
       } finally {
+        clearTimeout(deadline);
         if (!cancelled) timer = setTimeout(measure, ms);
       }
     }

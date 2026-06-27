@@ -128,6 +128,10 @@ export function DashboardPageClient({
 
   // State
   const [isEditMode, setIsEditMode] = useState(false);
+  // True when the working layout is a preset/default draft: Save creates a new
+  // template instead of overwriting the active one, while the active template is
+  // kept so Cancel can still restore it.
+  const [isDraft, setIsDraft] = useState(false);
   const [templates, setTemplates] = useState(initialTemplates);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(() => {
     if (initialTemplates.length > 0) {
@@ -233,8 +237,9 @@ export function DashboardPageClient({
 
   // Actions
   const handleSaveLayout = async () => {
-    if (!activeTemplateId) {
-      // First save logic
+    if (!activeTemplateId || isDraft) {
+      // No active template, or a preset/default draft: save as a new template
+      // rather than overwriting the currently selected one.
       setNewTemplateName("My Dashboard");
       setNewTemplateDialogOpen(true);
       return;
@@ -256,6 +261,7 @@ export function DashboardPageClient({
       toast.success("Template created");
       setTemplates([...templates, res.data]);
       setActiveTemplateId(res.data.id);
+      setIsDraft(false);
       setNewTemplateDialogOpen(false);
       setIsEditMode(false);
     }
@@ -291,9 +297,9 @@ export function DashboardPageClient({
   // user can tweak then Save it as a template. Never overwrites silently.
   const applyLayout = (layout: WidgetItem[], label: string) => {
     setLayoutItems(layout.map((w) => ({ ...w, config: { ...w.config } })));
-    // Detach from the active template so Saving a preset/default creates a new
-    // template (via the name dialog) instead of overwriting the selected one.
-    setActiveTemplateId(null);
+    // Mark as a draft so Save creates a new template instead of overwriting the
+    // selected one. The active template is kept so Cancel can still restore it.
+    setIsDraft(true);
     setIsEditMode(true);
     toast.success(`${label} applied. Save to keep it as a new layout.`);
   };
@@ -650,6 +656,7 @@ export function DashboardPageClient({
                 onClick: () => {
                   setActiveTemplateId(t.id);
                   setLayoutItems(t.layout as WidgetItem[]);
+                  setIsDraft(false);
                   setIsEditMode(false);
                 }
               })),
@@ -677,6 +684,7 @@ export function DashboardPageClient({
               <button onClick={() => {
                 const prev = activeTemplate ? (activeTemplate.layout as WidgetItem[]) : DEFAULT_LAYOUT;
                 setLayoutItems(prev);
+                setIsDraft(false);
                 setIsEditMode(false);
               }} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
                 Cancel

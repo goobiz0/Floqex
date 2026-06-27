@@ -43,10 +43,20 @@ export function NotificationsBell({ items }: { items: NotificationRow[] }) {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- one-shot localStorage hydration on mount */
     const rawSeen = typeof window !== "undefined" ? localStorage.getItem(SEEN_KEY) : null;
-    if (rawSeen) setSeen(Number(rawSeen));
+    const parsedSeen = rawSeen ? Number(rawSeen) : NaN;
+    if (Number.isFinite(parsedSeen)) setSeen(parsedSeen);
 
     const rawCleared = typeof window !== "undefined" ? localStorage.getItem(CLEARED_KEY) : null;
-    if (rawCleared) setClearedIds(JSON.parse(rawCleared));
+    if (rawCleared) {
+      try {
+        const parsed = JSON.parse(rawCleared);
+        if (Array.isArray(parsed) && parsed.every((id) => typeof id === "string")) {
+          setClearedIds(parsed);
+        }
+      } catch {
+        // Ignore malformed persisted state rather than breaking the bell.
+      }
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
