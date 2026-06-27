@@ -1,4 +1,4 @@
-import { streamText, tool } from "ai";
+import { streamText, tool, convertToModelMessages, type UIMessage } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
@@ -6,14 +6,13 @@ import { prisma } from "@/lib/db";
 import { PARAM_BOUNDS } from "@/lib/strategy-schema";
 import { type Plan } from "@/lib/plans";
 import { getMochiUsage, recordMochiUsage } from "@/lib/mochi-usage";
+import { summaryMetrics, byInstrument, bySession, byWeekday, type TradeRow } from "@/lib/metrics";
+import { kelly, expectancy } from "@/lib/calculators";
 
 export const maxDuration = 30;
 
-// Model is centralized so it can be swapped in one place. Gemini Flash keeps the
-// per-message cost very low, which (with the per-plan token budgets) is what
-// keeps running Mochi cheap.
 function chatModel() {
-  return google("gemini-1.5-flash");
+  return google("gemini-2.5-flash");
 }
 
 const boundsHelp = (Object.keys(PARAM_BOUNDS) as (keyof typeof PARAM_BOUNDS)[])
@@ -33,10 +32,7 @@ function downsample(arr: number[], target: number): number[] {
   return out;
 }
 
-// Pure Monte Carlo of an account's equity over N trades. Returns percentile
-// outcomes, the probability of a >50% drawdown ("ruin"), and one sample path
-// the client renders as a chart.
-function monteCarlo(a: {
+function monteCarloSim(a: {
   startingBalance?: number;
   riskPct: number;
   winRate: number;
@@ -90,8 +86,37 @@ function monteCarlo(a: {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toRows(trades: any[]): TradeRow[] {
+  return trades.map((t) => ({
+    id: t.id,
+    instrument: t.instrument,
+    direction: t.direction as "LONG" | "SHORT",
+    session: t.session as "ASIA" | "NY",
+    status: t.status as "OPEN" | "CLOSED",
+    entryPrice: Number(t.entryPrice),
+    exitPrice: t.exitPrice != null ? Number(t.exitPrice) : null,
+    stopPrice: Number(t.stopPrice),
+    targetPrice: Number(t.targetPrice),
+    netPnl: t.netPnl != null ? Number(t.netPnl) : null,
+    grossPnl: t.grossPnl != null ? Number(t.grossPnl) : null,
+    rMultiple: t.rMultiple != null ? Number(t.rMultiple) : null,
+    openedAt: t.openedAt instanceof Date ? t.openedAt.toISOString() : String(t.openedAt),
+    closedAt: t.closedAt instanceof Date ? t.closedAt.toISOString() : t.closedAt ? String(t.closedAt) : null,
+    narrative: t.narrative,
+    screenshotUrl: t.screenshotUrl,
+  }));
+}
+
+const TRADE_SELECT = {
+  id: true, instrument: true, direction: true, session: true, status: true,
+  entryPrice: true, exitPrice: true, stopPrice: true, targetPrice: true,
+  netPnl: true, grossPnl: true, rMultiple: true,
+  openedAt: true, closedAt: true, narrative: true, screenshotUrl: true,
+} as const;
+
 export async function POST(req: Request) {
-  const { messages }: { messages: { id: string; role: string; content: string }[] } = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
   const { userId } = await auth();
 
   if (!userId) {
@@ -101,7 +126,6 @@ export async function POST(req: Request) {
   const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  // Cost guard: enforce the plan's rolling token budget before doing any work.
   const usage = await getMochiUsage(user.id, user.plan as Plan);
   if (usage.blocked) {
     const which = usage.window === "week" ? "weekly" : "5-hour";
@@ -118,17 +142,22 @@ You help the user understand their performance, manage their trading bots, run n
 
 Operating rules:
 - Be concise. Short, direct answers. Don't pad. This keeps the user's token budget healthy.
-- If a request is ambiguous or missing a detail you genuinely need (e.g. which account, what win rate to assume), ask ONE short clarifying question first instead of guessing.
+- If a request is ambiguous or missing a detail you genuinely need, ask ONE short clarifying question first.
 - For ANY arithmetic, call the calculate tool. Never do mental math.
-- For projections, "what are my odds", risk-of-ruin, or "what if" questions, call runMonteCarlo and then briefly interpret the result (the app renders the chart, so don't dump the raw numbers).
-- For performance or bot questions, call getPerformance / getBotStatus to use the user's REAL data. Never invent numbers.
-- To change strategy settings, call updateStrategyParams with values inside the allowed ranges; the user approves before anything is applied.
+- For projections, risk-of-ruin, or "what if" questions, call runMonteCarlo and briefly interpret the result.
+- For performance questions, call getPerformance (accepts optional days window, default 7).
+- For edge analysis (expectancy, Kelly fraction, verdict), call analyzeEdge.
+- For P/L broken down by instrument, session, or weekday, call getBreakdown.
+- For bot questions, call getBotStatus.
+- To change strategy settings, call updateStrategyParams; the user approves before anything is applied.
 
 Allowed parameters for updateStrategyParams: ${boundsHelp}`;
 
+  const modelMessages = await convertToModelMessages(messages);
+
   const result = streamText({
     model: chatModel(),
-    messages: messages.map((m) => ({ role: m.role, content: m.content }) as any),
+    messages: modelMessages,
     system: systemPrompt,
     onFinish: ({ usage: u }) => {
       const x = u as unknown as Record<string, number | undefined>;
@@ -140,65 +169,83 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
     },
     tools: {
       getPerformance: tool({
-        description: "Get the user's REAL trading performance over the last 7 days (win rate, net P/L, trade count).",
-        parameters: z.object({ _run: z.boolean().optional() }),
-        // @ts-ignore - Vercel AI SDK generic type inference bug for empty/optional parameters
-        execute: async (_args: any) => {
-          const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        description:
+          "Get the user's REAL trading performance (win rate, net P/L, profit factor, expectancy, avg win/loss). Accepts optional days window (default 7).",
+        inputSchema: z.object({
+          days: z.number().optional().describe("Look-back window in days, default 7"),
+        }),
+        execute: async ({ days = 7 }) => {
+          const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
           const trades = await prisma.trade.findMany({
-            where: { account: { userId: user.id }, status: "CLOSED", closedAt: { gte: since } },
-            select: { netPnl: true },
+            where: { account: { userId: user.id }, closedAt: { gte: since } },
+            select: TRADE_SELECT,
           });
-          const count = trades.length;
-          const wins = trades.filter((t) => Number(t.netPnl ?? 0) > 0).length;
-          const pnl = trades.reduce((s, t) => s + Number(t.netPnl ?? 0), 0);
+          const s = summaryMetrics(toRows(trades));
           return {
-            trades: count,
-            winRate: count ? `${Math.round((wins / count) * 100)}%` : "N/A",
-            netPnl: `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`,
+            days,
+            trades: s.count,
+            winRate: `${s.winRate.toFixed(1)}%`,
+            netPnl: `${s.total >= 0 ? "+" : ""}$${s.total.toFixed(2)}`,
+            profitFactor: Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : "Infinity",
+            expectancy: `${s.expectancy >= 0 ? "+" : ""}${s.expectancy.toFixed(2)}R`,
+            avgWin: `$${s.avgWin.toFixed(2)}`,
+            avgLoss: `$${s.avgLoss.toFixed(2)}`,
           };
         },
-      } as any),
+      }),
       getBotStatus: tool({
-        description: "Check the user's REAL bots: how many exist, how many are running, open positions, and each bot's strategy.",
-        parameters: z.object({ _run: z.boolean().optional() }),
-        // @ts-ignore - Vercel AI SDK generic type inference bug for empty/optional parameters
-        execute: async (_args: any) => {
+        description:
+          "Check the user's REAL bots: how many exist, how many are running, open positions, and each bot's strategy.",
+        inputSchema: z.object({}),
+        execute: async () => {
           const bots = await prisma.bot.findMany({
             where: { account: { userId: user.id } },
-            include: { account: { select: { nickname: true } }, strategy: { select: { name: true } } },
+            include: {
+              account: { select: { nickname: true } },
+              strategy: { select: { name: true } },
+            },
           });
-          const openPositions = await prisma.trade.count({ where: { account: { userId: user.id }, status: "OPEN" } });
+          const openPositions = await prisma.trade.count({
+            where: { account: { userId: user.id }, status: "OPEN" },
+          });
           return {
             bots: bots.length,
-            running: bots.filter((b) => b.status === "RUNNING").length,
+            running: bots.filter((b: { status: string }) => b.status === "RUNNING").length,
             openPositions,
-            detail: bots.map((b) => ({ account: b.account?.nickname ?? "Unassigned", status: b.status, strategy: b.strategy.name })),
+            detail: bots.map((b: { account?: { nickname: string } | null; status: string; strategy: { name: string } }) => ({
+              account: b.account?.nickname ?? "Unassigned",
+              status: b.status,
+              strategy: b.strategy.name,
+            })),
           };
         },
-      } as any),
+      }),
       calculate: tool({
-        description: "Evaluate a basic arithmetic expression precisely. Use for ALL math (position sizing, R multiples, percentages).",
-        parameters: z.object({ expression: z.string().describe("A math expression, e.g. (10000*0.01)/15") }),
-        execute: async ({ expression }: any) => {
+        description:
+          "Evaluate a basic arithmetic expression precisely. Use for ALL math (position sizing, R multiples, percentages).",
+        inputSchema: z.object({
+          expression: z.string().describe("A math expression, e.g. (10000*0.01)/15"),
+        }),
+        execute: async ({ expression }) => {
           const expr = expression.trim();
-          // Only digits, operators, parentheses, decimals, exponents and spaces.
           if (!/^[-+*/%.()0-9eE\s]+$/.test(expr) || expr.length > 200) {
             return { error: "Only basic arithmetic is supported." };
           }
           try {
             const fn = new Function(`"use strict"; return (${expr});`);
             const value = fn();
-            if (typeof value !== "number" || !Number.isFinite(value)) return { error: "Could not evaluate that." };
+            if (typeof value !== "number" || !Number.isFinite(value))
+              return { error: "Could not evaluate that." };
             return { expression: expr, result: round(value, 6) };
           } catch {
             return { error: "Invalid expression." };
           }
         },
-      } as any),
+      }),
       runMonteCarlo: tool({
-        description: "Simulate an account's equity over many trades to show the range of outcomes and the risk of a large drawdown. Returns percentiles and a sample equity path for charting.",
-        parameters: z.object({
+        description:
+          "Simulate an account's equity over many trades to show the range of outcomes and risk of a large drawdown. Returns percentiles and a sample equity path for charting.",
+        inputSchema: z.object({
           startingBalance: z.number().optional().describe("Starting balance, default 10000"),
           riskPct: z.number().describe("Percent of balance risked per trade, e.g. 1"),
           winRate: z.number().describe("Win probability as a percent, e.g. 55"),
@@ -206,21 +253,71 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
           trades: z.number().optional().describe("Number of trades to simulate, default 100"),
           simulations: z.number().optional().describe("Number of simulated paths, default 500"),
         }),
-        execute: async (args: any) => monteCarlo(args),
-      } as any),
+        execute: async (args) => monteCarloSim(args),
+      }),
+      analyzeEdge: tool({
+        description:
+          "Analyze the user's real trading edge using ALL historical closed trades: expectancy, break-even win rate, Kelly-suggested risk %, and a plain-English verdict on whether the edge is statistically real.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const trades = await prisma.trade.findMany({
+            where: { account: { userId: user.id } },
+            select: TRADE_SELECT,
+          });
+          const s = summaryMetrics(toRows(trades));
+          if (s.count === 0) return { error: "No closed trades to analyze yet." };
+          const payoff = s.avgLoss > 0 ? s.avgWin / s.avgLoss : 0;
+          const k = kelly(s.winRate, payoff);
+          const e = expectancy(s.winRate, s.avgWin, s.avgLoss);
+          const breakEvenWr = s.avgWin + s.avgLoss > 0 ? (s.avgLoss / (s.avgWin + s.avgLoss)) * 100 : 100;
+          const hasEdge = e.perR > 0 && s.count >= 20;
+          return {
+            trades: s.count,
+            winRate: `${s.winRate.toFixed(1)}%`,
+            breakEvenWinRate: `${breakEvenWr.toFixed(1)}%`,
+            expectancyPerR: `${e.perR >= 0 ? "+" : ""}${e.perR.toFixed(2)}R`,
+            expectancyPerTrade: `${e.perTrade >= 0 ? "+" : ""}$${e.perTrade.toFixed(2)}`,
+            kellyPct: `${(k.fraction * 100).toFixed(1)}%`,
+            halfKellyPct: `${(k.halfKelly * 100).toFixed(1)}%`,
+            profitFactor: Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : "Infinity",
+            verdict: hasEdge
+              ? "Edge detected. Positive expectancy with a meaningful sample size."
+              : s.count < 20
+              ? `Sample too small (${s.count} trades). Need at least 20 to draw conclusions.`
+              : "No edge detected. System is currently at or below breakeven.",
+          };
+        },
+      }),
+      getBreakdown: tool({
+        description:
+          "Show the user's net P/L broken down by instrument, session (ASIA/NY), and day of week, using ALL historical closed trades.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const trades = await prisma.trade.findMany({
+            where: { account: { userId: user.id } },
+            select: TRADE_SELECT,
+          });
+          const rows = toRows(trades);
+          return {
+            byInstrument: byInstrument(rows),
+            bySession: bySession(rows),
+            byWeekday: byWeekday(rows),
+          };
+        },
+      }),
       updateStrategyParams: tool({
-        description: "Propose an update to the user's trading strategy parameters. The user must accept or decline.",
-        // No execute: human-in-the-loop. Stays input-available until the client
-        // supplies the result via addToolResult after the user accepts/declines.
-        parameters: z.object({
+        description:
+          "Propose an update to the user's trading strategy parameters. The user must accept or decline before anything is applied.",
+        inputSchema: z.object({
           riskPct: z.number().optional().describe("Risk percentage per trade"),
           takeProfit: z.number().optional().describe("Take profit multiplier"),
           stopLoss: z.number().optional().describe("Stop loss multiplier"),
           maxDrawdown: z.number().optional().describe("Maximum drawdown allowed"),
         }),
-      } as any),
+        // No execute — human-in-the-loop. Client calls addToolResult after user accepts/declines.
+      }),
     },
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
