@@ -180,10 +180,10 @@ export function StrategyLab({
     // Defer so the button shows its pending state before the synchronous sweep.
     setTimeout(() => {
       const rows = optimizeStrategy(sweepBars, { riskPct: sweepRiskPct, direction: sweepDirection }, sweepObjective);
-      // Ignore results whose inputs have since changed.
+      // Always clear the pending flag; only apply results if inputs are unchanged.
+      setSweeping(false);
       if (runId !== sweepRunId.current) return;
       setSweep(rows);
-      setSweeping(false);
     }, 0);
   }
 

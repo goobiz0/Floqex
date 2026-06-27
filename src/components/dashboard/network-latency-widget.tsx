@@ -11,7 +11,8 @@ type Ping = { id: number; val: number };
 // No simulated numbers: each bar is an actual fetch timing in milliseconds.
 export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string }) {
   const [pings, setPings] = useState<Ping[]>([]);
-  const [currentPing, setCurrentPing] = useState<number | null>(null);
+  // undefined = no probe yet (measuring), null = a failed/timed-out probe.
+  const [currentPing, setCurrentPing] = useState<number | null | undefined>(undefined);
   const idRef = useRef(0);
 
   useEffect(() => {
@@ -57,12 +58,18 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
   }, [interval]);
 
   const maxVal = 300; // ms ceiling for chart scaling
+  const measuring = currentPing === undefined;
   const ping = currentPing ?? 0;
 
-  let statusColor = "text-profit";
-  let statusDot = "bg-profit";
-  if (ping > 120) { statusColor = "text-warning"; statusDot = "bg-warning"; }
-  if (ping > 250 || currentPing === null) { statusColor = "text-negative"; statusDot = "bg-negative"; }
+  let statusColor = "text-fg-subtle";
+  let statusDot = "bg-fg-subtle";
+  if (currentPing === null) {
+    statusColor = "text-negative"; statusDot = "bg-negative";
+  } else if (currentPing !== undefined) {
+    statusColor = "text-profit"; statusDot = "bg-profit";
+    if (ping > 120) { statusColor = "text-warning"; statusDot = "bg-warning"; }
+    if (ping > 250) { statusColor = "text-negative"; statusDot = "bg-negative"; }
+  }
 
   return (
     <div className="flex h-full w-full flex-col bg-elevated text-fg">
@@ -74,7 +81,7 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
         <div className="flex items-center gap-1.5">
           <span className={cn("inline-block h-1.5 w-1.5 rounded-full", statusColor, statusDot)} />
           <span className={cn("font-mono text-xs font-medium", statusColor)}>
-            {currentPing === null ? "timeout" : `${currentPing}ms`}
+            {measuring ? "…" : currentPing === null ? "timeout" : `${currentPing}ms`}
           </span>
         </div>
       </div>
