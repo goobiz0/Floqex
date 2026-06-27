@@ -90,7 +90,7 @@ export function MochiChat() {
   // @ts-ignore - Vercel AI SDK generic type mismatch for useChat return type
   const { messages, append, isLoading, addToolResult, setMessages, error } = useChat({
     api: "/api/chat",
-  });
+  } as any);
   
   const [usage, setUsage] = useState<MochiUsage | null>(null);
   const restoredRef = useRef(false);
