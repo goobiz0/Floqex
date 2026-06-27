@@ -218,7 +218,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
           stopLoss: z.number().optional().describe("Stop loss multiplier"),
           maxDrawdown: z.number().optional().describe("Maximum drawdown allowed"),
         }),
-      }),
+      } as any),
     },
   });
 
