@@ -163,6 +163,7 @@ model Bot {
   status              BotStatus @default(STOPPED)
   autoAdjustmentsUsed Int       @default(0)
   edgeDecayPaused     Boolean   @default(false)
+  edgeDecayThreshold  Decimal?  @db.Decimal(6, 4)
   isPublic            Boolean   @default(false)
   lastHeartbeat       DateTime?
   createdAt           DateTime  @default(now())

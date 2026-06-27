@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Dropdown } from "@/components/ui/dropdown";
 import { DisplayValue } from "@/components/ui/display-value";
 import { cn } from "@/lib/utils";
-import { connectAccount, toggleBotStatus, disconnectAccount } from "@/app/dashboard/accounts/actions";
+import { connectAccount, toggleBotStatus, disconnectAccount, updatePropFirmSettings } from "@/app/dashboard/accounts/actions";
 import { PLANS, type Plan, type PlanConfig } from "@/lib/plans";
 import type { Broker } from "@prisma/client";
 import Link from "next/link";
@@ -36,6 +36,8 @@ type Acct = {
   broker: string;
   mode: string;
   balance: number | string;
+  isPropFirmMode?: boolean;
+  propFirmMaxTrailingDrawdown?: number | null;
   bot?: { status: string } | null;
 };
 
@@ -195,6 +197,56 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                         </div>
                       </div>
                     )}
+                    
+                    <div className="mt-4 border-t border-line pt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-fg">Prop Firm Guardrails</p>
+                          <p className="text-[11px] text-fg-subtle">Auto-flatten positions before hitting daily limits</p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          disabled={pending}
+                          aria-checked={a.isPropFirmMode || false}
+                          onClick={() => {
+                            startTransition(async () => {
+                              const res = await updatePropFirmSettings(a.id, !a.isPropFirmMode, a.propFirmMaxTrailingDrawdown ?? null);
+                              if (!res.ok) alert(res.error);
+                            });
+                          }}
+                          className={cn(
+                            "relative h-5 w-9 shrink-0 rounded-full ring-1 ring-inset outline-none transition-colors duration-150 ease-[var(--ease-out)]",
+                            a.isPropFirmMode ? "bg-accent ring-accent/60" : "bg-surface ring-line-strong",
+                            pending && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "pointer-events-none absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform duration-150 ease-[var(--ease-out)]",
+                              a.isPropFirmMode ? "translate-x-4" : "translate-x-0",
+                            )}
+                          />
+                        </button>
+                      </div>
+                      
+                      {a.isPropFirmMode && (
+                        <div className="flex items-center gap-2 mt-2">
+                           <Input 
+                             type="number" 
+                             placeholder="Max Trailing Drawdown ($)" 
+                             defaultValue={a.propFirmMaxTrailingDrawdown?.toString() || ""}
+                             className="h-8 text-xs"
+                             onBlur={(e) => {
+                               const val = e.target.value ? Number(e.target.value) : null;
+                               startTransition(async () => {
+                                 await updatePropFirmSettings(a.id, true, val);
+                               });
+                             }}
+                           />
+                        </div>
+                      )}
+                    </div>
                   </Card>
                 );
               })}

@@ -476,6 +476,9 @@ export type BotRow = {
   id: string;
   name: string;
   status: "RUNNING" | "WAITING" | "STOPPED";
+  edgeDecayPaused: boolean;
+  edgeDecayThreshold: number | null;
+  isPublic: boolean;
   strategyName: string;
   strategyId: string;
   lastHeartbeat: string | null;
@@ -543,6 +546,9 @@ export async function getBotsData(): Promise<BotsData> {
         id: b.id,
         name: b.name,
         status: b.status as BotRow["status"],
+        edgeDecayPaused: b.edgeDecayPaused,
+        edgeDecayThreshold: b.edgeDecayThreshold ? Number(b.edgeDecayThreshold) : null,
+        isPublic: b.isPublic,
         strategyName: b.strategy.name,
         strategyId: b.strategyId,
         lastHeartbeat: b.lastHeartbeat?.toISOString() ?? null,

@@ -1,134 +1,116 @@
 "use client";
 
-import { ShieldCheck, Info, Key, CheckCircle, Warning, LockKey, TerminalWindow, Bank } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
+import { Bank, LockKey, GlobeHemisphereWest, CheckCircle } from "@phosphor-icons/react/dist/ssr";
+import Image from "next/image";
 
 export default function BrokersPage() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-  };
-
   return (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-12"
-    >
-      <motion.header variants={itemVariants} className="space-y-4">
-        <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
-          <Key size={14} weight="duotone" />
-          Live Execution
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-fg">Brokers & Connections</h1>
-        <p className="mt-4 text-lg text-fg-muted leading-relaxed max-w-2xl">
-          Transitioning from Paper to Live trading requires connecting a supported brokerage account. Floqex uses secure, encrypted API keys to execute trades directly on your behalf without ever touching your funds.
+    <div className="space-y-16">
+      <motion.header 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-4"
+      >
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-fg">
+          Brokers & Connections
+        </h1>
+        <p className="max-w-2xl text-lg text-fg-muted leading-relaxed">
+          Floqex connects directly to your brokerage account via API, functioning as a non-custodial execution layer. Your funds remain at your broker.
         </p>
       </motion.header>
 
-      <motion.section variants={itemVariants} className="space-y-4 mt-8">
-        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">Supported Integrations</h2>
-        <div className="grid gap-6 mt-6 sm:grid-cols-2">
+      <motion.section 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-8"
+      >
+        <h2 className="text-2xl font-semibold text-fg">Supported Brokers</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
           
-          <div className="rounded-[var(--radius-card)] border border-accent/50 bg-surface p-8 shadow-[0_0_30px_rgba(var(--color-accent),0.05)] relative overflow-hidden flex flex-col items-center text-center transition-transform hover:scale-[1.02] duration-300">
-            <div className="absolute top-0 inset-x-0 h-1.5 bg-accent" />
-            <div className="h-20 w-20 rounded-2xl bg-[#FCD535]/10 flex items-center justify-center text-[#FCD535] mb-5 shadow-inner">
-              <span className="font-bold text-4xl drop-shadow-md">🦙</span>
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 text-center space-y-3">
+            <div className="mx-auto w-12 h-12 bg-white rounded-full flex items-center justify-center p-2 shadow-sm">
+              <span className="text-black font-bold text-lg">A</span>
             </div>
-            <h3 className="text-2xl font-semibold text-fg">Alpaca Markets</h3>
-            <p className="mt-3 text-sm text-fg-subtle leading-relaxed max-w-sm">
-              Commission-free API trading. Best for US Equities. We fully support Alpaca&apos;s REST v2 API, including OCO (One-Cancels-Other) bracket orders and fractional shares.
-            </p>
-            <div className="mt-8 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive bg-positive/10 px-4 py-2 rounded-full border border-positive/20">
-              <CheckCircle size={18} weight="fill" /> Fully Supported & Tested
+            <h3 className="font-semibold text-fg">Alpaca</h3>
+            <p className="text-xs text-fg-muted">Equities & Crypto. Full API support, ideal for automated trading.</p>
+            <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-profit bg-profit/10 px-2 py-0.5 rounded-full">
+              Supported
             </div>
           </div>
-          
-          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-8 shadow-sm flex flex-col items-center text-center opacity-80 grayscale-[30%] transition-transform hover:scale-[1.02] duration-300">
-            <div className="h-20 w-20 rounded-2xl bg-fg/5 border border-line flex items-center justify-center text-fg mb-5 shadow-inner">
-              <span className="font-bold text-3xl tracking-tighter">TS</span>
+
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 text-center space-y-3 opacity-60 grayscale">
+            <div className="mx-auto w-12 h-12 bg-white rounded-full flex items-center justify-center p-2 shadow-sm">
+              <span className="text-blue-600 font-bold text-lg">TS</span>
             </div>
-            <h3 className="text-2xl font-semibold text-fg">TradeStation</h3>
-            <p className="mt-3 text-sm text-fg-subtle leading-relaxed max-w-sm">
-              Advanced institutional-grade routing for Equities and Futures. Deep integration is currently in beta testing for our professional users.
-            </p>
-            <div className="mt-8 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-warning bg-warning/10 px-4 py-2 rounded-full border border-warning/20">
-              <Warning size={18} weight="fill" /> Private Beta Access Only
+            <h3 className="font-semibold text-fg">TradeStation</h3>
+            <p className="text-xs text-fg-muted">Equities, Options & Futures. Institutional-grade execution.</p>
+            <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-fg-subtle bg-line px-2 py-0.5 rounded-full">
+              Coming Q4
+            </div>
+          </div>
+
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 text-center space-y-3 opacity-60 grayscale">
+            <div className="mx-auto w-12 h-12 bg-white rounded-full flex items-center justify-center p-2 shadow-sm">
+              <span className="text-orange-500 font-bold text-lg">O</span>
+            </div>
+            <h3 className="font-semibold text-fg">OANDA</h3>
+            <p className="text-xs text-fg-muted">Forex and CFDs. Global market access.</p>
+            <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-fg-subtle bg-line px-2 py-0.5 rounded-full">
+              Coming Q4
             </div>
           </div>
         </div>
       </motion.section>
 
-      {/* Security Architecture */}
-      <motion.section variants={itemVariants} className="space-y-6 mt-8">
-        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">How We Secure Your Keys</h2>
-        <div className="bg-surface rounded-[var(--radius-card)] border border-line overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
-            <ShieldCheck size={240} weight="fill" />
+      <motion.section 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-6"
+      >
+        <h2 className="text-2xl font-semibold text-fg">Paper vs. Live Trading</h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <h3 className="font-medium text-fg flex items-center gap-2"><GlobeHemisphereWest size={20} className="text-fg-muted" /> Paper Execution</h3>
+            <p className="text-sm text-fg-muted leading-relaxed">
+              Every free account comes with an integrated Floqex Paper broker. This utilizes real-time market data (via Yahoo Finance feeds) and simulates fills with a hardcoded 0.02% slippage penalty to reflect realistic conditions. Use paper trading to test strategies and build confidence before risking real capital.
+            </p>
           </div>
-          <div className="p-6 md:p-10 space-y-8 relative z-10">
-            <div className="flex flex-col md:flex-row gap-6 items-start">
-              <div className="h-14 w-14 shrink-0 bg-accent/10 text-accent rounded-2xl flex items-center justify-center">
-                <LockKey size={28} weight="duotone" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-fg">AES-256-GCM Encryption</h3>
-                <p className="text-sm text-fg-subtle leading-relaxed max-w-2xl">
-                  The moment you paste your API keys into the dashboard, they are encrypted client-side and then re-encrypted at rest in our database using industry-standard AES-256-GCM. Our front-end cannot read your keys once they are saved.
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col md:flex-row gap-6 items-start">
-              <div className="h-14 w-14 shrink-0 bg-accent/10 text-accent rounded-2xl flex items-center justify-center">
-                <TerminalWindow size={28} weight="duotone" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-fg">In-Memory Decryption</h3>
-                <p className="text-sm text-fg-subtle leading-relaxed max-w-2xl">
-                  Keys are only ever decrypted in-memory inside the secure execution enclave at the exact moment a trade signal is generated. They are never logged or stored in plain text anywhere on our servers.
-                </p>
-              </div>
-            </div>
+          
+          <div className="space-y-4">
+            <h3 className="font-medium text-fg flex items-center gap-2"><Bank size={20} className="text-accent" /> Live Execution</h3>
+            <p className="text-sm text-fg-muted leading-relaxed">
+              Available on the Trader and Pro tiers, live execution routes orders directly to your connected broker via API. Floqex requires trade execution permissions only—we cannot and will never request withdrawal or transfer permissions.
+            </p>
           </div>
+        </div>
+      </motion.section>
+      
+      <motion.section 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        className="space-y-6 border-t border-line pt-12"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <LockKey size={24} className="text-accent" />
+          <h2 className="text-2xl font-semibold text-fg">API Security Architecture</h2>
+        </div>
+        <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 space-y-4">
+          <p className="text-sm text-fg-muted leading-relaxed">
+            Your broker API keys are never stored in plaintext and never transmitted to the client application.
+          </p>
+          <ul className="space-y-3 text-sm text-fg-subtle">
+            <li className="flex gap-3 items-start"><CheckCircle size={16} className="text-profit mt-0.5 shrink-0" /> <strong>AES-256-GCM Encryption:</strong> Keys are encrypted at the server edge before being persisted to the database.</li>
+            <li className="flex gap-3 items-start"><CheckCircle size={16} className="text-profit mt-0.5 shrink-0" /> <strong>Ephemeral Decryption:</strong> Keys are decrypted only within the isolated execution engine exactly at the moment an order payload is formatted, and immediately garbage collected.</li>
+            <li className="flex gap-3 items-start"><CheckCircle size={16} className="text-profit mt-0.5 shrink-0" /> <strong>Zero-Trust Client:</strong> The browser never receives your API secrets back after submission.</li>
+          </ul>
         </div>
       </motion.section>
 
-      <motion.section variants={itemVariants} className="space-y-6 mt-8">
-        <h2 className="text-2xl font-semibold text-fg border-b border-line pb-2">Connection Guide (Alpaca)</h2>
-        <div className="space-y-4">
-          <div className="flex items-start gap-4 bg-base border border-line p-5 rounded-[var(--radius-card)] hover:border-accent/30 transition-colors">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-surface border border-line flex items-center justify-center font-mono text-base font-bold text-fg shadow-sm">1</div>
-            <div className="pt-2">
-              <strong className="text-fg block text-lg mb-1">Upgrade to Trader Plan</strong>
-              <span className="text-sm text-fg-subtle leading-relaxed block">Live broker connections are only available on paid tiers. Navigate to Billing to upgrade your account to enable live execution.</span>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 bg-base border border-line p-5 rounded-[var(--radius-card)] hover:border-accent/30 transition-colors">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-surface border border-line flex items-center justify-center font-mono text-base font-bold text-fg shadow-sm">2</div>
-            <div className="pt-2">
-              <strong className="text-fg block text-lg mb-1">Generate API Keys</strong>
-              <span className="text-sm text-fg-subtle leading-relaxed block">Log into your Alpaca dashboard. Create new keys. <strong className="text-negative bg-negative/10 px-1.5 py-0.5 rounded ml-1">Crucial: Ensure keys have Trade permissions but NO Transfer/Withdrawal permissions.</strong></span>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 bg-base border border-line p-5 rounded-[var(--radius-card)] hover:border-accent/30 transition-colors">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-surface border border-line flex items-center justify-center font-mono text-base font-bold text-fg shadow-sm">3</div>
-            <div className="pt-2">
-              <strong className="text-fg block text-lg mb-1">Paste into Floqex</strong>
-              <span className="text-sm text-fg-subtle leading-relaxed block">Go to the Accounts Dashboard. Click &quot;Connect Live Account&quot; and input your newly generated Key ID and Secret.</span>
-            </div>
-          </div>
-        </div>
-      </motion.section>
-    </motion.div>
+    </div>
   );
 }

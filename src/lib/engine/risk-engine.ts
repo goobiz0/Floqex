@@ -39,11 +39,23 @@ export async function validateRisk(
 
   // Account-level absolute daily drawdown limit (set in Settings, in dollars).
   const limit = account.maxDailyDrawdown ? Number(account.maxDailyDrawdown) : null;
-  if (limit !== null && summary && summary.netPnl.toNumber() < -limit) {
+  if (limit !== null && summary && summary.netPnl.toNumber() <= -limit) {
     return { passed: false, reason: "CIRCUIT_BREAKER_TRIPPED" };
   }
 
   const balance = Number(account.balance);
+
+  // Prop Firm Mode limit check on entry
+  if (account.isPropFirmMode && account.propFirmMaxTrailingDrawdown) {
+    const trailingLimit = Number(account.propFirmMaxTrailingDrawdown);
+    // Rough static drawdown check: if current balance is below (startBalance - trailingLimit)
+    if (summary) {
+       const startBalance = Number(summary.startBalance);
+       if (balance <= startBalance - trailingLimit) {
+         return { passed: false, reason: "PROP_FIRM_VIOLATION" };
+       }
+    }
+  }
 
   // Strategy-level daily loss limit (percentage of the day's starting balance).
   const dailyLossPct = clampNum(Number(params.dailyLoss) || 0, 0, 5);

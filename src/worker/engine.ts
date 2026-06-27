@@ -8,9 +8,13 @@ import { recordBotStatus, RISK_REASON_TEXT } from "../lib/engine/feedback";
 import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
 import { instrumentsFromParams } from "../lib/custom-strategy";
+import { checkEdgeDecay } from "../lib/engine/edge-decay";
 
 // Engine configuration
 const TICK_RATE_MS = 2000; // 2 seconds
+
+// In-memory tracker for edge decay
+const lastEdgeDecayCheck: Record<string, number> = {};
 
 async function tick() {
   try {
@@ -32,6 +36,13 @@ async function tick() {
     for (const bot of bots) {
       // Skip bots not attached to an account
       if (!bot.accountId || !bot.account) continue;
+
+      // Check Edge Decay periodically (every 1 hour)
+      const now = Date.now();
+      if (!lastEdgeDecayCheck[bot.id] || now - lastEdgeDecayCheck[bot.id] > 60 * 60 * 1000) {
+        lastEdgeDecayCheck[bot.id] = now;
+        checkEdgeDecay(bot.id).catch(console.error);
+      }
 
       // Update heartbeat
       await prisma.bot.update({
@@ -96,6 +107,43 @@ async function tick() {
             const error = e as Error;
             console.error(`[FATAL] Failed to close trade ${openTrade.id}:`, error);
             await sendUrgentAlert(bot.account.userId, "ERROR", "Live Exit Execution Failed", `Failed to close position for bot ${bot.id}`, { error: error.message, botId: bot.id });
+          }
+        } else if (bot.account.isPropFirmMode) {
+          // Prop Firm specific hard-stop logic on open trade floating PnL
+          // This is a simplified check: if price moves significantly against us,
+          // close trade and stop bot. For a real system, you sum floating PNL across all open trades.
+          // Since we are iterating per instrument, we can just enforce it as a hard exit signal here.
+          const limit = bot.account.maxDailyDrawdown ? Number(bot.account.maxDailyDrawdown) : 0;
+          if (limit > 0) {
+            // Rough approximation of floating PNL 
+            const isLong = openTrade.direction === "LONG";
+            const diff = isLong 
+              ? marketData.price - Number(openTrade.entryPrice)
+              : Number(openTrade.entryPrice) - marketData.price;
+            const floatingPnl = diff * Number(openTrade.sizeUnits);
+            
+            // Fetch daily summary to get closed PNL
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+            const summary = await prisma.dailySummary.findFirst({ where: { accountId: bot.accountId!, date: today } });
+            const closedPnl = summary ? summary.netPnl.toNumber() : 0;
+            
+            if (closedPnl + floatingPnl <= -limit) {
+               console.log(`[PROP FIRM LIMIT BREACH] Bot ${bot.id} breached daily limit!`);
+               try {
+                 await closeTrade(openTrade.id, bot.accountId!, "PROP_FIRM_LIMIT_BREACH", marketData.price);
+                 await prisma.bot.update({ where: { id: bot.id }, data: { status: "STOPPED" }});
+                 await recordBotStatus({
+                   botId: bot.id,
+                   accountId: bot.accountId!,
+                   kind: "RISK",
+                   message: `Prop Firm Daily Limit Breached (Closed + Floating PnL <= -$${limit}). Trade closed and bot halted.`,
+                 });
+                 await sendUrgentAlert(bot.account.userId, "RISK", "Prop Firm Rule Violation", `Bot halted. Daily limit breached.`, { botId: bot.id });
+               } catch (e) {
+                 console.error("Failed to close on prop firm breach", e);
+               }
+            }
           }
         }
 

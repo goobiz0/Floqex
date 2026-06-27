@@ -34,6 +34,8 @@ export default async function AccountsPage() {
     broker: a.broker,
     mode: a.mode,
     balance: Number(a.balance),
+    isPropFirmMode: a.isPropFirmMode,
+    propFirmMaxTrailingDrawdown: a.propFirmMaxTrailingDrawdown ? Number(a.propFirmMaxTrailingDrawdown) : null,
     bot: a.bot ? { status: a.bot.status } : null,
   }));
 
