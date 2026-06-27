@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { Signal } from "./signal-generator";
 import { PLANS, type Plan } from "@/lib/plans";
+import { checkPortfolioRisk } from "./portfolio-risk";
 
 const clampNum = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
@@ -28,6 +29,13 @@ export async function validateRisk(
   const planConfig = PLANS[account.user.plan as Plan];
   if (account.mode === "LIVE" && !planConfig.liveTrading) {
     return { passed: false, reason: "LIVE_TRADING_NOT_ALLOWED_ON_PLAN" };
+  }
+
+  // Portfolio-level guard: a global kill switch or a breached portfolio drawdown
+  // stops every bot's next entry before any per-account checks run.
+  const portfolio = await checkPortfolioRisk(account.userId);
+  if (portfolio.blocked) {
+    return { passed: false, reason: portfolio.reason ?? "PORTFOLIO_RISK_BLOCKED" };
   }
 
   const today = new Date();

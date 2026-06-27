@@ -49,6 +49,12 @@ model User {
   alertOnRisk          Boolean   @default(true)
   alertOnError         Boolean   @default(true)
 
+  // Portfolio-level risk controls (Portfolio Risk Command Center). The kill
+  // switch (tradingHalted) is enforced server-side in validateRisk, so it stops
+  // every bot's next entry regardless of the per-account limits.
+  maxPortfolioDrawdown Decimal?  @db.Decimal(18, 2)
+  tradingHalted        Boolean   @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -160,6 +166,8 @@ model Bot {
   name                String    @default("My Bot")
   status              BotStatus @default(STOPPED)
   autoAdjustmentsUsed Int       @default(0)
+  // Share of the portfolio risk budget allocated to this bot (percent).
+  riskWeight          Decimal?  @db.Decimal(5, 2)
   lastHeartbeat       DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
