@@ -31,6 +31,11 @@ const AVAILABLE_WIDGETS: WidgetMeta[] = [
   { type: "streak-heatmap", name: "Trading Streak", desc: "Daily PnL consistency contribution graph.", category: "Performance", keywords: "streak heatmap consistency pnl daily graph" },
   { type: "live-tape", name: "Execution Tape", desc: "Live feed of your bot's most recent fills.", category: "Activity", keywords: "order book tape live executions fills ticker" },
   { type: "risk-matrix", name: "Risk Exposure", desc: "Capital at risk across open positions.", category: "Markets", keywords: "risk matrix exposure capital open positions donut chart", pro: true },
+  { type: "drawdown", name: "Drawdown Curve", desc: "Underwater plot of equity below its peak.", category: "Performance", keywords: "drawdown underwater equity peak risk loss curve" },
+  { type: "r-distribution", name: "R-Multiple Spread", desc: "Histogram of realised R-multiples per trade.", category: "Performance", keywords: "r multiple distribution histogram edge expectancy spread" },
+  { type: "session-performance", name: "Session Performance", desc: "Net PnL split by trading session.", category: "Performance", keywords: "session performance asia new york pnl bars" },
+  { type: "exposure", name: "Capital Utilization", desc: "Open notional as a share of balance.", category: "Markets", keywords: "exposure capital utilization buying power gauge notional" },
+  { type: "calendar-pnl", name: "Monthly Calendar", desc: "This month's daily PnL at a glance.", category: "Performance", keywords: "calendar month daily pnl heatmap days" },
 ];
 
 const CATEGORY_ORDER: WidgetMeta["category"][] = ["Performance", "Activity", "Markets", "Utility"];

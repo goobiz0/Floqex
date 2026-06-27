@@ -28,6 +28,12 @@ import { NetworkLatencyWidget } from "@/components/dashboard/network-latency-wid
 import { StreakHeatmapWidget } from "@/components/dashboard/streak-heatmap-widget";
 import { LiveTapeWidget } from "@/components/dashboard/live-tape-widget";
 import { RiskMatrixWidget } from "@/components/dashboard/risk-matrix-widget";
+import { DrawdownWidget } from "@/components/dashboard/drawdown-widget";
+import { RDistributionWidget } from "@/components/dashboard/r-distribution-widget";
+import { SessionPerformanceWidget } from "@/components/dashboard/session-performance-widget";
+import { ExposureWidget } from "@/components/dashboard/exposure-widget";
+import { CalendarPnlWidget } from "@/components/dashboard/calendar-pnl-widget";
+import { Sparkline } from "@/components/dashboard/charts/sparkline";
 import type { DashboardTemplate } from "@prisma/client";
 import { getDashboardTemplates, createDashboardTemplate, updateDashboardTemplate, deleteDashboardTemplate, setDefaultTemplate, WidgetLayout } from "./template-actions";
 import { useLiveStream } from "@/lib/use-live-stream";
@@ -43,6 +49,34 @@ const DEFAULT_LAYOUT: WidgetItem[] = [
   { i: "7", x: 6, y: 4, w: 2, h: 4, type: "system-health", config: {} },
   { i: "8", x: 8, y: 4, w: 2, h: 4, type: "market-pulse", config: {} },
   { i: "9", x: 10, y: 4, w: 2, h: 4, type: "quick-actions", config: {} },
+];
+
+// Curated starting points a user can apply in edit mode, then save as their own
+// template. Keeps a fresh dashboard from feeling empty and shows off the real
+// data widgets. Each uses stable ids so react-grid-layout reconciles cleanly.
+const PRESET_LAYOUTS: { name: string; layout: WidgetItem[] }[] = [
+  {
+    name: "Risk Focus",
+    layout: [
+      { i: "p1", x: 0, y: 0, w: 8, h: 4, type: "equity-hero", config: {} },
+      { i: "p2", x: 8, y: 0, w: 4, h: 4, type: "exposure", config: {} },
+      { i: "p3", x: 0, y: 4, w: 8, h: 4, type: "drawdown", config: { timeframe: "90" } },
+      { i: "p4", x: 8, y: 4, w: 4, h: 4, type: "risk-matrix", config: { groupBy: "asset" } },
+      { i: "p5", x: 0, y: 8, w: 6, h: 5, type: "r-distribution", config: {} },
+      { i: "p6", x: 6, y: 8, w: 6, h: 5, type: "session-performance", config: {} },
+    ],
+  },
+  {
+    name: "Execution Focus",
+    layout: [
+      { i: "e1", x: 0, y: 0, w: 6, h: 4, type: "equity-hero", config: {} },
+      { i: "e2", x: 6, y: 0, w: 6, h: 4, type: "agent-feed", config: {} },
+      { i: "e3", x: 0, y: 4, w: 5, h: 5, type: "live-tape", config: { rows: 8 } },
+      { i: "e4", x: 5, y: 4, w: 4, h: 5, type: "top-movers", config: {} },
+      { i: "e5", x: 9, y: 4, w: 3, h: 5, type: "network-latency", config: {} },
+      { i: "e6", x: 0, y: 9, w: 12, h: 6, type: "recent-operations", config: {} },
+    ],
+  },
 ];
 
 function EventIcon({ kind }: { kind: string }) {
@@ -172,6 +206,30 @@ export function DashboardPageClient({
   // first. Powers the Execution Tape widget with live data, never a generator.
   const tapeTrades = useMemo(() => [...openTrades, ...trades], [openTrades, trades]);
 
+  // Inline sparkline series for the hero cards (real data from daily summaries).
+  const equitySpark = useMemo(
+    () => [...summaries].sort((a, b) => a.date.localeCompare(b.date)).map((s) => s.endBalance),
+    [summaries],
+  );
+  const winRateSpark = useMemo(
+    () =>
+      [...summaries]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .filter((s) => s.tradeCount > 0)
+        .map((s) => (s.winCount / s.tradeCount) * 100),
+    [summaries],
+  );
+
+  // Daily net P&L for the Asset P&L "by day" mode (last 14 days, real summaries).
+  const dailyEntries = useMemo<[string, number][]>(
+    () =>
+      [...summaries]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-14)
+        .map((s) => [s.date.slice(5), s.netPnl] as [string, number]),
+    [summaries],
+  );
+
   // Actions
   const handleSaveLayout = async () => {
     if (!activeTemplateId) {
@@ -228,6 +286,14 @@ export function DashboardPageClient({
     }
   };
 
+  // Apply a starting layout (default or a curated preset) into edit mode so the
+  // user can tweak then Save it as a template. Never overwrites silently.
+  const applyLayout = (layout: WidgetItem[], label: string) => {
+    setLayoutItems(layout.map((w) => ({ ...w, config: { ...w.config } })));
+    setIsEditMode(true);
+    toast.success(`${label} applied. Save to keep it.`);
+  };
+
   const handleLayoutChange = useCallback((newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
     setLayoutItems(prev => prev.map(item => {
       const lay = newLayout.find(l => l.i === item.i);
@@ -273,6 +339,11 @@ export function DashboardPageClient({
               {hasAccount ? <DisplayValue type="BALANCE" money={liveBalance} /> : "$0.00"}
             </span>
           </div>
+          {equitySpark.length >= 2 && (
+            <div className="relative z-10 mt-3 h-12 w-full">
+              <Sparkline values={equitySpark} tone="auto" fill />
+            </div>
+          )}
           <div className="relative z-10 mt-auto pt-4 flex items-center justify-between border-t border-line/60">
             <span className="text-xs font-medium text-fg-subtle">24h PnL</span>
             <div className="flex items-center gap-1.5">
@@ -381,6 +452,11 @@ export function DashboardPageClient({
               <span className="text-xl font-bold text-fg-subtle tnum">{winRate !== null ? `${winRate.toFixed(1)}%` : "N/A"}</span>
             </div>
           </div>
+          {winRateSpark.length >= 2 && (
+            <div className="mt-3 h-8 w-full max-w-[140px]">
+              <Sparkline values={winRateSpark} tone={isProfit ? "profit" : "negative"} fill={false} strokeWidth={1.5} />
+            </div>
+          )}
         </div>
       );
     }
@@ -429,14 +505,16 @@ export function DashboardPageClient({
 
     // --- Asset PnL Breakdown ---
     if (item.type === "asset-pnl") {
+      const byDay = item.config?.mode === "day";
+      const data = byDay ? dailyEntries : assetEntries;
       return (
         <div className="relative flex h-full w-full flex-col p-6">
-          <h3 className="text-sm font-medium text-fg mb-4">Asset PnL Breakdown</h3>
+          <h3 className="text-sm font-medium text-fg mb-4">{byDay ? "Daily PnL Breakdown" : "Asset PnL Breakdown"}</h3>
           <div className="flex-1 flex flex-col justify-center overflow-hidden">
-            {assetEntries.length === 0 ? (
+            {data.length === 0 ? (
               <div className="flex items-center justify-center h-full"><p className="text-xs text-fg-subtle text-center">Insufficient Data</p></div>
             ) : (
-              <AssetPnlChart data={assetEntries} />
+              <AssetPnlChart data={data} />
             )}
           </div>
         </div>
@@ -515,9 +593,29 @@ export function DashboardPageClient({
       return <RiskMatrixWidget groupBy={item.config?.groupBy === "direction" ? "direction" : "asset"} openTrades={openTrades} />;
     }
 
+    if (item.type === "drawdown") {
+      return <DrawdownWidget summaries={summaries} timeframe={item.config?.timeframe || "90"} />;
+    }
+
+    if (item.type === "r-distribution") {
+      return <RDistributionWidget trades={trades} />;
+    }
+
+    if (item.type === "session-performance") {
+      return <SessionPerformanceWidget trades={trades} />;
+    }
+
+    if (item.type === "exposure") {
+      return <ExposureWidget openTrades={openTrades} balance={liveBalance} />;
+    }
+
+    if (item.type === "calendar-pnl") {
+      return <CalendarPnlWidget summaries={summaries} />;
+    }
+
     // Fallback
     return <div className="p-6 text-sm text-fg-subtle">Unknown Widget</div>;
-  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus, marketAsxEnabled, summaries, tapeTrades, openTrades]);
+  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus, marketAsxEnabled, summaries, trades, tapeTrades, openTrades, equitySpark, winRateSpark, dailyEntries]);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -546,6 +644,12 @@ export function DashboardPageClient({
                   setLayoutItems(t.layout as WidgetItem[]);
                   setIsEditMode(false);
                 }
+              })),
+              { label: "divider", onClick: () => {} },
+              { label: "Reset to Default Layout", onClick: () => applyLayout(DEFAULT_LAYOUT, "Default layout") },
+              ...PRESET_LAYOUTS.map((p) => ({
+                label: `Preset: ${p.name}`,
+                onClick: () => applyLayout(p.layout, `${p.name} preset`),
               })),
               { label: "divider", onClick: () => {} },
               { label: "Create New Template", onClick: () => {

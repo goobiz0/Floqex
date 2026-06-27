@@ -50,6 +50,11 @@ export const WIDGET_DIMENSIONS: Record<string, { minW: number; minH: number; max
   "streak-heatmap": { minW: 4, minH: 3, maxW: 12, maxH: 6 },
   "live-tape": { minW: 3, minH: 4, maxW: 8, maxH: 12 },
   "risk-matrix": { minW: 3, minH: 3, maxW: 6, maxH: 8 },
+  "drawdown": { minW: 4, minH: 3, maxW: 12, maxH: 6 },
+  "r-distribution": { minW: 3, minH: 4, maxW: 8, maxH: 6 },
+  "session-performance": { minW: 3, minH: 4, maxW: 8, maxH: 6 },
+  "exposure": { minW: 2, minH: 3, maxW: 4, maxH: 4 },
+  "calendar-pnl": { minW: 3, minH: 4, maxW: 6, maxH: 6 },
 };
 
 // Which widgets expose real, working settings. The gear/settings button is only
@@ -62,6 +67,8 @@ export const WIDGET_CONFIGURABLE: Record<string, boolean> = {
   "streak-heatmap": true,
   "live-tape": true,
   "risk-matrix": true,
+  "drawdown": true,
+  "asset-pnl": true,
 };
 
 // The authored grid is 12 columns and is treated as "desktop". Because the
