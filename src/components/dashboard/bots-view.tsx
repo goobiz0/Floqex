@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useTransition, useOptimistic, useState } from "react";
+import { useTransition, useOptimistic, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,8 @@ import {
   ChartLineUp,
   Warning,
   Copy,
+  Plug,
+  CircleNotch,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
@@ -149,6 +151,14 @@ function BotCard({
   const [ftPending, startFtTransition] = useTransition();
   const [ftError, setFtError] = useState<string | null>(null);
 
+  // While a forward test is live, refresh server data on an interval so its
+  // observed trades and progress advance without a manual reload.
+  useEffect(() => {
+    if (forwardTest?.status !== "RUNNING") return;
+    const id = setInterval(() => router.refresh(), 15000);
+    return () => clearInterval(id);
+  }, [forwardTest?.status, router]);
+
   const status = STATUS[optimisticStatus];
   const isRunning = optimisticStatus === "RUNNING";
   const isPaper = bot.accountMode === "PAPER";
@@ -205,20 +215,46 @@ function BotCard({
         </div>
       )}
       
-      <div className={cn("flex items-start justify-between", bot.edgeDecayPaused && "mt-8")}>
-        <div>
+      <div className={cn("flex items-start justify-between gap-2", bot.edgeDecayPaused && "mt-8")}>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-medium text-fg">{bot.name}</p>
+            <p className="truncate font-medium text-fg">{bot.name}</p>
             {bot.accountId && (
               <Badge tone={bot.accountMode === "LIVE" ? "warning" : "neutral"}>
                 {bot.accountMode === "LIVE" ? "Live" : "Paper"}
               </Badge>
             )}
           </div>
-          <p className="text-xs text-fg-subtle mt-1 flex items-center gap-1">
-            {bot.accountId ? `${bot.accountBroker} · ` : ""}
-            {bot.strategyName}
-            <span title="The underlying strategy this bot runs" className="cursor-help">
+
+          {/* Connected account, named so this bot is identifiable among many */}
+          {bot.accountId ? (
+            <span className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5">
+              <Plug size={12} weight="bold" className="shrink-0 text-accent" />
+              <span
+                className="truncate text-xs font-medium text-fg"
+                title={bot.accountNickname ?? undefined}
+              >
+                {bot.accountNickname}
+              </span>
+              {bot.accountBroker && (
+                <>
+                  <span className="text-fg-faint">·</span>
+                  <span className="shrink-0 text-xs text-fg-muted">{bot.accountBroker}</span>
+                </>
+              )}
+            </span>
+          ) : (
+            <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-fg-subtle">
+              <LinkBreak size={12} />
+              No account connected
+            </span>
+          )}
+
+          {/* Underlying strategy */}
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-fg-subtle">
+            <span className="text-fg-faint">Strategy</span>
+            <span className="truncate text-fg-muted">{bot.strategyName}</span>
+            <span title="The underlying strategy this bot runs" className="shrink-0 cursor-help">
               <Info size={12} />
             </span>
           </p>
@@ -413,6 +449,37 @@ function ForwardTestCard({
   onStart: () => void;
   onStop: () => void;
 }) {
+  const active = ft?.status === "RUNNING";
+
+  // Live "running for Xs/Xm" readout so an in-progress test visibly advances.
+  // Updated only from timer callbacks (never synchronously in the effect) and
+  // filled in on the client, which also avoids an SSR/hydration time mismatch.
+  const [elapsed, setElapsed] = useState<string | null>(null);
+  const startedAt = ft?.startedAt;
+  useEffect(() => {
+    if (!active || !startedAt) return;
+    const start = new Date(startedAt).getTime();
+    const tick = () => {
+      const secs = Math.max(0, Math.round((Date.now() - start) / 1000));
+      let label: string;
+      if (secs < 60) label = `${secs}s`;
+      else {
+        const mins = Math.floor(secs / 60);
+        if (mins < 60) label = `${mins}m`;
+        else {
+          const hrs = Math.floor(mins / 60);
+          label = hrs < 24 ? `${hrs}h ${mins % 60}m` : `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+        }
+      }
+      setElapsed(label);
+    };
+    const kick = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(kick);
+      clearInterval(id);
+    };
+  }, [active, startedAt]);
 
   // No forward test yet — invite the user to start one
   if (!ft) {
@@ -428,8 +495,8 @@ function ForwardTestCard({
         </p>
         {ftError && <p className="text-xs text-negative mb-2">{ftError}</p>}
         <Button size="sm" variant="outline" onClick={onStart} disabled={ftPending}>
-          <TestTube size={14} />
-          Start Forward Test
+          {ftPending ? <CircleNotch size={14} className="animate-spin" /> : <TestTube size={14} />}
+          {ftPending ? "Starting..." : "Start Forward Test"}
         </Button>
       </div>
     );
@@ -440,45 +507,47 @@ function ForwardTestCard({
   const passed = ft.status === "PASSED";
   const failed = ft.status === "FAILED";
   const stopped = ft.status === "STOPPED";
-  const active = ft.status === "RUNNING";
 
   return (
     <div
       className={cn(
-        "mt-4 rounded-lg border p-4",
+        "mt-4 rounded-lg border p-4 transition-colors",
         passed && "border-accent/30 bg-accent/5",
         failed && "border-negative/30 bg-negative/5",
         stopped && "border-line bg-surface",
-        active && "border-line bg-surface",
+        active && "border-accent/20 bg-surface",
       )}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <ChartLineUp size={15} className={cn("text-fg-subtle", passed && "text-accent")} />
+          <ChartLineUp size={15} className={cn("text-fg-subtle", (passed || active) && "text-accent")} />
           <p className="text-xs font-medium text-fg-subtle uppercase tracking-wide">Forward Test</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone={ftMeta.tone}>{ftMeta.label}</Badge>
+          <Badge tone={ftMeta.tone}>
+            {active && <StatusDot tone="warning" pulse />}
+            {ftMeta.label}
+          </Badge>
           {active && (
             <button
               onClick={onStop}
               disabled={ftPending}
               title="Stop forward test"
-              className="text-fg-subtle hover:text-fg transition-colors"
+              className="text-fg-subtle transition-colors hover:text-fg disabled:opacity-50"
             >
-              <StopCircle size={15} />
+              {ftPending ? <CircleNotch size={15} className="animate-spin" /> : <StopCircle size={15} />}
             </button>
           )}
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar: an indeterminate sheen sweeps across it while running */}
       <div className="mb-3">
         <div className="flex justify-between text-xs text-fg-muted mb-1">
           <span className="tnum">{ft.observedTrades} trades</span>
           <span className="tnum">target {ft.targetTrades}</span>
         </div>
-        <div className="h-1.5 rounded-full bg-surface-hover overflow-hidden">
+        <div className="relative h-1.5 overflow-hidden rounded-full bg-surface-hover">
           <div
             className={cn(
               "h-full rounded-full transition-all duration-700 ease-out",
@@ -486,8 +555,16 @@ function ForwardTestCard({
             )}
             style={{ width: `${pct}%` }}
           />
+          {active && (
+            <div className="ft-sweep pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
+          )}
         </div>
-        <p className="text-[10px] text-fg-faint mt-1 tnum">{pct}% complete</p>
+        <div className="mt-1 flex items-center justify-between">
+          <p className="text-[10px] text-fg-faint tnum">{pct}% complete</p>
+          {active && elapsed && (
+            <p className="text-[10px] text-fg-faint tnum">running for {elapsed}</p>
+          )}
+        </div>
       </div>
 
       {/* Observed vs baseline metrics */}
@@ -539,14 +616,15 @@ function ForwardTestCard({
           <XCircle size={14} className="text-negative shrink-0" />
           <p className="text-xs text-negative font-medium flex-1">Edge did not hold.</p>
           <Button size="sm" variant="outline" onClick={onStart} disabled={ftPending}>
+            {ftPending && <CircleNotch size={14} className="animate-spin" />}
             Retry
           </Button>
         </div>
       )}
       {stopped && (
         <Button size="sm" variant="outline" onClick={onStart} disabled={ftPending}>
-          <HourglassMedium size={14} />
-          Restart Test
+          {ftPending ? <CircleNotch size={14} className="animate-spin" /> : <HourglassMedium size={14} />}
+          {ftPending ? "Restarting..." : "Restart Test"}
         </Button>
       )}
     </div>
