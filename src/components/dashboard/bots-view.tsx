@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition, useOptimistic, useState } from "react";
+import { startTransition, useTransition, useOptimistic, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -369,6 +370,7 @@ function BotCard({
                 const val = e.target.value ? Number(e.target.value) : null;
                 startTransition(async () => {
                   await updateBotEdgeDecayThreshold(bot.id, val);
+                  toast.success("Edge decay threshold updated.");
                 });
               }}
             />

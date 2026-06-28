@@ -51,7 +51,7 @@ export function Dialog({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="relative z-10 w-full max-w-md overflow-hidden rounded-[var(--radius-card)] border border-line bg-elevated shadow-xl"
+            className="relative z-10 w-full max-w-md rounded-[var(--radius-card)] border border-line bg-elevated shadow-xl"
           >
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <h2 className="text-base font-semibold text-fg">{title}</h2>

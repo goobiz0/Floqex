@@ -2,7 +2,7 @@
 // Postgres (Supabase). Money is stored as Decimal; times are UTC.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
 }
 
@@ -21,13 +21,14 @@ enum Plan {
   TRADER
   PRO
   ELITE
+
   @@schema("public")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
+  id        String  @id @default(cuid())
+  clerkId   String  @unique
+  email     String  @unique
   firstName String?
   lastName  String?
   imageUrl  String?
@@ -44,16 +45,16 @@ model User {
   // mcpKey stored in Clerk privateMetadata instead of DB to avoid schema migrations
 
   // Alerting Preferences
-  webhookUrl           String?
-  alertOnTrade         Boolean   @default(false)
-  alertOnRisk          Boolean   @default(true)
-  alertOnError         Boolean   @default(true)
+  webhookUrl   String?
+  alertOnTrade Boolean @default(false)
+  alertOnRisk  Boolean @default(true)
+  alertOnError Boolean @default(true)
 
   // Portfolio-level risk controls (Portfolio Risk Command Center). The kill
   // switch (tradingHalted) is enforced server-side in validateRisk, so it stops
   // every bot's next entry regardless of the per-account limits.
-  maxPortfolioDrawdown Decimal?  @db.Decimal(18, 2)
-  tradingHalted        Boolean   @default(false)
+  maxPortfolioDrawdown Decimal? @db.Decimal(18, 2)
+  tradingHalted        Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -64,6 +65,7 @@ model User {
   dashboardTemplates DashboardTemplate[]
   mochiUsage         MochiUsage[]
   copyLinks          CopyLink[]
+  forwardTests       ForwardTest[]
 
   @@map("users")
   @@schema("public")
@@ -94,7 +96,7 @@ model DashboardTemplate {
   userId    String
   name      String
   isDefault Boolean  @default(false)
-  layout    Json     // Array of widget definitions: { id, type, x, y, w, h, config }
+  layout    Json // Array of widget definitions: { id, type, x, y, w, h, config }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -117,42 +119,46 @@ enum Broker {
   BINANCE
   KRAKEN
   SCHWAB
+
   @@schema("public")
 }
 
 enum AccountMode {
   PAPER
   LIVE
+
   @@schema("public")
 }
 
 model Account {
-  id         String      @id @default(cuid())
-  userId     String
-  nickname   String
-  broker     Broker      @default(PAPER)
-  mode       AccountMode @default(PAPER)
-  externalId String?
-  balance    Decimal     @default(10000) @db.Decimal(18, 2)
+  id                          String      @id @default(cuid())
+  userId                      String
+  nickname                    String
+  broker                      Broker      @default(PAPER)
+  mode                        AccountMode @default(PAPER)
+  externalId                  String?
+  balance                     Decimal     @default(10000) @db.Decimal(18, 2)
   currency                    String      @default("USD")
   maxDailyDrawdown            Decimal?    @db.Decimal(18, 2)
   isPropFirmMode              Boolean     @default(false)
   propFirmMaxTrailingDrawdown Decimal?    @db.Decimal(18, 2)
-  isActive         Boolean     @default(true)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  isActive                    Boolean     @default(true)
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime    @updatedAt
 
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bot         Bot?
-  connection  Connection?
-  trades      Trade[]
-  summaries   DailySummary[]
-  agentEvents AgentEvent[]
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot               Bot?
+  connection        Connection?
+  trades            Trade[]
+  summaries         DailySummary[]
+  agentEvents       AgentEvent[]
   // Copy trading: an account can lead one or more follower accounts (as master)
   // and/or mirror a single master (as follower). The links carry the routing.
-  copyMasterLinks   CopyLink[] @relation("CopyMaster")
-  copyFollowerLinks CopyLink[] @relation("CopyFollower")
+  copyMasterLinks   CopyLink[]     @relation("CopyMaster")
+  copyFollowerLinks CopyLink[]     @relation("CopyFollower")
+  forwardTests      ForwardTest[]
 
+  @@unique([id, userId])
   @@index([userId])
   @@map("accounts")
   @@schema("public")
@@ -162,6 +168,7 @@ enum BotStatus {
   RUNNING
   WAITING
   STOPPED
+
   @@schema("public")
 }
 
@@ -202,6 +209,7 @@ model Bot {
 enum StrategyKind {
   ORB
   CUSTOM
+
   @@schema("public")
 }
 
@@ -231,29 +239,32 @@ model Strategy {
 enum TradeDirection {
   LONG
   SHORT
+
   @@schema("public")
 }
 
 enum TradeSession {
   ASIA
   NY
+
   @@schema("public")
 }
 
 enum TradeStatus {
   OPEN
   CLOSED
+
   @@schema("public")
 }
 
 model Trade {
-  id          String         @id @default(cuid())
-  botId       String
-  accountId   String
-  instrument  String
-  direction   TradeDirection
-  session     TradeSession
-  status      TradeStatus    @default(OPEN)
+  id         String         @id @default(cuid())
+  botId      String
+  accountId  String
+  instrument String
+  direction  TradeDirection
+  session    TradeSession
+  status     TradeStatus    @default(OPEN)
 
   entryPrice  Decimal  @db.Decimal(18, 5)
   exitPrice   Decimal? @db.Decimal(18, 5)
@@ -295,8 +306,8 @@ model Trade {
 
   @@index([accountId, openedAt])
   @@index([botId])
-  @@index([accountId, status])
-  @@index([botId, status])
+  @@index([accountId, status, closedAt(sort: Desc), openedAt(sort: Desc)])
+  @@index([botId, status, closedAt(sort: Desc), openedAt(sort: Desc)])
   @@map("trades")
   @@schema("public")
 }
@@ -306,6 +317,7 @@ model Trade {
 enum AdjustmentSource {
   BOT
   USER
+
   @@schema("public")
 }
 
@@ -313,6 +325,7 @@ enum AdjustmentStatus {
   APPLIED
   PENDING
   REJECTED
+
   @@schema("public")
 }
 
@@ -350,6 +363,7 @@ enum ForwardTestStatus {
   PASSED
   FAILED
   STOPPED
+
   @@schema("public")
 }
 
@@ -406,6 +420,7 @@ enum NewsImpact {
   LOW
   MEDIUM
   HIGH
+
   @@schema("public")
 }
 
@@ -452,6 +467,7 @@ enum AgentEventKind {
   RISK
   NEWS
   ADJUST
+
   @@schema("public")
 }
 
@@ -479,16 +495,18 @@ model AgentEvent {
 // How a follower's order size is derived from the master's fill. The engine
 // maps each mode to a size in src/lib/engine/copy-trading.ts.
 enum CopySizingMode {
-  MIRROR       // same size as the master order
-  MULTIPLIER   // master size * multiplier
+  MIRROR // same size as the master order
+  MULTIPLIER // master size * multiplier
   PROPORTIONAL // scale by equity ratio (follower balance / master balance) * multiplier
-  FIXED        // a fixed unit size on every copied trade
+  FIXED // a fixed unit size on every copied trade
+
   @@schema("public")
 }
 
 enum CopyLinkStatus {
   ACTIVE
   PAUSED
+
   @@schema("public")
 }
 
@@ -506,7 +524,7 @@ model CopyLink {
   multiplier        Decimal        @default(1) @db.Decimal(8, 4)
   fixedUnits        Decimal?       @db.Decimal(18, 4)
   maxRiskPct        Decimal?       @db.Decimal(6, 3) // cap risk per copied trade
-  reverse           Boolean        @default(false)   // copy the opposite direction
+  reverse           Boolean        @default(false) // copy the opposite direction
   copyOpen          Boolean        @default(true)
   copyClose         Boolean        @default(true)
   copiedCount       Int            @default(0)
@@ -514,9 +532,9 @@ model CopyLink {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  masterAccount   Account @relation("CopyMaster", fields: [masterAccountId], references: [id], onDelete: Cascade)
-  followerAccount Account @relation("CopyFollower", fields: [followerAccountId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  masterAccount   Account          @relation("CopyMaster", fields: [masterAccountId, userId], references: [id, userId], onDelete: Cascade)
+  followerAccount Account          @relation("CopyFollower", fields: [followerAccountId, userId], references: [id, userId], onDelete: Cascade)
   events          CopyTradeEvent[]
 
   @@unique([masterAccountId, followerAccountId])
@@ -532,19 +550,20 @@ model CopyLink {
 // follower's trade row, which the CLOSE replication then resolves and closes.
 model CopyTradeEvent {
   id              String   @id @default(cuid())
-  copyLinkId      String
+  copyLinkId      String?
   sourceTradeId   String
   followerTradeId String?
-  action          String   // OPEN | CLOSE
-  status          String   // FILLED | SKIPPED | FAILED
+  action          String // OPEN | CLOSE
+  status          String // FILLED | SKIPPED | FAILED
   reason          String?
   instrument      String
   direction       String
   sizeUnits       Decimal? @db.Decimal(18, 4)
   pnl             Decimal? @db.Decimal(18, 2)
   createdAt       DateTime @default(now())
+  userId          String
 
-  copyLink CopyLink @relation(fields: [copyLinkId], references: [id], onDelete: Cascade)
+  copyLink CopyLink? @relation(fields: [copyLinkId], references: [id], onDelete: SetNull)
 
   @@index([copyLinkId, createdAt])
   @@index([sourceTradeId])

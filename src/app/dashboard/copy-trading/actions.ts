@@ -103,31 +103,36 @@ export async function createCopyLink(
 
     // Keep the graph a clean hub-and-spoke: no chains, no reciprocal loops. A
     // follower cannot also be a master, and a master cannot also be a follower.
-    const conflicts = await prisma.copyLink.findMany({
-      where: {
-        userId: user.id,
-        OR: [{ masterAccountId: followerAccountId }, { followerAccountId: masterAccountId }],
-      },
-      select: { id: true },
-    });
-    if (conflicts.length > 0) {
-      return { ok: false, error: "That pairing would create a copy chain. An account can be a master or a follower, not both." };
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const conflicts = await tx.copyLink.findMany({
+        where: {
+          userId: user.id,
+          OR: [{ masterAccountId: followerAccountId }, { followerAccountId: masterAccountId }],
+        },
+        select: { id: true },
+      });
+      if (conflicts.length > 0) {
+        throw new Error("That pairing would create a copy chain. An account can be a master or a follower, not both.");
+      }
 
-    await prisma.copyLink.create({
-      data: {
-        userId: user.id,
-        masterAccountId,
-        followerAccountId,
-        ...settings.data,
-      },
-    });
+      return await tx.copyLink.create({
+        data: {
+          userId: user.id,
+          masterAccountId,
+          followerAccountId,
+          ...settings.data,
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     revalidatePath("/dashboard/copy-trading");
     return follower.bot
       ? { ok: true }
       : { ok: true, warning: "This follower has no bot attached yet, so copies will be skipped until you connect one." };
-  } catch (err) {
+  } catch (err: any) {
+    if (err.message === "That pairing would create a copy chain. An account can be a master or a follower, not both.") {
+      return { ok: false, error: err.message };
+    }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return { ok: false, error: "Those two accounts are already linked." };
     }
@@ -183,6 +188,24 @@ export async function deleteCopyLink(id: string): Promise<Result> {
   try {
     const link = await prisma.copyLink.findUnique({ where: { id }, select: { userId: true } });
     if (!link || link.userId !== gate.user.id) return { ok: false, error: "Copy link not found." };
+
+    const openEvents = await prisma.copyTradeEvent.findMany({
+      where: { copyLinkId: id, action: "OPEN", status: "FILLED", followerTradeId: { not: null } },
+      select: { followerTradeId: true },
+    });
+    
+    if (openEvents.length > 0) {
+      const followerTradeIds = openEvents.map(e => e.followerTradeId!);
+      const activeTrades = await prisma.trade.count({
+        where: {
+          id: { in: followerTradeIds },
+          status: "OPEN",
+        }
+      });
+      if (activeTrades > 0) {
+        return { ok: false, error: "Cannot delete this link while there are open copied trades. Please pause the link or close the positions first." };
+      }
+    }
 
     await prisma.copyLink.delete({ where: { id } });
     revalidatePath("/dashboard/copy-trading");

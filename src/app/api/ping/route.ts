@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 // Minimal, uncached endpoint used by the dashboard latency widget to measure a
 // real client to Floqex round trip. Intentionally tiny so the timing reflects

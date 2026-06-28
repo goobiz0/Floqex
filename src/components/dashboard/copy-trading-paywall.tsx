@@ -26,7 +26,7 @@ const BENEFITS = [
   },
   {
     icon: UsersThree,
-    title: "Unlimited followers",
+    title: "Multi-account routing",
     body: "Fan one master out to as many follower accounts as your plan allows, hub and spoke.",
   },
   {
