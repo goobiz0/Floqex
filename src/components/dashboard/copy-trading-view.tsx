@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,7 @@ import {
   CheckCircle,
   XCircle,
   MinusCircle,
+  CircleNotch,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,8 @@ import { createCopyLink, updateCopyLink, toggleCopyLink, deleteCopyLink } from "
 
 export function CopyTradingView({ data }: { data: CopyTradingData }) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { accounts, links, recentEvents, stats } = data;
   const [dialog, setDialog] = useState<{ mode: "new" } | { mode: "edit"; link: CopyLinkRow } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -122,7 +125,7 @@ export function CopyTradingView({ data }: { data: CopyTradingData }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Active links" value={`${stats.activeLinks}`} sub={`of ${stats.totalLinks} total`} icon={<Pulse size={16} weight="duotone" />} />
         <Stat label="Followers" value={`${stats.followerAccounts}`} sub={`${stats.masterAccounts} master${stats.masterAccounts === 1 ? "" : "s"}`} icon={<UsersThree size={16} weight="duotone" />} />
-        <Stat label="Copied today" value={`${stats.copiedToday}`} sub={`${stats.totalCopied} all time`} icon={<Copy size={16} weight="duotone" />} />
+        <Stat label="Copied today (UTC)" value={`${stats.copiedToday}`} sub={`${stats.totalCopied} all time`} icon={<Copy size={16} weight="duotone" />} />
         <Stat
           label="Copied P&L"
           valueNode={
@@ -172,6 +175,7 @@ export function CopyTradingView({ data }: { data: CopyTradingData }) {
               <LinkCard
                 key={link.id}
                 link={link}
+                mounted={mounted}
                 pending={pending}
                 onEdit={() => setDialog({ mode: "edit", link })}
                 onToggle={() => runToggle(link)}
@@ -270,12 +274,14 @@ function DiagramEmpty({ canCreate, onNew }: { canCreate: boolean; onNew: () => v
 
 function LinkCard({
   link,
+  mounted,
   pending,
   onEdit,
   onToggle,
   onDelete,
 }: {
   link: CopyLinkRow;
+  mounted: boolean;
   pending: boolean;
   onEdit: () => void;
   onToggle: () => void;
@@ -321,7 +327,7 @@ function LinkCard({
 
       <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
         <p className="tnum text-[11px] text-fg-subtle">
-          {link.copiedCount} copied{link.lastCopiedAt ? ` · last ${new Date(link.lastCopiedAt).toLocaleDateString()}` : ""}
+          {link.copiedCount} copied{link.lastCopiedAt && mounted ? ` · last ${new Date(link.lastCopiedAt).toLocaleDateString()}` : ""}
         </p>
         <div className="flex items-center gap-1">
           <IconButton label={active ? "Pause" : "Resume"} onClick={onToggle} disabled={pending}>
@@ -509,7 +515,7 @@ function LinkDialog({
               value={masterId}
               onChange={(v) => {
                 setMasterId(v);
-                if (v === followerId) setFollowerId("");
+                setFollowerId("");
               }}
               placeholder="Choose the account to copy from"
               options={masterOptions}
@@ -622,8 +628,18 @@ function LinkDialog({
               size="sm"
               onClick={submit}
               disabled={pending || (mode === "new" && (!masterId || !followerId))}
+              className="w-28"
             >
-              {pending ? "Saving" : mode === "new" ? "Create link" : "Save changes"}
+              {pending ? (
+                <>
+                  <CircleNotch size={14} weight="bold" className="animate-spin" />
+                  Saving
+                </>
+              ) : mode === "new" ? (
+                "Create link"
+              ) : (
+                "Save changes"
+              )}
             </Button>
           )}
         </div>

@@ -1097,16 +1097,14 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
     const linkMeta = new Map(links.map((l) => [l.id, { master: l.master.nickname, follower: l.follower.nickname }]));
     const linkIds = links.map((l) => l.id);
 
-    const eventRows = linkIds.length
-      ? await prisma.copyTradeEvent.findMany({
-          where: { copyLinkId: { in: linkIds } },
-          orderBy: { createdAt: "desc" },
-          take: 40,
-        })
-      : [];
+    const eventRows = await prisma.copyTradeEvent.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+    });
 
     const recentEvents: CopyEventRow[] = eventRows.map((e) => {
-      const meta = linkMeta.get(e.copyLinkId);
+      const meta = e.copyLinkId ? linkMeta.get(e.copyLinkId) : undefined;
       return {
         id: e.id,
         action: e.action,
@@ -1125,17 +1123,15 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
     const startOfToday = new Date();
     startOfToday.setUTCHours(0, 0, 0, 0);
 
-    const [copiedToday, realizedAgg] = linkIds.length
-      ? await Promise.all([
-          prisma.copyTradeEvent.count({
-            where: { copyLinkId: { in: linkIds }, action: "OPEN", status: "FILLED", createdAt: { gte: startOfToday } },
-          }),
-          prisma.copyTradeEvent.aggregate({
-            where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED" },
-            _sum: { pnl: true },
-          }),
-        ])
-      : [0, { _sum: { pnl: null } }];
+    const [copiedToday, realizedAgg] = await Promise.all([
+      prisma.copyTradeEvent.count({
+        where: { userId: user.id, action: "OPEN", status: "FILLED", createdAt: { gte: startOfToday } },
+      }),
+      prisma.copyTradeEvent.aggregate({
+        where: { userId: user.id, action: "CLOSE", status: "FILLED" },
+        _sum: { pnl: true },
+      }),
+    ]);
 
     const stats: CopyTradingStats = {
       activeLinks: links.filter((l) => l.status === "ACTIVE").length,

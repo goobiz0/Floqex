@@ -54,7 +54,7 @@ export function CopyTradingDiagram({
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
-      if (w) setWidth(Math.max(320, Math.min(960, Math.round(w))));
+      if (w) setWidth(Math.max(480, Math.min(960, Math.round(w))));
     });
     ro.observe(el);
     return () => ro.disconnect();

@@ -31,7 +31,7 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
     const links = await prisma.copyLink.findMany({
       where: { masterAccountId: sourceTrade.accountId, status: "ACTIVE", copyOpen: true },
       include: {
-        masterAccount: { select: { balance: true, user: { select: { plan: true } } } },
+        masterAccount: { select: { userId: true, balance: true, user: { select: { plan: true } } } },
         followerAccount: { include: { bot: true } },
       },
     });
@@ -48,8 +48,15 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
     for (const link of links) {
       const follower = link.followerAccount;
       try {
+        if (!link.copyOpen) {
+          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", sourceTrade.direction, null, {
+            reason: "Link is set to not mirror entries.",
+          });
+          continue;
+        }
+
         if (!follower.bot) {
-          await logEvent(link.id, sourceTrade, "OPEN", "SKIPPED", sourceTrade.direction, null, {
+          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", sourceTrade.direction, null, {
             reason: "Follower account has no bot to receive copied trades.",
           });
           continue;
@@ -66,8 +73,8 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
         });
 
         if (units <= 0) {
-          await logEvent(link.id, sourceTrade, "OPEN", "SKIPPED", direction, null, {
-            reason: "Computed copy size was zero for this follower.",
+          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", direction, null, {
+            reason: `Opposite direction copy blocked because the master and follower accounts are the same.`,
           });
           continue;
         }
@@ -90,6 +97,19 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
         );
 
         await prisma.$transaction([
+          prisma.copyTradeEvent.create({
+            data: {
+              copyLinkId: link.id,
+              sourceTradeId: sourceTrade.id,
+              followerTradeId: followerTrade.id,
+              action: "OPEN",
+              status: "FILLED",
+              instrument: sourceTrade.instrument,
+              direction,
+              sizeUnits: units,
+              userId: link.masterAccount.userId,
+            },
+          }),
           prisma.agentEvent.create({
             data: {
               botId: follower.bot.id,
@@ -103,23 +123,11 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
             where: { id: link.id },
             data: { copiedCount: { increment: 1 }, lastCopiedAt: new Date() },
           }),
-          prisma.copyTradeEvent.create({
-            data: {
-              copyLinkId: link.id,
-              sourceTradeId: sourceTrade.id,
-              followerTradeId: followerTrade.id,
-              action: "OPEN",
-              status: "FILLED",
-              instrument: sourceTrade.instrument,
-              direction,
-              sizeUnits: units,
-            },
-          }),
         ]);
       } catch (err) {
         console.error(`[copy-trading] open replication failed for link ${link.id}`, err);
-        await logEvent(link.id, sourceTrade, "OPEN", "FAILED", sourceTrade.direction, null, {
-          reason: (err as Error)?.message?.slice(0, 240) || "Copy execution failed.",
+        await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "FAILED", sourceTrade.direction, null, {
+          reason: (err as Error)?.message?.slice(0, 240) || "Copy entry failed.",
         }).catch(() => {});
       }
     }
@@ -141,8 +149,8 @@ export async function replicateClose(sourceTrade: Trade, exitPrice: number): Pro
       if (!ev.followerTradeId) continue;
       const link = ev.copyLink;
       try {
-        if (!link.copyClose) {
-          await logEvent(link.id, sourceTrade, "CLOSE", "SKIPPED", ev.direction, ev.followerTradeId, {
+        if (link && !link.copyClose) {
+          await logEvent(link.id, ev.userId, sourceTrade, "CLOSE", "SKIPPED", ev.direction, ev.followerTradeId, {
             reason: "Link is set to not mirror exits.",
           });
           continue;
@@ -151,37 +159,44 @@ export async function replicateClose(sourceTrade: Trade, exitPrice: number): Pro
         const followerTrade = await prisma.trade.findUnique({ where: { id: ev.followerTradeId } });
         if (!followerTrade || followerTrade.status !== "OPEN") continue;
 
-        const pnl = await closeTrade(followerTrade.id, link.followerAccountId, "COPY_CLOSE", exitPrice, {
+        const pnl = await closeTrade(followerTrade.id, link ? link.followerAccountId : followerTrade.accountId, "COPY_CLOSE", exitPrice, {
           replicate: false,
         });
+
+        const status = pnl === null ? "FAILED" : "FILLED";
+        const reason = pnl === null ? "Trade close failed or skipped." : null;
 
         await prisma.$transaction([
           prisma.agentEvent.create({
             data: {
               botId: followerTrade.botId,
-              accountId: link.followerAccountId,
-              kind: "TRADE",
-              message: `Closed copied ${followerTrade.direction} on ${sourceTrade.instrument} mirroring the master exit. PnL: $${(pnl ?? 0).toFixed(2)}.`,
+              accountId: link ? link.followerAccountId : followerTrade.accountId,
+              kind: pnl === null ? "RISK" : "TRADE",
+              message: pnl === null 
+                ? `Failed to close copied ${followerTrade.direction} on ${sourceTrade.instrument}.`
+                : `Closed copied ${followerTrade.direction} on ${sourceTrade.instrument} mirroring the master exit. PnL: $${pnl.toFixed(2)}.`,
               tradeId: followerTrade.id,
             },
           }),
           prisma.copyTradeEvent.create({
             data: {
-              copyLinkId: link.id,
+              copyLinkId: link ? link.id : null,
               sourceTradeId: sourceTrade.id,
               followerTradeId: followerTrade.id,
               action: "CLOSE",
-              status: "FILLED",
+              status,
+              reason,
               instrument: sourceTrade.instrument,
               direction: followerTrade.direction,
               sizeUnits: Math.abs(num(followerTrade.sizeUnits)),
-              pnl: pnl ?? 0,
+              pnl: pnl,
+              userId: ev.userId,
             },
           }),
         ]);
       } catch (err) {
-        console.error(`[copy-trading] close replication failed for link ${link.id}`, err);
-        await logEvent(link.id, sourceTrade, "CLOSE", "FAILED", ev.direction, ev.followerTradeId, {
+        console.error(`[copy-trading] close replication failed for link ${ev.copyLinkId}`, err);
+        await logEvent(ev.copyLinkId, ev.userId, sourceTrade, "CLOSE", "FAILED", ev.direction, ev.followerTradeId, {
           reason: (err as Error)?.message?.slice(0, 240) || "Copy close failed.",
         }).catch(() => {});
       }
@@ -193,7 +208,8 @@ export async function replicateClose(sourceTrade: Trade, exitPrice: number): Pro
 
 /** Append a single replication outcome to the audit log. */
 async function logEvent(
-  copyLinkId: string,
+  copyLinkId: string | null,
+  userId: string,
   sourceTrade: Trade,
   action: "OPEN" | "CLOSE",
   status: "FILLED" | "SKIPPED" | "FAILED",
@@ -204,6 +220,7 @@ async function logEvent(
   await prisma.copyTradeEvent.create({
     data: {
       copyLinkId,
+      userId,
       sourceTradeId: sourceTrade.id,
       followerTradeId,
       action,

@@ -23,13 +23,14 @@ CREATE TABLE "copy_links" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "copy_links_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "copy_links_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "copy_links_master_follower_check" CHECK ("masterAccountId" != "followerAccountId")
 );
 
 -- CreateTable
 CREATE TABLE "copy_trade_events" (
     "id" TEXT NOT NULL,
-    "copyLinkId" TEXT NOT NULL,
+    "copyLinkId" TEXT,
     "sourceTradeId" TEXT NOT NULL,
     "followerTradeId" TEXT,
     "action" TEXT NOT NULL,
@@ -40,12 +41,16 @@ CREATE TABLE "copy_trade_events" (
     "sizeUnits" DECIMAL(18,4),
     "pnl" DECIMAL(18,2),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "userId" TEXT NOT NULL,
 
     CONSTRAINT "copy_trade_events_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
 CREATE INDEX "copy_links_userId_idx" ON "copy_links"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "accounts_id_userId_key" ON "accounts"("id", "userId");
 
 -- CreateIndex
 CREATE INDEX "copy_links_masterAccountId_idx" ON "copy_links"("masterAccountId");
@@ -66,10 +71,10 @@ CREATE INDEX "copy_trade_events_sourceTradeId_idx" ON "copy_trade_events"("sourc
 ALTER TABLE "copy_links" ADD CONSTRAINT "copy_links_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "copy_links" ADD CONSTRAINT "copy_links_masterAccountId_fkey" FOREIGN KEY ("masterAccountId") REFERENCES "accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "copy_links" ADD CONSTRAINT "copy_links_masterAccountId_userId_fkey" FOREIGN KEY ("masterAccountId", "userId") REFERENCES "accounts"("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "copy_links" ADD CONSTRAINT "copy_links_followerAccountId_fkey" FOREIGN KEY ("followerAccountId") REFERENCES "accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "copy_links" ADD CONSTRAINT "copy_links_followerAccountId_userId_fkey" FOREIGN KEY ("followerAccountId", "userId") REFERENCES "accounts"("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "copy_trade_events" ADD CONSTRAINT "copy_trade_events_copyLinkId_fkey" FOREIGN KEY ("copyLinkId") REFERENCES "copy_links"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "copy_trade_events" ADD CONSTRAINT "copy_trade_events_copyLinkId_fkey" FOREIGN KEY ("copyLinkId") REFERENCES "copy_links"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -4,6 +4,15 @@ import { decrypt } from "@/lib/crypto";
 import { executeLiveOrder, closeLivePosition } from "./live-broker";
 import { getSessionForInstrument } from "@/lib/market";
 
+
+function computeSlippageBps(intended: number, filled: number, direction: string, type: "ENTRY" | "EXIT"): number {
+  if (!intended || !filled) return 0;
+  const rawDiff = type === "ENTRY" 
+    ? (direction === "LONG" ? filled - intended : intended - filled)
+    : (direction === "LONG" ? intended - filled : filled - intended);
+  return (rawDiff / intended) * 10000;
+}
+
 type ExecOpts = {
   /** When false, this trade is itself a copy and must not be replicated again
    *  (prevents recursion and copy chains). Defaults to true for first-party trades. */
@@ -66,8 +75,7 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
       sizeUnits: risk.sizeUnits,
       riskPct: risk.riskPct,
       intendedEntryPrice,
-      entrySlippageBps: slippageBps(intendedEntryPrice, filledPrice, signal.direction, "ENTRY"),
-      entryLatencyMs,
+      entrySlippageBps: computeSlippageBps(intendedEntryPrice, filledPrice, signal.direction, "ENTRY"),
     }
   });
 
@@ -135,7 +143,7 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
         netPnl: pnl,
         rMultiple,
         intendedExitPrice: exitPrice,
-        exitSlippageBps: slippageBps(exitPrice, finalExitPrice, trade.direction, "EXIT"),
+        exitSlippageBps: computeSlippageBps(exitPrice, finalExitPrice, trade.direction, "EXIT"),
       }
     });
 
