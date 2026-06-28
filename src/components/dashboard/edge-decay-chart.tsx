@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { createChart, ColorType, IChartApi, AreaSeries, LineSeries, type Time } from "lightweight-charts";
 import { useTheme } from "next-themes";
 
@@ -8,7 +8,7 @@ interface EdgeDecayChartProps {
   data: number[]; // array of historical equity values or win rates
 }
 
-export function EdgeDecayChart({ data }: EdgeDecayChartProps) {
+function EdgeDecayChartBase({ data }: EdgeDecayChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const { resolvedTheme } = useTheme();
@@ -107,3 +107,7 @@ export function EdgeDecayChart({ data }: EdgeDecayChartProps) {
     </div>
   );
 }
+
+// Memoized: creating a lightweight-charts instance is expensive, so skip
+// re-renders unless the underlying data changes.
+export const EdgeDecayChart = memo(EdgeDecayChartBase);

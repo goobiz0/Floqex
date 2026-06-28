@@ -8,8 +8,14 @@ import { StatsStrip } from "@/components/marketing/home/stats-strip";
 import { PricingSection } from "@/components/marketing/home/pricing-section";
 import { FaqSection } from "@/components/marketing/home/faq-section";
 import { ClosingCta } from "@/components/marketing/home/closing-cta";
+import { StructuredData } from "@/components/marketing/structured-data";
+import type { Metadata } from "next";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const introGreetings = [
   { text: "Define." },
@@ -20,6 +26,7 @@ const introGreetings = [
 export default function LandingPage() {
   return (
     <div className="relative overflow-hidden bg-base selection:bg-accent/20">
+      <StructuredData />
       <ArcRevealHero storageKey="floqex-intro" greetings={introGreetings}>
         <HomeHero />
       </ArcRevealHero>

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { TradeChart } from "@/components/ui/trade-chart";
 import { Spinner } from "@phosphor-icons/react";
 import type { CandlestickData, Time } from "lightweight-charts";
 
-export function MarketChart({ symbol }: { symbol: string }) {
+function MarketChartBase({ symbol }: { symbol: string }) {
   const [data, setData] = useState<CandlestickData[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,3 +65,7 @@ export function MarketChart({ symbol }: { symbol: string }) {
     </div>
   );
 }
+
+// Memoized so the candlestick chart only re-fetches/re-renders when the
+// selected symbol changes.
+export const MarketChart = memo(MarketChartBase);

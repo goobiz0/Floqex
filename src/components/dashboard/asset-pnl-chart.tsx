@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, ReferenceLine } from "recharts";
 import { DisplayValue } from "@/components/ui/display-value";
 
@@ -8,7 +8,7 @@ interface AssetPnlChartProps {
   data: [string, number][]; // [instrument, pnl]
 }
 
-export function AssetPnlChart({ data }: AssetPnlChartProps) {
+function AssetPnlChartBase({ data }: AssetPnlChartProps) {
   const chartData = useMemo(() => {
     return data.map(([instrument, pnl]) => ({
       instrument,
@@ -66,3 +66,6 @@ export function AssetPnlChart({ data }: AssetPnlChartProps) {
     </div>
   );
 }
+
+// Memoized so the Recharts bar chart only re-renders when its data changes.
+export const AssetPnlChart = memo(AssetPnlChartBase);
