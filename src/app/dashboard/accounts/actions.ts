@@ -233,6 +233,8 @@ export async function toggleBotStatus(accountId: string) {
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/accounts");
+    revalidatePath("/dashboard/bots");
     return { ok: true, status: newStatus };
   } catch (err) {
     console.error("toggleBotStatus error", err);
