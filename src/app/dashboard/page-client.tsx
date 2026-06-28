@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Plus, MagnifyingGlass, DotsThree, TrendUp, TrendDown, Robot, Heartbeat, ClockCounterClockwise, Plug, ArrowUpRight, WarningCircle, CheckCircle, Wallet, ChartLineUp, Info, Lightning, WarningOctagon, Target, CaretDown, Gear, PencilSimple, Check, Trash } from "@phosphor-icons/react/dist/ssr";
+import { Plus, MagnifyingGlass, DotsThree, TrendUp, TrendDown, Robot, Heartbeat, ClockCounterClockwise, Plug, ArrowUpRight, WarningCircle, CheckCircle, Wallet, ChartLineUp, Info, Lightning, WarningOctagon, Target, CaretDown, Gear, PencilSimple, Check, Trash, CircleNotch } from "@phosphor-icons/react/dist/ssr";
 import { formatUSD, cn } from "@/lib/utils";
 import { motion } from "motion/react";
 import { type TradeRow, type DailyRow, type AgentEventRow } from "@/lib/queries";
@@ -140,6 +140,7 @@ export function DashboardPageClient({
   // template instead of overwriting the active one, while the active template is
   // kept so Cancel can still restore it.
   const [isDraft, setIsDraft] = useState(false);
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [templates, setTemplates] = useState(initialTemplates);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(() => {
     if (initialTemplates.length > 0) {
@@ -252,7 +253,9 @@ export function DashboardPageClient({
       setNewTemplateDialogOpen(true);
       return;
     }
+    setIsSavingLayout(true);
     const res = await updateDashboardTemplate(activeTemplateId, layoutItems);
+    setIsSavingLayout(false);
     if (res.error) toast.error(res.error);
     else {
       toast.success("Layout saved");
@@ -734,8 +737,12 @@ export function DashboardPageClient({
               }} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
                 Cancel
               </button>
-              <button onClick={handleSaveLayout} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02]">
-                <Check size={16} weight="bold" /> Save
+              <button onClick={handleSaveLayout} disabled={isSavingLayout} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:pointer-events-none">
+                {isSavingLayout ? (
+                  <><CircleNotch size={16} className="animate-spin" weight="bold" /> Saving</>
+                ) : (
+                  <><Check size={16} weight="bold" /> Save</>
+                )}
               </button>
             </div>
           )}
