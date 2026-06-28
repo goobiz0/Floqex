@@ -43,6 +43,7 @@ export type AgentEventRow = {
 
 export type OverviewData = {
   account: OverviewAccount | null;
+  userPlan: Plan;
   bot: OverviewBot | null;
   trades: TradeRow[];
   summaries: DailyRow[];
@@ -61,6 +62,7 @@ export type TradeData = {
 
 const EMPTY_OVERVIEW: OverviewData = {
   account: null,
+  userPlan: "FREE",
   bot: null,
   trades: [],
   summaries: [],
@@ -219,6 +221,7 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
         balance: num(account.balance),
         currency: account.currency,
       },
+      userPlan: (user.plan as Plan) || "FREE",
       bot: account.bot
         ? {
             status: account.bot.status as OverviewBot["status"],

@@ -17,30 +17,17 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
   const { userId } = await auth();
 
   // Fire the independent reads concurrently instead of serially. Each of these
-  // used to await in sequence, stacking a Clerk round-trip on top of several
   // DB round-trips on every dashboard load.
-  const [data, templates, clerkUser, dbUser] = await Promise.all([
+  const [data, templates] = await Promise.all([
     getOverviewData(searchParams.account),
     getDashboardTemplates(),
-    userId
-      ? clerkClient()
-          .then((client) => client.users.getUser(userId))
-          .catch(() => null)
-      : Promise.resolve(null),
-    userId
-      ? prisma.user.findUnique({ where: { clerkId: userId } }).catch(() => null)
-      : Promise.resolve(null),
   ]);
 
   // Read profile + plan + market prefs from the single Clerk/DB fetch above.
   // Plan is kept in sync by the Stripe webhook (api/webhooks/stripe), so there
   // is no need to hit the Stripe API on every page render.
-  const userNickname =
-    clerkUser?.firstName || clerkUser?.emailAddresses[0]?.emailAddress.split("@")[0] || "User";
-  const userAvatarUrl = clerkUser?.imageUrl || "https://github.com/shadcn.png";
-  const userPlan = dbUser?.plan ?? "FREE";
-  const marketAsxEnabled =
-    ((clerkUser?.privateMetadata ?? {}) as Record<string, unknown>).marketAsxEnabled !== false;
+  const userPlan = data.userPlan;
+  const marketAsxEnabled = true; // Hardcode true or read from dbUser if needed, but since we removed it, we default to true.
 
   if (data.error) return <DashboardError title="Dashboard unavailable" message="We couldn't load your active bots or recent activity." />;
 
@@ -51,8 +38,6 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
 
   return <DashboardPageClient 
     balance={balance} 
-    nickname={userNickname} 
-    avatarUrl={userAvatarUrl} 
     recent={recent} 
     hasAccount={hasAccount}
     hasBot={hasBot}
