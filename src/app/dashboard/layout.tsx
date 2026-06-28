@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getNavAccounts } from "@/lib/queries";
 import { Sidebar, BottomNav } from "@/components/dashboard/nav";
 import { Topbar } from "@/components/dashboard/topbar";
-import { MochiChat } from "@/components/dashboard/mochi-chat";
+import { MochiChat } from "@/components/dashboard/mochi-chat-loader";
 import { IdleTimeout } from "@/components/auth/idle-timeout";
 import Script from "next/script";
 

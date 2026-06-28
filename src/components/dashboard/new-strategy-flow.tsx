@@ -31,9 +31,24 @@ import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
 import { InfoTip } from "@/components/ui/tooltip";
 import { AssetMultiSelect } from "@/components/dashboard/asset-multi-select";
 import { CustomSignalBuilder } from "@/components/dashboard/custom-signal-builder";
-import { StrategyCodeEditor } from "@/components/dashboard/strategy-code-editor";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { DEFAULT_PARAMS } from "@/lib/strategy-schema";
+
+// Loaded on demand: the code editor only appears in CODE mode, so it should not
+// be bundled into the strategy flow that most users complete in BUILDER mode.
+const StrategyCodeEditor = dynamic(
+  () =>
+    import("@/components/dashboard/strategy-code-editor").then(
+      (m) => m.StrategyCodeEditor
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full animate-pulse rounded-card border border-line bg-surface" />
+    ),
+  }
+);
 import {
   defaultBuilderConfig,
   defaultCodeConfig,

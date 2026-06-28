@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_CLERK_PROXY_URL: "", // Force disable proxy to prevent Cloudflare blocks
   },
   images: {
+    // Serve AVIF first, then WebP, falling back to the original. This shrinks
+    // every next/image payload (Clerk/GitHub avatars and any first-party art)
+    // without touching call sites.
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       { protocol: "https", hostname: "img.clerk.com" },
       { protocol: "https", hostname: "github.com" },
@@ -58,4 +62,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Opt-in bundle analysis: run `ANALYZE=true npm run build` to emit the treemap
+// report. The dependency is only required when analysing, so a normal build
+// never needs it installed.
+let withConfig = (config: NextConfig): NextConfig => config;
+if (process.env.ANALYZE === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  withConfig = require("@next/bundle-analyzer")({ enabled: true });
+}
+
+export default withConfig(nextConfig);

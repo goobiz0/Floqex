@@ -43,6 +43,7 @@ import { Toaster } from "sonner";
 import { PrivacyProvider } from "@/components/privacy-provider";
 import { DisplayProvider } from "@/components/display-provider";
 import { NavigationLoader } from "@/components/navigation-loader";
+import { WebVitals } from "@/components/web-vitals";
 
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
 // src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
@@ -66,6 +67,7 @@ export default async function RootLayout({
       className={`${outfit.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-[100dvh] bg-base text-fg">
+        <WebVitals />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

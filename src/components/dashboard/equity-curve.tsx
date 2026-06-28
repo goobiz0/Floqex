@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { memo, useMemo, useState, useRef, useEffect } from "react";
 import { DisplayValue } from "@/components/ui/display-value";
 import { Segmented } from "@/components/ui/segmented";
 import type { EquityPoint } from "@/lib/metrics";
@@ -38,7 +38,7 @@ function buildPaths(series: EquityPoint[]) {
   return { line, area, min, max, last: values[values.length - 1], pts };
 }
 
-export function EquityCurve({ series }: { series: EquityPoint[] }) {
+function EquityCurveBase({ series }: { series: EquityPoint[] }) {
   const [tf, setTf] = useState<Timeframe>("3M");
   const svgRef = useRef<SVGSVGElement>(null);
   const lineRef = useRef<SVGPathElement>(null);
@@ -210,3 +210,8 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
     </div>
   );
 }
+
+// Memoized: the equity curve runs a GSAP draw animation on mount; preventing
+// re-renders when its `series` prop is unchanged (e.g. dashboard grid
+// drag/resize) avoids needless re-animation and SVG path rebuilds.
+export const EquityCurve = memo(EquityCurveBase);

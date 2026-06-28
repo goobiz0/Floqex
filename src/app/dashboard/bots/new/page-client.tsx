@@ -26,10 +26,26 @@ import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
 import { InfoTip } from "@/components/ui/tooltip";
 import { AssetMultiSelect } from "@/components/dashboard/asset-multi-select";
 import { CustomSignalBuilder } from "@/components/dashboard/custom-signal-builder";
-import { StrategyCodeEditor } from "@/components/dashboard/strategy-code-editor";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { cn, formatUSD } from "@/lib/utils";
 import { DEFAULT_PARAMS, PARAM_BOUNDS, type Bound, type NumericParam } from "@/lib/strategy-schema";
+
+// The code editor (Monaco-style editor surface, language snippets, transpiler
+// helpers) is only shown when the user picks CODE mode, so it is loaded on
+// demand rather than shipped with the bot-creation route.
+const StrategyCodeEditor = dynamic(
+  () =>
+    import("@/components/dashboard/strategy-code-editor").then(
+      (m) => m.StrategyCodeEditor
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full animate-pulse rounded-card border border-line bg-surface" />
+    ),
+  }
+);
 import {
   defaultBuilderConfig,
   defaultCodeConfig,
