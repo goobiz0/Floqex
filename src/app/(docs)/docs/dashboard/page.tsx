@@ -35,7 +35,7 @@ export default function DashboardGuidePage() {
             <div>
               <h3 className="text-lg font-semibold text-fg mb-2">Overview</h3>
               <p className="text-sm text-fg-muted leading-relaxed">
-                The primary view. Monitor your aggregate equity curve, today's P&L, bot heartbeat status, and the live Agent Feed (a play-by-play narration of the bot's decisions).
+                The primary view. Monitor your aggregate equity curve, today&apos;s P&L, bot heartbeat status, and the live Agent Feed (a play-by-play narration of the bot&apos;s decisions).
               </p>
             </div>
           </div>

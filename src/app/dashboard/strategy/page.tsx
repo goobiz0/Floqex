@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { StrategyLab } from "@/components/dashboard/strategy-lab";
+import { ValidationLab } from "@/components/dashboard/validation-lab";
 import { AIOptimizer } from "@/components/dashboard/ai-optimizer";
 import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
@@ -66,15 +67,32 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
         {data.error ? (
           <DashboardError title="Strategy lab unavailable" message="We couldn't load your active strategies or parameters. Please try again." />
         ) : data.hasStrategy && data.params ? (
-          <StrategyLab
-            initialParams={data.params}
-            changeLog={data.changeLog}
-            pending={data.pending}
-            autoAdjustmentsUsed={data.autoAdjustmentsUsed}
-            plan={data.plan}
-            accountId={data.accountId}
-            strategyId={data.strategyId}
-          />
+          <>
+            <StrategyLab
+              initialParams={data.params}
+              changeLog={data.changeLog}
+              pending={data.pending}
+              autoAdjustmentsUsed={data.autoAdjustmentsUsed}
+              plan={data.plan}
+              accountId={data.accountId}
+              strategyId={data.strategyId}
+            />
+            <div className="pt-2">
+              <ValidationLab
+                strategyId={data.strategyId}
+                instrument={typeof data.params.instrument === "string" && data.params.instrument ? data.params.instrument : "NQ"}
+                defaults={{
+                  riskPct: typeof data.params.riskPct === "number" ? data.params.riskPct : 1,
+                  rrTarget: typeof data.params.rrTarget === "number" ? data.params.rrTarget : 2,
+                  stopLossPct: typeof data.params.stopLossPct === "number" ? data.params.stopLossPct : 0.5,
+                  trendFilter: Boolean(data.params.trendFilter),
+                  direction: data.params.direction === "SHORT" ? "SHORT" : data.params.direction === "LONG" ? "LONG" : "BOTH",
+                  minRange: typeof data.params.minRange === "number" ? data.params.minRange : 0.1,
+                  maxRange: typeof data.params.maxRange === "number" ? data.params.maxRange : 5,
+                }}
+              />
+            </div>
+          </>
         ) : (
           <Card className="p-10 text-center">
             <p className="text-sm text-fg-muted">No strategy found</p>
@@ -113,8 +131,8 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {strategies.map(strategy => (
-          <div key={strategy.id} id={`strategy-card-${strategy.id}`} className="group relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line hover:border-line-strong transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <div key={strategy.id} id={`strategy-card-${strategy.id}`} className="group relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line hover:border-line-strong transition-[border-color,box-shadow,transform] duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
             <div className="relative z-10 flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-surface-hover border border-line flex items-center justify-center text-fg">

@@ -666,8 +666,9 @@ function PasswordSettings() {
       setConfirm("");
       await user.reload().catch(() => {});
       setTimeout(() => setSuccess(false), 4000);
-    } catch (err: any) {
-      const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || err.message;
+    } catch (err) {
+      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
+      const msg = e.errors?.[0]?.longMessage || e.errors?.[0]?.message || e.message;
       setError(msg || "Could not update your password. Please try again.");
     } finally {
       setSaving(false);

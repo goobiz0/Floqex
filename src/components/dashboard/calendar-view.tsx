@@ -266,12 +266,12 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
                 return (
                   <motion.button
                     key={dateStr}
-                    initial={{ opacity: 0, scale: 0.97 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: Math.min(i * 0.008, 0.2), ease: "easeOut" }}
+                    initial={{ opacity: 0, transform: "scale(0.97)" }}
+                    animate={{ opacity: 1, transform: "scale(1)" }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.008, 0.2), ease: [0.23, 1, 0.32, 1] }}
                     onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                     className={cn(
-                      "relative flex min-h-[70px] flex-col overflow-hidden rounded-[var(--radius-control)] border p-2 text-left transition-all hover:-translate-y-0.5 active:scale-95 sm:min-h-[90px] sm:p-3",
+                      "relative flex min-h-[70px] flex-col rounded-[var(--radius-control)] border p-2 text-left transition-[transform,border-color,background-color,box-shadow] duration-200 hover:-translate-y-0.5 active:scale-95 sm:min-h-[90px] sm:p-3",
                       isSelected
                         ? "border-fg bg-surface shadow-[var(--shadow-md)] ring-1 ring-fg z-10"
                         : summary && summary.tradeCount > 0
@@ -417,12 +417,12 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
                     <motion.button
                       key={month}
                       type="button"
-                      initial={{ opacity: 0, scale: 0.97 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2), ease: "easeOut" }}
+                      initial={{ opacity: 0, transform: "scale(0.97)" }}
+                      animate={{ opacity: 1, transform: "scale(1)" }}
+                      transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.2), ease: [0.23, 1, 0.32, 1] }}
                       onClick={() => setSelectedMonth(isSelected ? null : month)}
                       className={cn(
-                        "group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border bg-surface p-6 text-left transition-all hover:-translate-y-0.5 active:scale-[0.98]",
+                        "group relative flex flex-col rounded-[var(--radius-card)] border bg-surface p-6 text-left transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 active:scale-[0.98]",
                         isSelected
                           ? "border-fg shadow-[var(--shadow-md)] ring-1 ring-fg z-10"
                           : active
@@ -431,7 +431,7 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
                       )}
                     >
                       {active && (
-                        <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-5 transition-opacity group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
+                        <div className={cn("pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br opacity-5 transition-opacity duration-200 group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
                       )}
                       <span className="relative z-10 mb-3 text-xs font-bold uppercase tracking-widest text-fg-subtle">{label}</span>
                       <span className={cn("relative z-10 mb-1 text-3xl font-bold tracking-tight tnum", active ? pnlTone(pnl) : "text-fg-faint")}>
@@ -533,17 +533,17 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
                   <motion.button
                     key={yearStr}
                     type="button"
-                    initial={{ opacity: 0, scale: 0.97 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.2), ease: "easeOut" }}
+                    initial={{ opacity: 0, transform: "scale(0.97)" }}
+                    animate={{ opacity: 1, transform: "scale(1)" }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.2), ease: [0.23, 1, 0.32, 1] }}
                     onClick={() => setSelectedYear(isSelected ? null : yearStr)}
                     className={cn(
-                      "group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border bg-surface p-8 text-left transition-all hover:-translate-y-1 active:scale-[0.98]",
+                      "group relative flex flex-col rounded-[var(--radius-card)] border bg-surface p-8 text-left transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-1 active:scale-[0.98]",
                       isSelected ? "border-fg shadow-[var(--shadow-md)] ring-1 ring-fg z-10" : "border-line hover:border-line-strong",
                     )}
                   >
                     {active && (
-                      <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-5 transition-opacity group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
+                      <div className={cn("pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br opacity-5 transition-opacity duration-200 group-hover:opacity-10", pnl > 0 ? "from-profit to-transparent" : pnl < 0 ? "from-negative to-transparent" : "from-fg-subtle to-transparent")} />
                     )}
                     <span className="relative z-10 mb-4 text-sm font-bold uppercase tracking-widest text-fg-subtle tnum">{yearStr}</span>
                     <span className={cn("relative z-10 mb-2 text-4xl font-bold tracking-tight tnum", active ? pnlTone(pnl) : "text-fg-faint")}>

@@ -62,7 +62,7 @@ export function DocsSearch() {
             
             results.push({
               href: `${page.href}#${section.heading.toLowerCase().replace(/\s+/g, '-')}`,
-              title: `${page.title} — ${section.heading}`,
+              title: `${page.title} · ${section.heading}`,
               iconName: page.iconName,
               snippet
             });

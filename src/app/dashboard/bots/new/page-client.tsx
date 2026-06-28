@@ -15,6 +15,9 @@ import {
   Lightning,
   Stack,
   Sparkle,
+  Warning,
+  SealCheck,
+  Flask,
 } from "@phosphor-icons/react";
 import { createBot } from "../actions";
 import { toast } from "sonner";
@@ -99,14 +102,16 @@ const BUILDER_PRESETS: { id: string; label: string; help: string; direction: "LO
   },
 ];
 
-export function BotsNewClient({ 
-  availableAccounts, 
+type StrategyProp = { id: string; name: string; kind: string; version: number; edgeScore?: number | null; edgeVerdict?: string | null };
+
+export function BotsNewClient({
+  availableAccounts,
   availableStrategies,
-  plan 
-}: { 
+  plan
+}: {
   availableAccounts: AccountProp[];
-  availableStrategies: { id: string; name: string; kind: string; version: number }[];
-  plan: string 
+  availableStrategies: StrategyProp[];
+  plan: string
 }) {
   const router = useRouter();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(availableAccounts[0]?.id ?? "");
@@ -131,6 +136,10 @@ export function BotsNewClient({
   const [targetRatio, setTargetRatio] = useState(2);
 
   const isFree = plan === "FREE";
+
+  const selectedAccount = availableAccounts.find((a) => a.id === selectedAccountId);
+  const selectedStrategy = availableStrategies.find((s) => s.id === selectedStrategyId);
+  const goingLive = selectedAccount?.mode === "LIVE";
 
   function handleNumParam(key: NumericParam, value: number) {
     setParams((p) => ({ ...p, [key]: value }));
@@ -362,6 +371,7 @@ export function BotsNewClient({
                       </button>
                     ))}
                   </div>
+                  {selectedStrategy && <EdgeGate strategy={selectedStrategy} goingLive={goingLive} />}
                 </div>
               ) : (
                 <div className="p-6 rounded-[var(--radius-card)] bg-surface border border-line text-center">
@@ -479,6 +489,57 @@ export function BotsNewClient({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function EdgeGate({ strategy, goingLive }: { strategy: StrategyProp; goingLive: boolean }) {
+  const verdict = strategy.edgeVerdict ?? null;
+  const score = strategy.edgeScore ?? null;
+  const tuneHref = `/dashboard/strategy?view=edit&strategyId=${strategy.id}`;
+
+  // Not yet validated: nudge to run the Validation Lab, firmly if going live.
+  if (!verdict) {
+    return (
+      <div className={cn(
+        "mt-4 flex items-start gap-3 rounded-[var(--radius-control)] border p-3 text-xs",
+        goingLive ? "border-warning/30 bg-warning-soft text-fg-muted" : "border-line bg-surface text-fg-muted",
+      )}>
+        <Flask size={16} weight="duotone" className="mt-px shrink-0 text-warning" />
+        <p>
+          This strategy has not been validated yet.{" "}
+          {goingLive && <span className="font-medium text-fg">Before risking live capital, </span>}
+          run the Validation Lab to get an Edge Score.{" "}
+          <Link href={tuneHref} className="font-medium text-accent hover:underline">Validate now</Link>
+        </p>
+      </div>
+    );
+  }
+
+  if (verdict === "Fragile") {
+    return (
+      <div className={cn(
+        "mt-4 flex items-start gap-3 rounded-[var(--radius-control)] border p-3 text-xs",
+        goingLive ? "border-negative/40 bg-negative-soft text-fg" : "border-warning/30 bg-warning-soft text-fg-muted",
+      )}>
+        <Warning size={16} weight="duotone" className="mt-px shrink-0 text-negative" />
+        <p>
+          Edge Score <span className="tnum font-semibold">{score ?? 0}/100</span> reads as{" "}
+          <span className="font-semibold text-negative">Fragile</span> (likely curve-fit).
+          {goingLive ? " Deploying to a live account is risky. " : " Consider refining it. "}
+          <Link href={tuneHref} className="font-medium text-accent hover:underline">Review in the lab</Link>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 flex items-start gap-3 rounded-[var(--radius-control)] border border-accent/20 bg-accent-soft p-3 text-xs text-fg-muted">
+      <SealCheck size={16} weight="duotone" className="mt-px shrink-0 text-positive" />
+      <p>
+        Edge Score <span className="tnum font-semibold text-fg">{score ?? 0}/100</span> reads as{" "}
+        <span className="font-semibold text-positive">{verdict}</span>. Validated on real intraday data.
+      </p>
+    </div>
   );
 }
 

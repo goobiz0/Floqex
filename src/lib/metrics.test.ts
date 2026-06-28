@@ -3,6 +3,11 @@ import {
   summaryMetrics,
   equitySeries,
   maxDrawdown,
+  drawdownSeries,
+  openExposure,
+  currentDrawdown,
+  grossProfitLoss,
+  streaks,
   bySession,
   rDistribution,
   rollingWinRate,
@@ -22,6 +27,7 @@ function trade(over: Partial<TradeRow>): TradeRow {
     exitPrice: 102,
     stopPrice: 99,
     targetPrice: 104,
+    sizeUnits: 1,
     netPnl: 0,
     grossPnl: 0,
     rMultiple: 0,
@@ -101,6 +107,64 @@ describe("maxDrawdown", () => {
   });
 });
 
+describe("grossProfitLoss", () => {
+  it("splits gross winners from the magnitude of gross losers, ignoring open trades", () => {
+    const out = grossProfitLoss([
+      trade({ netPnl: 200 }),
+      trade({ netPnl: -100 }),
+      trade({ netPnl: 50 }),
+      trade({ status: "OPEN", netPnl: null }), // excluded
+    ]);
+    expect(out).toEqual({ grossWin: 250, grossLoss: 100 });
+  });
+});
+
+describe("currentDrawdown", () => {
+  it("measures depth below the running peak at the latest point", () => {
+    const series = equitySeries([
+      daily("2026-06-01", 10000),
+      daily("2026-06-02", 10500), // peak
+      daily("2026-06-03", 10200), // now: 300 below peak
+    ]);
+    const cur = currentDrawdown(series);
+    expect(cur.amount).toBe(300);
+    expect(cur.pct).toBeCloseTo((300 / 10500) * 100, 5);
+  });
+
+  it("is zero when the latest point is a fresh high", () => {
+    const series = equitySeries([daily("2026-06-01", 10000), daily("2026-06-02", 10800)]);
+    expect(currentDrawdown(series)).toEqual({ amount: 0, pct: 0 });
+  });
+});
+
+describe("streaks", () => {
+  // Input is newest-first (dashboard order); chronological is L, W, W, W.
+  it("tracks the current run and the longest win/loss runs", () => {
+    const s = streaks([
+      trade({ netPnl: 100 }), // newest
+      trade({ netPnl: 100 }),
+      trade({ netPnl: 100 }),
+      trade({ netPnl: -50 }), // oldest
+    ]);
+    expect(s).toEqual({ current: 3, currentType: "WIN", longestWin: 3, longestLoss: 1 });
+  });
+
+  it("resets the current run on a break-even trade", () => {
+    // newest-first input; chronological is W, W, FLAT, L.
+    const s = streaks([
+      trade({ netPnl: -50 }), // newest
+      trade({ netPnl: 0 }), // break-even, resets
+      trade({ netPnl: 100 }),
+      trade({ netPnl: 100 }), // oldest
+    ]);
+    expect(s).toEqual({ current: 1, currentType: "LOSS", longestWin: 2, longestLoss: 1 });
+  });
+
+  it("returns a null current type for no closed trades", () => {
+    expect(streaks([])).toEqual({ current: 0, currentType: null, longestWin: 0, longestLoss: 0 });
+  });
+});
+
 describe("bySession", () => {
   it("sums net P&L per session", () => {
     const out = bySession([
@@ -144,5 +208,51 @@ describe("rollingWinRate", () => {
     );
     // windows: [W]=100, [W,L]=50, [L,W]=50, [W,W]=100
     expect(out).toEqual([100, 50, 50, 100]);
+  });
+});
+
+describe("drawdownSeries", () => {
+  it("is zero at a new peak and negative while underwater", () => {
+    const dd = drawdownSeries([
+      { date: "d1", equity: 100 },
+      { date: "d2", equity: 120 }, // new peak
+      { date: "d3", equity: 90 }, // underwater from 120
+      { date: "d4", equity: 120 }, // back to peak
+    ]);
+    expect(dd[0].ddPct).toBe(0);
+    expect(dd[1].ddPct).toBe(0);
+    expect(dd[2].ddPct).toBeCloseTo(-25, 5); // (90-120)/120
+    expect(dd[3].ddPct).toBe(0);
+  });
+});
+
+describe("openExposure", () => {
+  it("groups open-position notional by asset and shares to 100%", () => {
+    const out = openExposure(
+      [
+        trade({ status: "OPEN", instrument: "NQ", entryPrice: 100, sizeUnits: 3 }), // 300
+        trade({ status: "OPEN", instrument: "ES", entryPrice: 50, sizeUnits: 2 }), // 100
+        trade({ status: "CLOSED", instrument: "NQ", entryPrice: 100, sizeUnits: 5 }), // ignored
+      ],
+      "asset",
+    );
+    expect(out[0]).toMatchObject({ label: "NQ", notional: 300 });
+    expect(out[1]).toMatchObject({ label: "ES", notional: 100 });
+    expect(Math.round(out[0].pct + out[1].pct)).toBe(100);
+  });
+
+  it("can group by direction", () => {
+    const out = openExposure(
+      [
+        trade({ status: "OPEN", direction: "LONG", entryPrice: 100, sizeUnits: 1 }),
+        trade({ status: "OPEN", direction: "SHORT", entryPrice: 100, sizeUnits: 1 }),
+      ],
+      "direction",
+    );
+    expect(out.map((o) => o.label).sort()).toEqual(["LONG", "SHORT"]);
+  });
+
+  it("returns nothing when there are no open trades", () => {
+    expect(openExposure([trade({ status: "CLOSED" })], "asset")).toEqual([]);
   });
 });

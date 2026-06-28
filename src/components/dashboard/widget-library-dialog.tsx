@@ -31,6 +31,15 @@ const AVAILABLE_WIDGETS: WidgetMeta[] = [
   { type: "streak-heatmap", name: "Trading Streak", desc: "Daily PnL consistency contribution graph.", category: "Performance", keywords: "streak heatmap consistency pnl daily graph" },
   { type: "live-tape", name: "Order Book Tape", desc: "Scrolling ticker of live bot executions.", category: "Activity", keywords: "order book tape live executions ticker scrolling" },
   { type: "risk-matrix", name: "Risk Exposure Matrix", desc: "Capital distribution across bots and assets.", category: "Markets", keywords: "risk matrix exposure capital distribution donut chart", pro: true },
+  { type: "equity-curve", name: "Equity Curve", desc: "Account equity over time, drawn from daily balances.", category: "Performance", keywords: "equity curve balance growth chart line drawdown history" },
+  { type: "performance-summary", name: "Performance Summary", desc: "Net P&L, win rate, profit factor and expectancy at a glance.", category: "Performance", keywords: "performance summary kpi stats net pnl win rate profit factor expectancy metrics" },
+  { type: "profit-factor", name: "Profit Factor", desc: "Gross wins versus gross losses, with the ratio.", category: "Performance", keywords: "profit factor gross win loss ratio edge" },
+  { type: "drawdown", name: "Drawdown Monitor", desc: "Current and max drawdown from the equity peak.", category: "Performance", keywords: "drawdown risk underwater peak trough loss equity" },
+  { type: "r-distribution", name: "R-Multiple Distribution", desc: "Histogram of trade outcomes by realised R.", category: "Performance", keywords: "r multiple distribution histogram expectancy outcomes risk reward" },
+  { type: "rolling-win-rate", name: "Rolling Win Rate", desc: "Win rate trend over a trailing window of trades.", category: "Performance", keywords: "rolling win rate trend consistency line chart window" },
+  { type: "streak-tracker", name: "Win / Loss Streak", desc: "Current streak, records, and recent form.", category: "Performance", keywords: "streak win loss run consistency recent form record" },
+  { type: "session-performance", name: "Session P&L", desc: "Net profit split between Asia and New York sessions.", category: "Activity", keywords: "session pnl asia new york performance split bars" },
+  { type: "weekday-performance", name: "Weekday P&L", desc: "Net profit by day of the week.", category: "Activity", keywords: "weekday day of week pnl performance monday friday bars" },
 ];
 
 const CATEGORY_ORDER: WidgetMeta["category"][] = ["Performance", "Activity", "Markets", "Utility"];

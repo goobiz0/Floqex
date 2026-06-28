@@ -18,6 +18,8 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
 
   if (!account) throw new Error("Account not found");
 
+  const intendedEntryPrice = signal.entryPrice;
+  const fillStart = Date.now();
   let filledPrice = signal.entryPrice;
 
   if (account.mode === "LIVE" && account.connection) {
@@ -63,6 +65,9 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
       targetPrice: signal.targetPrice,
       sizeUnits: risk.sizeUnits,
       riskPct: risk.riskPct,
+      intendedEntryPrice,
+      entrySlippageBps: slippageBps(intendedEntryPrice, filledPrice, signal.direction, "ENTRY"),
+      entryLatencyMs,
     }
   });
 
@@ -129,6 +134,8 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
         exitPrice: finalExitPrice,
         netPnl: pnl,
         rMultiple,
+        intendedExitPrice: exitPrice,
+        exitSlippageBps: slippageBps(exitPrice, finalExitPrice, trade.direction, "EXIT"),
       }
     });
 

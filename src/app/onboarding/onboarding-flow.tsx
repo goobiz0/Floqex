@@ -119,7 +119,10 @@ function OnboardingFlow() {
           setStep(parsed.step);
         }
       }
-    } catch {}
+    } catch (err) {
+      // Corrupt/legacy persisted onboarding state: ignore and start fresh.
+      console.warn("Could not restore onboarding state:", err);
+    }
   }, [searchParams, router]);
   /* eslint-enable react-hooks/set-state-in-effect */
 

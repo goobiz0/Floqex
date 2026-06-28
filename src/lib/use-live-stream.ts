@@ -20,6 +20,7 @@ export type LiveTrade = {
   status: string;
   entryPrice: number;
   exitPrice: number | null;
+  sizeUnits: number;
   netPnl: number | null;
   rMultiple: number | null;
   openedAt: string;

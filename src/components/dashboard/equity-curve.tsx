@@ -5,8 +5,6 @@ import { DisplayValue } from "@/components/ui/display-value";
 import { Segmented } from "@/components/ui/segmented";
 import type { EquityPoint } from "@/lib/metrics";
 import gsap from "gsap";
-import { Newspaper } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
 
 const TIMEFRAMES = ["1W", "1M", "3M", "6M", "1Y", "ALL"] as const;
 type Timeframe = (typeof TIMEFRAMES)[number];
@@ -22,16 +20,6 @@ const DAYS: Record<Timeframe, number> = {
 
 const W = 800;
 const H = 280;
-
-// Mock high-impact news events
-const MOCK_NEWS = [
-  { date: "2026-06-12", title: "CPI" },
-  { date: "2026-06-18", title: "FOMC" },
-  { date: "2026-06-05", title: "NFP" },
-  { date: "2026-05-15", title: "CPI" },
-  { date: "2026-05-01", title: "FOMC" },
-  { date: "2026-04-03", title: "NFP" },
-];
 
 function buildPaths(series: EquityPoint[]) {
   const values = series.map(p => p.equity);
@@ -52,7 +40,6 @@ function buildPaths(series: EquityPoint[]) {
 
 export function EquityCurve({ series }: { series: EquityPoint[] }) {
   const [tf, setTf] = useState<Timeframe>("3M");
-  const [showNews, setShowNews] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const lineRef = useRef<SVGPathElement>(null);
   const areaRef = useRef<SVGPathElement>(null);
@@ -79,15 +66,19 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
       return;
     }
     
-    const length = lineRef.current.getTotalLength() || 1000;
-    gsap.fromTo(lineRef.current, 
-      { strokeDasharray: length, strokeDashoffset: length },
-      { strokeDashoffset: 0, duration: 1.2, ease: "power3.inOut" }
-    );
-    gsap.fromTo(areaRef.current,
-      { opacity: 0 },
-      { opacity: 1, duration: 1.2, delay: 0.2, ease: "power2.out" }
-    );
+    const ctx = gsap.context(() => {
+      const length = lineRef.current!.getTotalLength() || 1000;
+      gsap.fromTo(lineRef.current, 
+        { strokeDasharray: length, strokeDashoffset: length },
+        { strokeDashoffset: 0, duration: 1.2, ease: "power3.inOut" }
+      );
+      gsap.fromTo(areaRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 1.2, delay: 0.2, ease: "power4.out" }
+      );
+    });
+
+    return () => ctx.revert();
   }, [data, tf]);
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -111,20 +102,6 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
 
   const activePoint = hoverIdx !== null && data ? data.pts[hoverIdx] : null;
 
-  // Find news points that match dates in the current series
-  const newsPoints = useMemo(() => {
-    if (!data || !showNews) return [];
-    const points: { x: number; title: string }[] = [];
-    MOCK_NEWS.forEach(news => {
-      // Find the closest point in data.pts to this news date
-      const pt = data.pts.find(p => p.date === news.date || p.date.startsWith(news.date));
-      if (pt) {
-        points.push({ x: pt.x, title: news.title });
-      }
-    });
-    return points;
-  }, [data, showNews]);
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -135,18 +112,6 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
             value={tf}
             onChange={setTf}
           />
-          <button
-            onClick={() => setShowNews(s => !s)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-              showNews 
-                ? "border-accent bg-accent-soft text-accent" 
-                : "border-line bg-surface text-fg-subtle hover:text-fg hover:border-line-strong"
-            )}
-          >
-            <Newspaper size={14} />
-            News
-          </button>
         </div>
         {data ? <span className="tnum text-xs text-fg-subtle"><DisplayValue type="BALANCE" money={data.last} /></span> : null}
       </div>
@@ -179,42 +144,6 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
                 stroke="var(--color-line)"
                 strokeWidth="1"
               />
-            ))}
-            
-            {/* News Overlays */}
-            {newsPoints.map((np, i) => (
-              <g key={`news-${i}`}>
-                <line
-                  x1={np.x}
-                  y1={0}
-                  x2={np.x}
-                  y2={H}
-                  stroke="var(--color-accent)"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                  opacity="0.5"
-                />
-                <rect
-                  x={np.x - 20}
-                  y={4}
-                  width={40}
-                  height={16}
-                  rx={4}
-                  fill="var(--color-base)"
-                  stroke="var(--color-accent)"
-                  strokeWidth="1"
-                />
-                <text
-                  x={np.x}
-                  y={15}
-                  fontSize="9"
-                  fill="var(--color-accent)"
-                  textAnchor="middle"
-                  className="font-mono font-medium"
-                >
-                  {np.title}
-                </text>
-              </g>
             ))}
 
             <path

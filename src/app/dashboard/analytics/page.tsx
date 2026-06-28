@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { HBars, VBars, Histogram, LineMini } from "@/components/dashboard/charts";
-import { getTradeData } from "@/lib/queries";
+import { getTradeData, getExecutionData } from "@/lib/queries";
 import {
   summaryMetrics,
   byInstrument,
@@ -10,7 +10,9 @@ import {
   byWeekday,
   rDistribution,
   rollingWinRate,
+  executionQuality,
 } from "@/lib/metrics";
+import { ExecutionQualitySection } from "@/components/dashboard/execution-quality-section";
 import { formatUSD } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import { DashboardError } from "@/components/dashboard/states";
@@ -21,8 +23,12 @@ const usd0 = (n: number) => formatUSD(n).replace(".00", "");
 
 export default async function AnalyticsPage(props: { searchParams: Promise<{ account?: string }> }) {
   const searchParams = await props.searchParams;
-  const { hasAccount, trades, summaries, error } = await getTradeData(searchParams.account);
+  const [{ hasAccount, trades, summaries, error }, execData] = await Promise.all([
+    getTradeData(searchParams.account),
+    getExecutionData(searchParams.account),
+  ]);
   const m = summaryMetrics(trades);
+  const exec = executionQuality(execData.fills, execData.missedSignals, execData.heartbeats);
 
   const header = (
     <div>
@@ -80,6 +86,8 @@ export default async function AnalyticsPage(props: { searchParams: Promise<{ acc
         />
         <MetricCard label="Trades" value={String(m.count)} />
       </div>
+
+      <ExecutionQualitySection q={exec} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">

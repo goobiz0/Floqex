@@ -4,12 +4,13 @@ import { Player } from "@remotion/player";
 import React from "react";
 
 interface DocsRemotionPlayerProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Remotion Player component generics
   component: React.FC<any>;
   compositionWidth?: number;
   compositionHeight?: number;
   durationInFrames?: number;
   fps?: number;
-  inputProps?: any;
+  inputProps?: Record<string, unknown>;
 }
 
 export function DocsRemotionPlayer({ 
