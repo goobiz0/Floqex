@@ -14,6 +14,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useUser } from "@clerk/nextjs";
 
 import { DisplayValue } from "@/components/ui/display-value";
 import { CountUp } from "@/components/ui/count-up";
@@ -98,27 +99,8 @@ function EventIcon({ kind }: { kind: string }) {
   }
 }
 
-export function DashboardPageClient({ 
-  balance, 
-  nickname, 
-  avatarUrl,
-  recent,
-  hasAccount,
-  hasBot,
-  summaries = [],
-  trades = [],
-  openTrades = [],
-  agentEvents = [],
-  botStatus = "NONE",
-  lastHeartbeat = null,
-  accountId = null,
-  initialTemplates = [],
-  userPlan = "FREE",
-  marketAsxEnabled = true
-}: {
+interface DashboardPageClientProps {
   balance: number;
-  nickname: string;
-  avatarUrl: string;
   recent: TradeRow[];
   hasAccount: boolean;
   hasBot: boolean;
@@ -132,10 +114,31 @@ export function DashboardPageClient({
   initialTemplates?: DashboardTemplate[];
   userPlan?: string;
   marketAsxEnabled?: boolean;
-}) {
+}
+
+export function DashboardPageClient({ 
+  balance, 
+  recent,
+  hasAccount,
+  hasBot,
+  summaries = [],
+  trades = [],
+  openTrades = [],
+  agentEvents = [],
+  botStatus = "NONE",
+  lastHeartbeat = null,
+  accountId = null,
+  initialTemplates = [],
+  userPlan = "FREE",
+  marketAsxEnabled = true
+}: DashboardPageClientProps) {
+  const { user } = useUser();
+  const nickname = user?.firstName || user?.emailAddresses[0]?.emailAddress?.split("@")[0] || "User";
+  const avatarUrl = user?.imageUrl || "https://github.com/shadcn.png";
 
   // State
   const [isEditMode, setIsEditMode] = useState(false);
+  const [widgetLibOpen, setWidgetLibOpen] = useState(false);
   // True when the working layout is a preset/default draft: Save creates a new
   // template instead of overwriting the active one, while the active template is
   // kept so Cancel can still restore it.
