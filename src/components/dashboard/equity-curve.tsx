@@ -66,15 +66,19 @@ export function EquityCurve({ series }: { series: EquityPoint[] }) {
       return;
     }
     
-    const length = lineRef.current.getTotalLength() || 1000;
-    gsap.fromTo(lineRef.current, 
-      { strokeDasharray: length, strokeDashoffset: length },
-      { strokeDashoffset: 0, duration: 1.2, ease: "power3.inOut" }
-    );
-    gsap.fromTo(areaRef.current,
-      { opacity: 0 },
-      { opacity: 1, duration: 1.2, delay: 0.2, ease: "power2.out" }
-    );
+    const ctx = gsap.context(() => {
+      const length = lineRef.current!.getTotalLength() || 1000;
+      gsap.fromTo(lineRef.current, 
+        { strokeDasharray: length, strokeDashoffset: length },
+        { strokeDashoffset: 0, duration: 1.2, ease: "power3.inOut" }
+      );
+      gsap.fromTo(areaRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 1.2, delay: 0.2, ease: "power4.out" }
+      );
+    });
+
+    return () => ctx.revert();
   }, [data, tf]);
 
   const handlePointerMove = (e: React.PointerEvent) => {

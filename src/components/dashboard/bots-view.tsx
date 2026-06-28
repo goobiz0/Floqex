@@ -187,9 +187,9 @@ function BotCard({
   }
 
   return (
-    <Card className={cn("flex h-full flex-col p-5 relative overflow-hidden", !bot.accountId && "opacity-80 border-dashed")}>
+    <Card className={cn("flex h-full flex-col p-5 relative", !bot.accountId && "opacity-80 border-dashed")}>
       {bot.edgeDecayPaused && (
-        <div className="absolute top-0 left-0 right-0 bg-negative-soft border-b border-negative/20 px-4 py-2 flex items-center justify-between">
+        <div className="absolute top-0 left-0 right-0 bg-negative-soft border-b border-negative/20 px-4 py-2 flex items-center justify-between rounded-t-[inherit]">
            <div className="flex items-center gap-2 text-negative text-xs font-medium">
              <Warning size={16} weight="bold" />
              Edge Decay Detected — Bot Paused
