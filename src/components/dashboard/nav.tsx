@@ -243,7 +243,7 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
               href="/dashboard/accounts/new"
               className="group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-fg-subtle transition-colors hover:bg-surface/50 hover:text-fg"
             >
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[6px] border border-dashed border-line-strong text-fg-subtle transition-colors group-hover:border-accent group-hover:text-accent">
+              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[8px] border border-dashed border-line-strong text-fg-subtle transition-colors group-hover:border-accent group-hover:text-accent">
                 <Plus size={12} weight="bold" />
               </span>
               <span className="truncate text-[13px] font-medium">Add new account</span>
