@@ -4,16 +4,13 @@ import { decrypt } from "@/lib/crypto";
 import { executeLiveOrder, closeLivePosition } from "./live-broker";
 import { getSessionForInstrument } from "@/lib/market";
 
-// Adverse slippage in basis points: positive means the fill was worse than the
-// intended price for that side. LONG pays up to get in, SHORT gets filled lower.
-function slippageBps(intended: number, filled: number, direction: "LONG" | "SHORT", side: "ENTRY" | "EXIT"): number {
-  if (!intended) return 0;
-  const worseWhenHigher = (direction === "LONG") === (side === "ENTRY");
-  const raw = ((filled - intended) / intended) * 10000;
-  return Math.round((worseWhenHigher ? raw : -raw) * 1000) / 1000;
-}
+type ExecOpts = {
+  /** When false, this trade is itself a copy and must not be replicated again
+   *  (prevents recursion and copy chains). Defaults to true for first-party trades. */
+  replicate?: boolean;
+};
 
-export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string) {
+export async function executeTrade(botId: string, accountId: string, signal: NonNullable<Signal>, risk: { sizeUnits: number; riskPct: number }, instrument: string, opts: ExecOpts = {}) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: { connection: true },
@@ -55,9 +52,7 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     filledPrice = signal.entryPrice + slippage;
   }
 
-  const entryLatencyMs = Date.now() - fillStart;
-
-  return await prisma.trade.create({
+  const trade = await prisma.trade.create({
     data: {
       botId,
       accountId,
@@ -75,9 +70,23 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
       entryLatencyMs,
     }
   });
+
+  // Fan this fill out to any follower accounts (copy trading). Lazily imported
+  // to break the module cycle, and fully guarded so a copy failure never affects
+  // the master trade that just succeeded.
+  if (opts.replicate !== false) {
+    try {
+      const { replicateOpen } = await import("./copy-trading");
+      await replicateOpen(trade);
+    } catch (e) {
+      console.error("[execution-router] copy replication (open) failed", e);
+    }
+  }
+
+  return trade;
 }
 
-export async function closeTrade(tradeId: string, accountId: string, exitReason: string, exitPrice: number) {
+export async function closeTrade(tradeId: string, accountId: string, exitReason: string, exitPrice: number, opts: ExecOpts = {}) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: { connection: true },
@@ -163,6 +172,18 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
       }
     });
   });
+
+  // Mirror this exit onto any follower trades that copied it. Same recursion
+  // guard and best-effort handling as the open path; followers re-apply their
+  // own slippage to the raw market exit price.
+  if (opts.replicate !== false) {
+    try {
+      const { replicateClose } = await import("./copy-trading");
+      await replicateClose(trade, exitPrice);
+    } catch (e) {
+      console.error("[execution-router] copy replication (close) failed", e);
+    }
+  }
 
   return pnl;
 }

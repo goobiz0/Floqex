@@ -77,7 +77,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     features: [
       "Everything in Trader",
       "Max 10 accounts / bots",
-      "Copy trading",
+      "Cross-broker copy trading",
       "Strategy marketplace",
       "Backtesting & API access",
     ],
@@ -94,6 +94,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     tagline: "Institutional-grade infrastructure.",
     features: [
       "25 Active Bots",
+      "Cross-broker copy trading",
       "Ultra-low latency execution",
       "Unlimited backtests",
       "24/7 dedicated support",
