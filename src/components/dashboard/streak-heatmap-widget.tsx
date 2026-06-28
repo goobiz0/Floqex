@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { CalendarBlank } from "@phosphor-icons/react/dist/ssr";
 import { cn, formatUSD } from "@/lib/utils";
 import type { DailyRow } from "@/lib/queries";
+import { WidgetShell } from "./widget-kit";
 
 // Real daily P&L consistency grid. Each cell is one calendar day over the
 // lookback, coloured by that day's net P&L from the account's daily summaries.
@@ -60,15 +61,11 @@ export function StreakHeatmapWidget({
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <CalendarBlank size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">Trading Streak</h3>
-        </div>
-        <span className="text-xs text-fg-subtle">{days} Days</span>
-      </div>
-
+    <WidgetShell
+      title="Trading Streak"
+      icon={<CalendarBlank size={16} weight="duotone" />}
+      right={<span className="text-xs text-fg-subtle">{days} Days</span>}
+    >
       <div className="flex flex-1 flex-col items-center justify-center overflow-hidden p-4">
         {!hasData ? (
           <p className="text-center text-xs text-fg-subtle">Your trading days fill in here once your account has daily results.</p>
@@ -92,6 +89,6 @@ export function StreakHeatmapWidget({
           </div>
         )}
       </div>
-    </div>
+    </WidgetShell>
   );
 }

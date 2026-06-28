@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 
 export const dynamic = "force-dynamic";
 export const runtime = "edge";
@@ -7,5 +7,10 @@ export const runtime = "edge";
 // real client to Floqex round trip. Intentionally tiny so the timing reflects
 // network + edge latency rather than payload size.
 export async function GET() {
-  return NextResponse.json({ t: Date.now() }, { headers: { "Cache-Control": "no-store" } });
+  return new Response(JSON.stringify({ t: Date.now() }), {
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "application/json",
+    },
+  });
 }

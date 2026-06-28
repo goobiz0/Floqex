@@ -5,6 +5,7 @@ import { ChartPieSlice } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { openExposure } from "@/lib/metrics";
 import type { TradeRow } from "@/lib/queries";
+import { WidgetShell, WidgetBadge } from "./widget-kit";
 
 // Ordered, token-driven palette so segment colours come from CSS variables only
 // (no hardcoded hex). Cycles for accounts with many concurrent instruments.
@@ -54,16 +55,11 @@ export function RiskMatrixWidget({
   }, [openTrades, groupBy, circum]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <ChartPieSlice size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">Risk Exposure</h3>
-        </div>
-        <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-1.5 py-0.5 text-xs font-medium capitalize text-fg-subtle">
-          {groupBy}
-        </span>
-      </div>
+    <WidgetShell
+      title="Risk Exposure"
+      icon={<ChartPieSlice size={16} weight="duotone" />}
+      right={<WidgetBadge>{groupBy}</WidgetBadge>}
+    >
 
       {segments.length === 0 ? (
         <div className="flex flex-1 items-center justify-center p-4">
@@ -118,6 +114,6 @@ export function RiskMatrixWidget({
           </div>
         </div>
       )}
-    </div>
+    </WidgetShell>
   );
 }

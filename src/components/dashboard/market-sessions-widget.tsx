@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { GlobeHemisphereWest, Clock } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { WidgetShell } from "./widget-kit";
 
 type Market = {
   id: string;
@@ -67,13 +68,11 @@ export function MarketSessionsWidget() {
   }, []);
 
   return (
-    <div className="group flex h-full w-full flex-col bg-elevated text-fg overflow-hidden relative">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3 bg-elevated/80 backdrop-blur z-20">
-        <div className="flex items-center gap-2">
-          <GlobeHemisphereWest size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">Market Sessions</h3>
-        </div>
-      </div>
+    <WidgetShell
+      title="Market Sessions"
+      icon={<GlobeHemisphereWest size={16} weight="duotone" />}
+    >
+      <div className="relative flex h-full flex-col">
       
       {/* Map Background */}
       <div className="absolute inset-x-0 top-12 bottom-0 z-0 flex items-center justify-center opacity-30 pointer-events-none">
@@ -140,6 +139,7 @@ export function MarketSessionsWidget() {
           );
         })}
       </div>
-    </div>
+      </div>
+    </WidgetShell>
   );
 }
