@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { WifiHigh } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { WidgetShell } from "./widget-kit";
 
 type Ping = { id: number; val: number };
 
@@ -13,6 +14,7 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
   const [pings, setPings] = useState<Ping[]>([]);
   // undefined = no probe yet (measuring), null = a failed/timed-out probe.
   const [currentPing, setCurrentPing] = useState<number | null | undefined>(undefined);
+  const [hoveredPing, setHoveredPing] = useState<Ping | null>(null);
   const idRef = useRef(0);
 
   useEffect(() => {
@@ -23,9 +25,6 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    // Sequential polling: each probe completes before the next is scheduled, so
-    // slow responses never overlap or race the chart. Each probe has a deadline,
-    // and a non-OK response counts as a failure rather than healthy latency.
     async function measure() {
       const start = performance.now();
       const ctrl = new AbortController();
@@ -41,7 +40,6 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
           return next.length > 40 ? next.slice(next.length - 40) : next;
         });
       } catch {
-        // A failed or timed-out probe is a real signal too: surface it.
         if (cancelled) return;
         setCurrentPing(null);
       } finally {
@@ -57,7 +55,6 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
     };
   }, [interval]);
 
-  const maxVal = 300; // ms ceiling for chart scaling
   const measuring = currentPing === undefined;
   const ping = currentPing ?? 0;
 
@@ -71,48 +68,65 @@ export function NetworkLatencyWidget({ interval = "1s" }: { interval?: string })
     if (ping > 250) { statusColor = "text-negative"; statusDot = "bg-negative"; }
   }
 
+  // Dynamic scale calculation based on highest ping in window (min 100ms)
+  const maxVal = useMemo(() => {
+    if (pings.length === 0) return 100;
+    const highest = Math.max(...pings.map((p) => p.val));
+    return Math.max(100, Math.ceil(highest / 50) * 50); // Snap to nearest 50ms
+  }, [pings]);
+
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <WifiHigh size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">API Latency</h3>
-        </div>
+    <WidgetShell 
+      title="API Latency" 
+      icon={<WifiHigh size={16} weight="duotone" />}
+      right={
         <div className="flex items-center gap-1.5">
-          <span className={cn("inline-block h-1.5 w-1.5 rounded-full", statusColor, statusDot)} />
+          <span className={cn("inline-block h-1.5 w-1.5 rounded-full shadow-[0_0_8px_currentColor]", statusColor, statusDot)} />
           <span className={cn("font-mono text-xs font-medium", statusColor)}>
-            {measuring ? "…" : currentPing === null ? "timeout" : `${currentPing}ms`}
+            {hoveredPing ? `${hoveredPing.val}ms` : measuring ? "…" : currentPing === null ? "timeout" : `${currentPing}ms`}
           </span>
         </div>
-      </div>
-
-      <div className="group relative flex flex-1 flex-col justify-end overflow-hidden p-4">
-        <div className="absolute left-4 right-4 top-4 flex justify-between font-mono text-[10px] uppercase text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100">
-          <span>Floqex API</span>
-          <span>{interval} refresh</span>
+      }
+    >
+      <div className="group relative flex h-full flex-col justify-end overflow-hidden px-4 pb-4 pt-2">
+        <div className="absolute left-4 right-4 top-2 flex justify-between font-mono text-[10px] uppercase tracking-wider text-fg-subtle opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100">
+          <span>Floqex Edge API</span>
+          <span>{maxVal}ms ceiling</span>
         </div>
 
-        <div className="flex h-24 w-full items-end gap-[2px]">
+        <div 
+          className="flex flex-1 w-full items-end gap-[3px] pt-6"
+          onMouseLeave={() => setHoveredPing(null)}
+        >
           {pings.map((p) => {
-            const hPct = Math.min(100, Math.max(5, (p.val / maxVal) * 100));
-            let barColor = "bg-profit/40";
-            if (p.val > 120) barColor = "bg-warning/60";
-            if (p.val > 250) barColor = "bg-negative/80";
+            const hPct = Math.min(100, Math.max(2, (p.val / maxVal) * 100));
+            let barColor = "bg-profit/40 hover:bg-profit";
+            if (p.val > 120) barColor = "bg-warning/60 hover:bg-warning";
+            if (p.val > 250) barColor = "bg-negative/80 hover:bg-negative";
+            
+            const isHovered = hoveredPing?.id === p.id;
+            
             return (
               <motion.div
                 key={p.id}
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: `${hPct}%`, opacity: 1 }}
-                className={cn("flex-1 rounded-t-sm transition-colors", barColor)}
+                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+                onMouseEnter={() => setHoveredPing(p)}
+                className={cn(
+                  "flex-1 rounded-t-sm transition-all duration-200 cursor-crosshair min-h-[4px]", 
+                  barColor,
+                  isHovered ? "opacity-100" : "opacity-80 group-hover:opacity-40"
+                )}
               />
             );
           })}
         </div>
 
-        <div className="relative mt-1 h-px w-full bg-line">
-          <span className="absolute -bottom-3 -left-1 text-[9px] text-fg-faint">Now</span>
+        <div className="relative mt-2 h-px w-full bg-line">
+          <span className="absolute -bottom-4 -right-1 text-[9px] font-mono text-fg-faint">Now</span>
         </div>
       </div>
-    </div>
+    </WidgetShell>
   );
 }

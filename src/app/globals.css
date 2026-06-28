@@ -443,3 +443,11 @@
 .display-mode-hidden .display-value-money {
   display: none;
 }
+
+/* React Grid Layout Overrides */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent) !important;
+  opacity: 0.1 !important;
+  border-radius: 8px !important;
+  transition-duration: 100ms;
+}

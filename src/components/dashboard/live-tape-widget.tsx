@@ -4,6 +4,7 @@ import { ListDashes, TrendUp, TrendDown } from "@phosphor-icons/react/dist/ssr";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import type { TradeRow } from "@/lib/queries";
+import { WidgetShell } from "./widget-kit";
 
 // Real execution tape: the account's most recent fills (entry price + size +
 // direction), newest first. Driven by live + server trade data, not random
@@ -22,12 +23,10 @@ export function LiveTapeWidget({
     .slice(0, rows);
 
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <ListDashes size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">Execution Tape</h3>
-        </div>
+    <WidgetShell
+      title="Execution Tape"
+      icon={<ListDashes size={16} weight="duotone" />}
+      right={
         <div className="flex items-center gap-1.5">
           {isLive && (
             <span className="relative flex h-2 w-2">
@@ -39,8 +38,8 @@ export function LiveTapeWidget({
             {isLive ? "LIVE" : "RECENT"}
           </span>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex-1 overflow-hidden p-2">
         {items.length === 0 ? (
           <div className="flex h-full items-center justify-center">
@@ -83,6 +82,6 @@ export function LiveTapeWidget({
           </>
         )}
       </div>
-    </div>
+    </WidgetShell>
   );
 }

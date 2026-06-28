@@ -5,6 +5,7 @@ import { Gauge } from "@phosphor-icons/react/dist/ssr";
 import { openExposure } from "@/lib/metrics";
 import { formatUSD } from "@/lib/utils";
 import type { TradeRow } from "@/lib/queries";
+import { WidgetShell } from "./widget-kit";
 
 // Real capital utilization: total open-position notional as a share of account
 // balance. A live read of how much of the account is currently committed.
@@ -33,12 +34,10 @@ export function ExposureWidget({
   const dashOffset = circ - (circ * Math.min(100, pct)) / 100;
 
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex shrink-0 items-center gap-2 border-b border-line px-4 py-3">
-        <Gauge size={16} weight="duotone" className="text-accent" />
-        <h3 className="text-[13px] font-semibold tracking-wide">Capital Utilization</h3>
-      </div>
-
+    <WidgetShell
+      title="Capital Utilization"
+      icon={<Gauge size={16} weight="duotone" />}
+    >
       <div className="flex flex-1 flex-col items-center justify-center p-4">
         {!hasAccount ? (
           <p className="text-center text-xs text-fg-subtle">Connect an account to see capital utilization.</p>
@@ -73,6 +72,6 @@ export function ExposureWidget({
           </>
         )}
       </div>
-    </div>
+    </WidgetShell>
   );
 }

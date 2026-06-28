@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+
 import { CalendarBlank } from "@phosphor-icons/react/dist/ssr";
 import { cn, formatUSD } from "@/lib/utils";
 import { dailyPnl } from "@/lib/metrics";
 import type { DailyRow } from "@/lib/queries";
+import { WidgetShell } from "./widget-kit";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -40,20 +42,19 @@ export function CalendarPnlWidget({ summaries = [] }: { summaries?: DailyRow[] }
   const hasData = summaries.length > 0;
 
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <CalendarBlank size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">{monthLabel}</h3>
-        </div>
-        {hasData && (
+    <WidgetShell
+      title={monthLabel}
+      icon={<CalendarBlank size={16} weight="duotone" />}
+      right={
+        hasData ? (
           <span className={cn("tnum text-xs font-medium", monthTotal >= 0 ? "text-profit" : "text-negative")}>
-            {formatUSD(monthTotal)}
+            {monthTotal >= 0 ? "+" : ""}
+            {formatUSD(monthTotal).replace(".00", "")}
           </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col overflow-hidden p-4">
+        ) : null
+      }
+    >
+      <div className="flex h-full flex-col px-4 pb-4 pt-2">
         {!hasData ? (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-center text-xs text-fg-subtle">Daily results fill this calendar in.</p>
@@ -90,6 +91,6 @@ export function CalendarPnlWidget({ summaries = [] }: { summaries?: DailyRow[] }
           </>
         )}
       </div>
-    </div>
+    </WidgetShell>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { TrendUp, TrendDown, RocketLaunch, ArrowClockwise } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import { WidgetShell } from "./widget-kit";
 
 type Mover = {
   symbol: string;
@@ -66,12 +67,10 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
   const rows = data ? (tab === "gainers" ? data.gainers : data.losers) : [];
 
   return (
-    <div className="flex h-full w-full flex-col bg-elevated text-fg">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <RocketLaunch size={16} weight="duotone" className="text-accent" />
-          <h3 className="text-[13px] font-semibold tracking-wide">Top Movers</h3>
-        </div>
+    <WidgetShell
+      title="Top Movers"
+      icon={<RocketLaunch size={16} weight="duotone" />}
+      right={
         <div className="flex items-center gap-1 rounded-[var(--radius-pill)] bg-surface p-0.5">
           <button
             type="button"
@@ -88,8 +87,8 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
             Losers
           </button>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex-1 overflow-y-auto p-4">
         {status === "loading" && (
           <div className="flex flex-col gap-3">
@@ -162,6 +161,6 @@ export function TopMoversWidget({ includeAsx = true }: { includeAsx?: boolean })
           </div>
         )}
       </div>
-    </div>
+    </WidgetShell>
   );
 }
