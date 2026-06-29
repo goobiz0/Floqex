@@ -216,11 +216,11 @@ function BotCard({
       )}
       
       <div className={cn("flex items-start justify-between gap-2", bot.edgeDecayPaused && "mt-8")}>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
             <p className="truncate font-medium text-fg">{bot.name}</p>
             {bot.accountId && (
-              <Badge tone={bot.accountMode === "LIVE" ? "warning" : "neutral"}>
+              <Badge tone={bot.accountMode === "LIVE" ? "warning" : "neutral"} className="shrink-0">
                 {bot.accountMode === "LIVE" ? "Live" : "Paper"}
               </Badge>
             )}
@@ -228,7 +228,7 @@ function BotCard({
 
           {/* Connected account, named so this bot is identifiable among many */}
           {bot.accountId ? (
-            <span className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5">
+            <span className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 min-w-0">
               <Plug size={12} weight="bold" className="shrink-0 text-accent" />
               <span
                 className="truncate text-xs font-medium text-fg"
@@ -238,21 +238,21 @@ function BotCard({
               </span>
               {bot.accountBroker && (
                 <>
-                  <span className="text-fg-faint">·</span>
+                  <span className="text-fg-faint shrink-0">·</span>
                   <span className="shrink-0 text-xs text-fg-muted">{bot.accountBroker}</span>
                 </>
               )}
             </span>
           ) : (
-            <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-fg-subtle">
-              <LinkBreak size={12} />
+            <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-fg-subtle min-w-0">
+              <LinkBreak size={12} className="shrink-0" />
               No account connected
             </span>
           )}
 
           {/* Underlying strategy */}
-          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-fg-subtle">
-            <span className="text-fg-faint">Strategy</span>
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-fg-subtle min-w-0">
+            <span className="text-fg-faint shrink-0">Strategy</span>
             <span className="truncate text-fg-muted">{bot.strategyName}</span>
             <span title="The underlying strategy this bot runs" className="shrink-0 cursor-help">
               <Info size={12} />
@@ -262,7 +262,7 @@ function BotCard({
 
         <Dropdown
           trigger={
-            <button className="text-fg-subtle hover:text-fg transition-colors p-1 rounded hover:bg-surface-hover">
+            <button type="button" className="text-fg-subtle hover:text-fg transition-colors p-1 rounded hover:bg-surface-hover">
               <DotsThree size={20} weight="bold" />
             </button>
           }
@@ -328,7 +328,7 @@ function BotCard({
                 <DisplayValue
                   type="PNL"
                   money={bot.todayPnl ?? 0}
-                  percent={bot.balance ? ((bot.todayPnl ?? 0) / bot.balance) * 100 : undefined}
+                  percent={bot.balance ? ((bot.todayPnl ?? 0) / (bot.balance - (bot.todayPnl ?? 0))) * 100 : undefined}
                 />
               </p>
             </div>
@@ -530,6 +530,7 @@ function ForwardTestCard({
           </Badge>
           {active && (
             <button
+              type="button"
               onClick={onStop}
               disabled={ftPending}
               title="Stop forward test"

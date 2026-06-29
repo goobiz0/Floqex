@@ -692,7 +692,7 @@ function AccountCard({
             <p className="text-xs text-fg-subtle">Today</p>
             <p className={cn("tnum mt-0.5 text-sm font-semibold", pnlTone(account.todayPnl))}>
               {account.todayPnl == null ? (
-                <span className="text-fg-faint">&mdash;</span>
+                <span className="text-fg-faint">N/A</span>
               ) : (
                 <DisplayValue
                   type="PNL"
@@ -725,7 +725,7 @@ function AccountCard({
             label="Win rate"
             value={
               account.winRate == null ? (
-                <span className="text-fg-faint">&mdash;</span>
+                <span className="text-fg-faint">N/A</span>
               ) : (
                 <span className="text-fg">{account.winRate.toFixed(0)}%</span>
               )
@@ -879,7 +879,7 @@ function AccountRow({
         <div className="hidden w-24 text-right md:block">
           <p className={cn("tnum text-sm font-medium", pnlTone(account.todayPnl))}>
             {account.todayPnl == null ? (
-              <span className="text-fg-faint">&mdash;</span>
+              <span className="text-fg-faint">N/A</span>
             ) : (
               <DisplayValue type="PNL" money={account.todayPnl} />
             )}
@@ -893,7 +893,7 @@ function AccountRow({
         <div className="hidden w-16 text-right xl:block">
           <p className="tnum text-sm font-medium text-fg-muted">
             {account.winRate == null ? (
-              <span className="text-fg-faint">&mdash;</span>
+              <span className="text-fg-faint">N/A</span>
             ) : (
               `${account.winRate.toFixed(0)}%`
             )}
@@ -1086,7 +1086,7 @@ function AdvancedContent({
 
   function saveDrawdown(value: string) {
     const val = value ? Number(value) : null;
-    if (val != null && (Number.isNaN(val) || val < 0)) {
+    if (val != null && (Number.isNaN(val) || !Number.isFinite(val) || val < 0)) {
       toast.error("Enter a valid drawdown amount.");
       return;
     }
@@ -1163,10 +1163,10 @@ function AdvancedContent({
 }
 
 function WebhookBox({ accountId }: { accountId: string }) {
-  const url =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/api/webhooks/tradingview/${accountId}`
-      : "";
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const url = origin ? `${origin}/api/webhooks/tradingview/${accountId}` : "";
+  
   return (
     <div className="rounded-[var(--radius-control)] border border-line bg-surface/40 p-3.5">
       <div className="mb-2 flex items-center gap-1.5">
@@ -1187,9 +1187,13 @@ function WebhookBox({ accountId }: { accountId: string }) {
           size="sm"
           variant="secondary"
           className="h-7 px-2"
-          onClick={() => {
-            navigator.clipboard.writeText(url);
-            toast.success("Webhook URL copied to clipboard.");
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(url);
+              toast.success("Webhook URL copied to clipboard.");
+            } catch {
+              toast.error("Failed to copy URL");
+            }
           }}
         >
           <Copy size={14} />

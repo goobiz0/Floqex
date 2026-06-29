@@ -19,8 +19,8 @@ export default async function AccountsPage() {
 
       {data.error ? (
         <DashboardError
-          title="Accounts unavailable"
-          message="We could not load your accounts right now. Please refresh in a moment, and check the database connection if this persists."
+          title="Service Unavailable"
+          message="We are currently unable to load your accounts. Please try refreshing the page in a few moments, or contact support if the issue persists."
         />
       ) : (
         <AccountsView data={data} />

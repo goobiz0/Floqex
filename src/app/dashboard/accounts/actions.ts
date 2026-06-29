@@ -294,6 +294,12 @@ export async function updateCircuitBreaker(accountId: string, amount: number | n
 }
 
 export async function updatePropFirmSettings(accountId: string, isPropFirmMode: boolean, propFirmMaxTrailingDrawdown: number | null) {
+  if (propFirmMaxTrailingDrawdown !== null) {
+    if (Number.isNaN(propFirmMaxTrailingDrawdown) || !Number.isFinite(propFirmMaxTrailingDrawdown) || propFirmMaxTrailingDrawdown < 0) {
+      return { ok: false, error: "Invalid drawdown amount" };
+    }
+  }
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not signed in" };
 
