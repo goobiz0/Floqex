@@ -49,9 +49,9 @@ export default async function AccountsPage() {
           </p>
         </div>
         <Card className="p-8 text-center flex flex-col items-center justify-center border-dashed border-line">
-          <h3 className="text-lg font-bold text-fg mb-2">Database Connection Error</h3>
+          <h3 className="text-lg font-bold text-fg mb-2">Service Unavailable</h3>
           <p className="text-sm text-fg-subtle max-w-md">
-            We are unable to connect to the database. Please check your Supabase connection strings in the Vercel dashboard and ensure your project is active.
+            We are currently unable to load your accounts. Please try refreshing the page in a few moments, or contact support if the issue persists.
           </p>
         </Card>
       </div>

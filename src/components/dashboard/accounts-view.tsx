@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useId, useState, useTransition, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Plus,
@@ -52,6 +52,11 @@ const BROKERS = [
 export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialAccounts?: Acct[], plan?: string }) {
   const [connecting, setConnecting] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   const activePlan = PLANS[plan as Plan] || PLANS.FREE;
   const hitLimit = initialAccounts.length >= activePlan.accountLimit;
@@ -65,9 +70,13 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
     });
   }
 
-  function handleCopy(url: string) {
-    navigator.clipboard.writeText(url);
-    alert("Webhook URL copied to clipboard!");
+  async function handleCopy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Webhook URL copied to clipboard!");
+    } catch {
+      alert("Failed to copy URL");
+    }
   }
 
   function handleDisconnect(id: string) {
@@ -189,9 +198,9 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                         <p className="text-xs font-medium text-fg-subtle mb-1">TradingView Webhook URL</p>
                         <div className="flex items-center gap-2">
                           <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-[8px] bg-surface px-2 py-1.5 text-[11px] text-fg-muted border border-line">
-                            {typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/tradingview/{a.id}
+                            {origin}/api/webhooks/tradingview/{a.id}
                           </code>
-                          <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => handleCopy(`${window.location.origin}/api/webhooks/tradingview/${a.id}`)}>
+                          <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => handleCopy(`${origin}/api/webhooks/tradingview/${a.id}`)}>
                             <Copy size={14} />
                           </Button>
                         </div>
@@ -238,7 +247,18 @@ export function AccountsView({ initialAccounts = [], plan = "FREE" }: { initialA
                              defaultValue={a.propFirmMaxTrailingDrawdown?.toString() || ""}
                              className="h-8 text-xs"
                              onBlur={(e) => {
-                               const val = e.target.value ? Number(e.target.value) : null;
+                               const raw = e.target.value;
+                               if (!raw) {
+                                 startTransition(async () => {
+                                   await updatePropFirmSettings(a.id, true, null);
+                                 });
+                                 return;
+                               }
+                               const val = Number(raw);
+                               if (Number.isNaN(val) || !Number.isFinite(val) || val < 0) {
+                                 alert("Invalid drawdown amount");
+                                 return;
+                               }
                                startTransition(async () => {
                                  await updatePropFirmSettings(a.id, true, val);
                                });

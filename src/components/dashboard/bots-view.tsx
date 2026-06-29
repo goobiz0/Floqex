@@ -205,20 +205,22 @@ function BotCard({
         </div>
       )}
       
-      <div className={cn("flex items-start justify-between", bot.edgeDecayPaused && "mt-8")}>
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-fg">{bot.name}</p>
+      <div className={cn("flex items-start justify-between min-w-0 gap-2", bot.edgeDecayPaused && "mt-8")}>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="font-medium text-fg truncate">{bot.name}</p>
             {bot.accountId && (
-              <Badge tone={bot.accountMode === "LIVE" ? "warning" : "neutral"}>
+              <Badge tone={bot.accountMode === "LIVE" ? "warning" : "neutral"} className="shrink-0">
                 {bot.accountMode === "LIVE" ? "Live" : "Paper"}
               </Badge>
             )}
           </div>
-          <p className="text-xs text-fg-subtle mt-1 flex items-center gap-1">
-            {bot.accountId ? `${bot.accountBroker} · ` : ""}
-            {bot.strategyName}
-            <span title="The underlying strategy this bot runs" className="cursor-help">
+          <p className="text-xs text-fg-subtle mt-1 flex items-center gap-1 min-w-0">
+            <span className="truncate">
+              {bot.accountId ? `${bot.accountBroker} · ` : ""}
+              {bot.strategyName}
+            </span>
+            <span title="The underlying strategy this bot runs" className="cursor-help shrink-0">
               <Info size={12} />
             </span>
           </p>
@@ -226,7 +228,7 @@ function BotCard({
 
         <Dropdown
           trigger={
-            <button className="text-fg-subtle hover:text-fg transition-colors p-1 rounded hover:bg-surface-hover">
+            <button type="button" className="text-fg-subtle hover:text-fg transition-colors p-1 rounded hover:bg-surface-hover">
               <DotsThree size={20} weight="bold" />
             </button>
           }
@@ -292,7 +294,7 @@ function BotCard({
                 <DisplayValue
                   type="PNL"
                   money={bot.todayPnl ?? 0}
-                  percent={bot.balance ? ((bot.todayPnl ?? 0) / bot.balance) * 100 : undefined}
+                  percent={bot.balance ? ((bot.todayPnl ?? 0) / (bot.balance - (bot.todayPnl ?? 0))) * 100 : undefined}
                 />
               </p>
             </div>
@@ -461,6 +463,7 @@ function ForwardTestCard({
           <Badge tone={ftMeta.tone}>{ftMeta.label}</Badge>
           {active && (
             <button
+              type="button"
               onClick={onStop}
               disabled={ftPending}
               title="Stop forward test"
