@@ -1180,6 +1180,211 @@ export async function getNavAccounts(): Promise<NavAccount[]> {
   }
 }
 
+// ─────────────────────── Accounts overview ──────────────────────
+
+export type AccountOverviewRow = {
+  id: string;
+  nickname: string;
+  broker: string;
+  mode: "PAPER" | "LIVE";
+  balance: number;
+  currency: string;
+  createdAt: string;
+  isPropFirmMode: boolean;
+  propFirmMaxTrailingDrawdown: number | null;
+  maxDailyDrawdown: number | null;
+  bot: { status: "RUNNING" | "WAITING" | "STOPPED"; lastHeartbeat: string | null } | null;
+  /** Live-broker connection state (null for paper accounts). */
+  connectionStatus: string | null;
+  /** Today's realized P&L from the daily summary, null when there's no summary yet. */
+  todayPnl: number | null;
+  /** All-time realized P&L (sum of every daily summary). */
+  totalPnl: number;
+  /** All-time return on initial capital, null when it can't be derived. */
+  returnPct: number | null;
+  /** Win rate over closed trades, null when none have closed. */
+  winRate: number | null;
+  /** Closed-trade count (the win-rate denominator base). */
+  tradeCount: number;
+  /** Currently open positions on this account. */
+  openPositions: number;
+  /** Recent equity points (endBalance), oldest-first, for the sparkline. */
+  spark: number[];
+  /** Most recent signal of life: bot heartbeat or last summary date. */
+  lastActiveAt: string | null;
+};
+
+export type AccountsOverview = {
+  accounts: AccountOverviewRow[];
+  plan: Plan;
+  accountLimit: number;
+  totals: {
+    balance: number;
+    todayPnl: number;
+    totalPnl: number;
+    accountCount: number;
+    runningBots: number;
+    liveCount: number;
+    paperCount: number;
+    openPositions: number;
+  };
+  error: boolean;
+};
+
+const EMPTY_ACCOUNTS_OVERVIEW: AccountsOverview = {
+  accounts: [],
+  plan: "FREE",
+  accountLimit: PLANS.FREE.accountLimit,
+  totals: {
+    balance: 0,
+    todayPnl: 0,
+    totalPnl: 0,
+    accountCount: 0,
+    runningBots: 0,
+    liveCount: 0,
+    paperCount: 0,
+    openPositions: 0,
+  },
+  error: false,
+};
+
+/**
+ * Everything the Accounts page needs in one shot: each account's live balance,
+ * today's and all-time realized P&L, win rate, open positions, an equity
+ * sparkline, plus bot/connection status and the prop-firm guardrail settings.
+ * Aggregates (all-time P&L, win/loss counts) come from grouped queries so they
+ * stay accurate regardless of how much history an account has, while the recent
+ * summaries power the sparkline and today's number. Defensive by design: any
+ * failure yields a composed empty/error state, never fabricated numbers.
+ */
+export async function getAccountsOverview(): Promise<AccountsOverview> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return EMPTY_ACCOUNTS_OVERVIEW;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: {
+        accounts: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            bot: { select: { status: true, lastHeartbeat: true } },
+            connection: { select: { status: true } },
+            summaries: { orderBy: { date: "desc" }, take: 30 },
+          },
+        },
+      },
+    });
+
+    if (!user) return EMPTY_ACCOUNTS_OVERVIEW;
+
+    const plan = (user.plan as Plan) || "FREE";
+    const accountIds = user.accounts.map((a) => a.id);
+
+    // All-time aggregates and live open-position counts in two grouped queries,
+    // so the per-account numbers don't drift with the 30-row summary window.
+    const [totalsByAccount, openByAccount] = accountIds.length
+      ? await Promise.all([
+          prisma.dailySummary.groupBy({
+            by: ["accountId"],
+            where: { accountId: { in: accountIds } },
+            _sum: { netPnl: true, winCount: true, lossCount: true, tradeCount: true },
+          }),
+          prisma.trade.groupBy({
+            by: ["accountId"],
+            where: { accountId: { in: accountIds }, status: "OPEN" },
+            _count: { _all: true },
+          }),
+        ])
+      : [[], []];
+
+    const totalsMap = new Map(totalsByAccount.map((t) => [t.accountId, t]));
+    const openMap = new Map(openByAccount.map((o) => [o.accountId, o._count._all]));
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    const accounts: AccountOverviewRow[] = user.accounts.map((a) => {
+      const agg = totalsMap.get(a.id);
+      const totalPnl = agg?._sum.netPnl != null ? num(agg._sum.netPnl) : 0;
+      const wins = agg?._sum.winCount ?? 0;
+      const losses = agg?._sum.lossCount ?? 0;
+      const tradeCount = agg?._sum.tradeCount ?? 0;
+      const decided = wins + losses;
+
+      // summaries arrive newest-first; reverse for a chronological sparkline.
+      const chrono = [...a.summaries].reverse();
+      const today = a.summaries.find((s) => s.date.toISOString().slice(0, 10) === todayKey);
+      const balance = num(a.balance);
+      const initialCapital = balance - totalPnl;
+
+      const lastSummaryAt = a.summaries[0]?.date.toISOString() ?? null;
+      const heartbeatAt = a.bot?.lastHeartbeat?.toISOString() ?? null;
+      const lastActiveAt =
+        heartbeatAt && lastSummaryAt
+          ? heartbeatAt > lastSummaryAt
+            ? heartbeatAt
+            : lastSummaryAt
+          : heartbeatAt ?? lastSummaryAt;
+
+      return {
+        id: a.id,
+        nickname: a.nickname,
+        broker: a.broker,
+        mode: a.mode as "PAPER" | "LIVE",
+        balance,
+        currency: a.currency,
+        createdAt: a.createdAt.toISOString(),
+        isPropFirmMode: a.isPropFirmMode,
+        propFirmMaxTrailingDrawdown:
+          a.propFirmMaxTrailingDrawdown != null ? num(a.propFirmMaxTrailingDrawdown) : null,
+        maxDailyDrawdown: a.maxDailyDrawdown != null ? num(a.maxDailyDrawdown) : null,
+        bot: a.bot
+          ? {
+              status: a.bot.status as "RUNNING" | "WAITING" | "STOPPED",
+              lastHeartbeat: heartbeatAt,
+            }
+          : null,
+        connectionStatus: a.connection?.status ?? null,
+        todayPnl: today ? num(today.netPnl) : null,
+        totalPnl,
+        returnPct: initialCapital > 0 ? (totalPnl / initialCapital) * 100 : null,
+        winRate: decided > 0 ? (wins / decided) * 100 : null,
+        tradeCount,
+        openPositions: openMap.get(a.id) ?? 0,
+        spark: chrono.map((s) => num(s.endBalance)),
+        lastActiveAt,
+      };
+    });
+
+    const totals = accounts.reduce(
+      (acc, a) => {
+        acc.balance += a.balance;
+        acc.todayPnl += a.todayPnl ?? 0;
+        acc.totalPnl += a.totalPnl;
+        acc.openPositions += a.openPositions;
+        if (a.mode === "LIVE") acc.liveCount += 1;
+        else acc.paperCount += 1;
+        if (a.bot?.status === "RUNNING") acc.runningBots += 1;
+        return acc;
+      },
+      {
+        balance: 0,
+        todayPnl: 0,
+        totalPnl: 0,
+        accountCount: accounts.length,
+        runningBots: 0,
+        liveCount: 0,
+        paperCount: 0,
+        openPositions: 0,
+      },
+    );
+
+    return { accounts, plan, accountLimit: PLANS[plan].accountLimit, totals, error: false };
+  } catch (err) {
+    console.error("Error in getAccountsOverview:", err);
+    return { ...EMPTY_ACCOUNTS_OVERVIEW, error: true };
+  }
+}
+
 export type DemoPreview = {
   balance: number;
   changePct: number | null;
