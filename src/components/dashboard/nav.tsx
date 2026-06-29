@@ -217,17 +217,38 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
           {accounts.map((a) => (
             <AccountRow key={a.id} account={a} isActive={a.id === activeAccountId} />
           ))}
-          <Link
-            href="/dashboard/accounts"
-            className="group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:bg-surface/50 text-fg-subtle hover:text-fg mt-1"
-          >
-            <span className="flex items-center justify-center transition-colors text-fg-subtle group-hover:text-fg-muted">
-              <Plus size={18} weight="bold" />
-            </span>
-            <span className="truncate text-[13px] font-medium">
-              Add New Account
-            </span>
-          </Link>
+          <div className="mt-1.5 space-y-0.5 border-t border-line/60 pt-1.5">
+            <Link
+              href="/dashboard/accounts"
+              aria-current={isActiveRoute("/dashboard/accounts") ? "page" : undefined}
+              className={cn(
+                "group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:bg-surface/50 hover:text-fg",
+                isActiveRoute("/dashboard/accounts") ? "text-fg" : "text-fg-subtle",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex items-center justify-center transition-colors",
+                  isActiveRoute("/dashboard/accounts")
+                    ? "text-accent"
+                    : "text-fg-subtle group-hover:text-fg-muted",
+                )}
+              >
+                <Wallet size={18} weight={isActiveRoute("/dashboard/accounts") ? "fill" : "regular"} />
+              </span>
+              <span className="flex-1 truncate text-[13px] font-medium">Manage accounts</span>
+              <CaretRight size={14} weight="bold" className="shrink-0 text-fg-subtle" />
+            </Link>
+            <Link
+              href="/dashboard/accounts/new"
+              className="group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-fg-subtle transition-colors hover:bg-surface/50 hover:text-fg"
+            >
+              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[8px] border border-dashed border-line-strong text-fg-subtle transition-colors group-hover:border-accent group-hover:text-accent">
+                <Plus size={12} weight="bold" />
+              </span>
+              <span className="truncate text-[13px] font-medium">Add new account</span>
+            </Link>
+          </div>
         </Section>
 
         <Section label="More">

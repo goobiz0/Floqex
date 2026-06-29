@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import type { Prisma } from "@prisma/client";
-import { Card, CardTitle } from "@/components/ui/card";
 import { AccountsView } from "@/components/dashboard/accounts-view";
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
+import { DashboardError } from "@/components/dashboard/states";
+import { getAccountsOverview } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Accounts" };
 
@@ -63,27 +61,18 @@ export default async function AccountsPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-fg">Accounts</h1>
         <p className="text-sm text-fg-subtle">
-          Connect broker accounts. Each one runs its own isolated bot.
+          Connect broker accounts and manage the bot, balance, and guardrails for each.
         </p>
       </div>
 
-      <AccountsView initialAccounts={accounts} plan={user?.plan ?? "FREE"} />
-
-      <Card className="p-5">
-        <CardTitle>Profile</CardTitle>
-        <div className="mt-4 flex flex-col items-start gap-2">
-          <p className="text-sm font-medium text-fg">Your personal details</p>
-          <p className="text-xs text-fg-subtle mb-2">
-            Manage your name, email, and security preferences from the settings page.
-          </p>
-          <a
-            href="/dashboard/settings"
-            className="inline-flex h-8 items-center justify-center rounded-[var(--radius-control)] border border-line bg-surface px-3 text-xs font-medium text-fg hover:bg-surface/80 hover:text-fg"
-          >
-            Manage profile
-          </a>
-        </div>
-      </Card>
+      {data.error ? (
+        <DashboardError
+          title="Accounts unavailable"
+          message="We could not load your accounts right now. Please refresh in a moment, and check the database connection if this persists."
+        />
+      ) : (
+        <AccountsView data={data} />
+      )}
     </div>
   );
 }
