@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db";
 import { PLANS, type Plan } from "@/lib/plans";
-import { computeFollowerUnits, flipDirection } from "@/lib/copy-trading";
+import { resolveCopyOrder, type CopyRule, type CopyFilterMode } from "@/lib/copy-trading";
 import { executeTrade, closeTrade } from "./execution-router";
-import type { Trade } from "@prisma/client";
+import type { CopyLink, Trade } from "@prisma/client";
 
 /**
  * Copy-trading replication engine.
@@ -14,6 +14,12 @@ import type { Trade } from "@prisma/client";
  * trade, with the `replicate` flag disabled so a copy never triggers another
  * round of copying (no recursion, no chains beyond one hop).
  *
+ * All sizing decisions (direction, symbol filter, size bounds, the real per-trade
+ * risk cap) live in `resolveCopyOrder`, the same pure helper the editor preview
+ * calls, so what a trader configures is exactly what the engine places. Each link
+ * can also carry a daily-loss circuit breaker that auto-pauses it once copied
+ * losses for the day cross the limit.
+ *
  * Everything is best-effort and fully guarded: a copy that fails is logged as a
  * CopyTradeEvent and never propagates back to break the master's own trade.
  */
@@ -23,6 +29,40 @@ const num = (d: unknown): number => Number(d as { toString(): string });
 function userHasCopyTrading(plan: string | null | undefined): boolean {
   const cfg = PLANS[(plan as Plan) ?? "FREE"];
   return Boolean(cfg?.copyTrading);
+}
+
+/** Project a CopyLink row onto the pure sizing rule the resolver understands. */
+function buildRule(link: CopyLink): CopyRule {
+  return {
+    sizingMode: link.sizingMode,
+    multiplier: num(link.multiplier),
+    fixedUnits: link.fixedUnits === null ? null : num(link.fixedUnits),
+    maxRiskPct: link.maxRiskPct === null ? null : num(link.maxRiskPct),
+    minUnits: link.minUnits === null ? null : num(link.minUnits),
+    maxUnits: link.maxUnits === null ? null : num(link.maxUnits),
+    reverse: link.reverse,
+    symbolFilter: link.symbolFilter,
+    symbolFilterMode: (link.symbolFilterMode as CopyFilterMode) ?? "ALLOW",
+  };
+}
+
+function startOfUtcDay(): Date {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Today's realized copied loss on a link, as a positive dollar figure (0 when
+ * the link is flat or up). Used by the daily-loss circuit breaker.
+ */
+async function todaysCopiedLoss(copyLinkId: string): Promise<number> {
+  const agg = await prisma.copyTradeEvent.aggregate({
+    where: { copyLinkId, action: "CLOSE", status: "FILLED", createdAt: { gte: startOfUtcDay() } },
+    _sum: { pnl: true },
+  });
+  const net = agg._sum.pnl === null ? 0 : num(agg._sum.pnl);
+  return net < 0 ? -net : 0;
 }
 
 /** Fan a freshly opened master trade out to its followers. */
@@ -48,13 +88,6 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
     for (const link of links) {
       const follower = link.followerAccount;
       try {
-        if (!link.copyOpen) {
-          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", sourceTrade.direction, null, {
-            reason: "Link is set to not mirror entries.",
-          });
-          continue;
-        }
-
         if (!follower.bot) {
           await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", sourceTrade.direction, null, {
             reason: "Follower account has no bot to receive copied trades.",
@@ -62,36 +95,64 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
           continue;
         }
 
-        const direction = link.reverse ? flipDirection(sourceTrade.direction) : sourceTrade.direction;
-        const units = computeFollowerUnits({
+        const followerBalance = num(follower.balance);
+
+        // Daily-loss circuit breaker: trip once, pause the link, and skip. The
+        // link stays in the DB (paused) so the trader can review and resume it.
+        if (link.maxDailyLossPct !== null) {
+          const loss = await todaysCopiedLoss(link.id);
+          const limit = (num(link.maxDailyLossPct) / 100) * followerBalance;
+          if (limit > 0 && loss >= limit) {
+            const reason = `Daily loss limit hit: copied losses of $${loss.toFixed(2)} reached the ${num(link.maxDailyLossPct)}% cap. Link paused.`;
+            await prisma.$transaction([
+              prisma.copyLink.update({
+                where: { id: link.id },
+                data: { status: "PAUSED", pausedReason: reason },
+              }),
+              prisma.agentEvent.create({
+                data: {
+                  botId: follower.bot.id,
+                  accountId: follower.id,
+                  kind: "RISK",
+                  message: `Copy link auto-paused. ${reason}`,
+                },
+              }),
+            ]);
+            await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", sourceTrade.direction, null, { reason });
+            continue;
+          }
+        }
+
+        const resolved = resolveCopyOrder({
+          direction: sourceTrade.direction as "LONG" | "SHORT",
           masterUnits,
           masterBalance,
-          followerBalance: num(follower.balance),
-          sizingMode: link.sizingMode,
-          multiplier: num(link.multiplier),
-          fixedUnits: link.fixedUnits === null ? null : num(link.fixedUnits),
+          followerBalance,
+          instrument: sourceTrade.instrument,
+          entryPrice: num(sourceTrade.entryPrice),
+          stopPrice: num(sourceTrade.stopPrice),
+          targetPrice: num(sourceTrade.targetPrice),
+          masterRiskPct,
+          rule: buildRule(link),
         });
 
-        if (units <= 0) {
-          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", direction, null, {
-            reason: `Opposite direction copy blocked because the master and follower accounts are the same.`,
+        if (resolved.skip) {
+          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", resolved.direction, null, {
+            reason: resolved.skip.reason,
           });
           continue;
         }
 
-        const cap = link.maxRiskPct === null ? null : num(link.maxRiskPct);
-        const riskPct = cap !== null ? Math.min(masterRiskPct, cap) : masterRiskPct;
-
-        // Reverse copies invert the trade, so the protective levels swap roles:
-        // the master's target becomes the follower's stop and vice versa.
-        const stopPrice = link.reverse ? num(sourceTrade.targetPrice) : num(sourceTrade.stopPrice);
-        const targetPrice = link.reverse ? num(sourceTrade.stopPrice) : num(sourceTrade.targetPrice);
-
         const followerTrade = await executeTrade(
           follower.bot.id,
           follower.id,
-          { direction, entryPrice: num(sourceTrade.entryPrice), stopPrice, targetPrice },
-          { sizeUnits: units, riskPct },
+          {
+            direction: resolved.direction,
+            entryPrice: num(sourceTrade.entryPrice),
+            stopPrice: resolved.stopPrice,
+            targetPrice: resolved.targetPrice,
+          },
+          { sizeUnits: resolved.units, riskPct: resolved.riskPct },
           sourceTrade.instrument,
           { replicate: false },
         );
@@ -105,8 +166,8 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
               action: "OPEN",
               status: "FILLED",
               instrument: sourceTrade.instrument,
-              direction,
-              sizeUnits: units,
+              direction: resolved.direction,
+              sizeUnits: resolved.units,
               userId: link.masterAccount.userId,
             },
           }),
@@ -115,7 +176,7 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
               botId: follower.bot.id,
               accountId: follower.id,
               kind: "TRADE",
-              message: `Copied ${direction} on ${sourceTrade.instrument} from a linked master account. Size: ${units.toFixed(4)} (${link.sizingMode.toLowerCase()}).`,
+              message: `Copied ${resolved.direction} on ${sourceTrade.instrument} from a linked master account. Size: ${resolved.units.toFixed(4)} (${link.sizingMode.toLowerCase()}).`,
               tradeId: followerTrade.id,
             },
           }),
@@ -172,7 +233,7 @@ export async function replicateClose(sourceTrade: Trade, exitPrice: number): Pro
               botId: followerTrade.botId,
               accountId: link ? link.followerAccountId : followerTrade.accountId,
               kind: pnl === null ? "RISK" : "TRADE",
-              message: pnl === null 
+              message: pnl === null
                 ? `Failed to close copied ${followerTrade.direction} on ${sourceTrade.instrument}.`
                 : `Closed copied ${followerTrade.direction} on ${sourceTrade.instrument} mirroring the master exit. PnL: $${pnl.toFixed(2)}.`,
               tradeId: followerTrade.id,

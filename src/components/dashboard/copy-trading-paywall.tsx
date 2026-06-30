@@ -3,7 +3,6 @@ import {
   Lightning,
   ArrowsLeftRight,
   ShieldCheck,
-  UsersThree,
   Gauge,
   Copy,
   ArrowRight,
@@ -17,22 +16,22 @@ const BENEFITS = [
   {
     icon: ArrowsLeftRight,
     title: "Cross-broker replication",
-    body: "Lead from one account and mirror its trades onto followers on any broker, paper or live.",
+    body: "Lead from one account and mirror its trades onto followers on any broker, paper or live, in real time.",
   },
   {
     icon: Gauge,
-    title: "Smart sizing per link",
-    body: "Proportional by equity, fixed multiplier, mirror, or fixed size. Cap risk on every copy.",
+    title: "Smart sizing with a real risk cap",
+    body: "Proportional, multiplier, mirror, or fixed. A true max-risk cap resizes each copy to the follower's own equity.",
   },
   {
-    icon: UsersThree,
-    title: "Multi-account routing",
-    body: "Fan one master out to as many follower accounts as your plan allows, hub and spoke.",
+    icon: Copy,
+    title: "Filters, bounds, and a live preview",
+    body: "Copy only the instruments you choose, floor and ceiling every order, and preview exact sizing before you save.",
   },
   {
     icon: ShieldCheck,
-    title: "Full control and audit",
-    body: "Pause, reverse, or close-only any link, and review every replicated order in the activity log.",
+    title: "Daily-loss circuit breaker",
+    body: "Auto-pause a link the moment copied losses cross your daily limit, with a full audit of every order.",
   },
 ];
 
