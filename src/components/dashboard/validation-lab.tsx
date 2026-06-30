@@ -30,6 +30,7 @@ type DefaultParams = {
   direction: "LONG" | "SHORT" | "BOTH";
   minRange: number;
   maxRange: number;
+  trailingStopPct: number;
 };
 
 export function ValidationLab({
@@ -44,6 +45,8 @@ export function ValidationLab({
   const [interval, setIntervalState] = useState<Interval>("5m");
   const [report, setReport] = useState<ValidationReport | null>(null);
   const [locked, setLocked] = useState(false);
+  const [edgeDelta, setEdgeDelta] = useState<number | null>(null);
+  const [intervalAdjusted, setIntervalAdjusted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, start] = useTransition();
   const reduce = useReducedMotion();
@@ -64,6 +67,8 @@ export function ValidationLab({
       }
       setReport(res.report);
       setLocked(res.locked);
+      setEdgeDelta(res.edgeDelta ?? null);
+      setIntervalAdjusted(Boolean(res.intervalAdjusted));
     });
   }
 
@@ -133,6 +138,25 @@ export function ValidationLab({
             <DataPill label={`${report.dataWindow.days} days`} />
             <DataPill label={report.dataWindow.interval} />
             <DataPill label={report.dataWindow.source} />
+            {intervalAdjusted && (
+              <span
+                className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 font-medium text-fg-subtle"
+                title="The requested timeframe didn't have enough real history, so a coarser interval was used."
+              >
+                interval adjusted
+              </span>
+            )}
+            {edgeDelta != null && Math.abs(edgeDelta) >= 0.5 && (
+              <span
+                className={cn(
+                  "tnum rounded-[var(--radius-pill)] px-2 py-0.5 font-semibold",
+                  edgeDelta >= 0 ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative",
+                )}
+                title="Change in Edge Score since the last time you validated this strategy."
+              >
+                {edgeDelta >= 0 ? "+" : ""}{edgeDelta.toFixed(0)} vs last run
+              </span>
+            )}
             <span className="text-fg-faint">Real history only. Estimates, not guarantees.</span>
           </div>
 

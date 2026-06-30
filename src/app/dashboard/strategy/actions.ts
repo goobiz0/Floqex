@@ -16,9 +16,35 @@ import { runValidation, DEFAULT_COSTS, type ValidationReport } from "@/lib/engin
 
 const INTERVAL_MINUTES: Record<Interval, number> = { "1m": 1, "5m": 5, "15m": 15, "1h": 60 };
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 export type ValidationResponse =
-  | { ok: true; locked: boolean; report: ValidationReport }
+  | {
+      ok: true;
+      locked: boolean;
+      report: ValidationReport;
+      /** Change in Edge Score vs the previous validation of this strategy, if any.
+       *  Negative means the edge has decayed since it was last checked. */
+      edgeDelta?: number | null;
+      /** True when 5m history was too thin and we fell back to a coarser interval. */
+      intervalAdjusted?: boolean;
+    }
   | { ok: false; error: string };
+
+const MIN_VALIDATION_BARS = 50;
+
+// Coarser-interval fallback chain: if the requested interval can't supply enough
+// real bars, step up to one that can rather than failing outright.
+const INTERVAL_FALLBACK: Record<Interval, Interval[]> = {
+  "1m": ["1m", "5m", "15m"],
+  "5m": ["5m", "15m"],
+  "15m": ["15m", "1h"],
+  "1h": ["1h"],
+};
+
+function lookbackFor(interval: Interval): number {
+  return interval === "1m" ? 7 : interval === "1h" ? 360 : 58;
+}
 
 /**
  * Run the rigorous Validation Lab over REAL intraday bars for a strategy's
@@ -39,6 +65,7 @@ export async function runStrategyValidation(input: {
   direction?: "LONG" | "SHORT" | "BOTH";
   minRange?: number;
   maxRange?: number;
+  trailingStopPct?: number;
 }): Promise<ValidationResponse> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
@@ -55,12 +82,35 @@ export async function runStrategyValidation(input: {
   }
 
   const instrument = (input.instrument || (typeof saved.instrument === "string" ? saved.instrument : "") || "NQ").trim();
-  const interval: Interval = input.interval ?? "5m";
+  const requestedInterval: Interval = input.interval ?? "5m";
   const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 
-  const { bars, days, source } = await getIntradayBars(instrument, interval, interval === "1m" ? 7 : interval === "1h" ? 360 : 58);
-  if (bars.length < 30) {
-    return { ok: false, error: `Not enough intraday history for ${instrument} at ${interval} to validate. Try a longer timeframe.` };
+  // Adaptive interval selection: try the requested granularity, then step up to
+  // coarser bars until we have enough real history to validate honestly.
+  let interval: Interval = requestedInterval;
+  let bars: Awaited<ReturnType<typeof getIntradayBars>>["bars"] = [];
+  let source = "Yahoo Finance";
+  let intervalAdjusted = false;
+  for (const candidate of INTERVAL_FALLBACK[requestedInterval]) {
+    const res = await getIntradayBars(instrument, candidate, lookbackFor(candidate));
+    if (res.bars.length >= MIN_VALIDATION_BARS) {
+      interval = candidate;
+      bars = res.bars;
+      source = res.source;
+      intervalAdjusted = candidate !== requestedInterval;
+      break;
+    }
+    // Keep the best (last) attempt so the error message is accurate.
+    bars = res.bars;
+    source = res.source;
+    interval = candidate;
+  }
+
+  if (bars.length < MIN_VALIDATION_BARS) {
+    return {
+      ok: false,
+      error: `Not enough intraday history for ${instrument} to validate reliably (need ${MIN_VALIDATION_BARS}+ bars, found ${bars.length}). Try a different instrument or a longer timeframe.`,
+    };
   }
 
   const report = runValidation(
@@ -73,10 +123,16 @@ export async function runStrategyValidation(input: {
       direction: input.direction ?? (saved.direction as "LONG" | "SHORT" | "BOTH") ?? "BOTH",
       minRange: num(input.minRange ?? saved.minRange, 0.1),
       maxRange: num(input.maxRange ?? saved.maxRange, 5),
+      trailingStopPct: num(input.trailingStopPct ?? saved.trailingStopPct, 0),
     },
     DEFAULT_COSTS,
     { interval, intervalMinutes: INTERVAL_MINUTES[interval], source, seed: 7 },
   );
+
+  // Edge-decay tracking: compare this score to the last persisted one so the UI
+  // can flag a strategy whose edge is fading before it's wired to live capital.
+  const previousScore = typeof saved.edgeScore === "number" ? saved.edgeScore : null;
+  const edgeDelta = previousScore != null ? round2(report.edge.score - previousScore) : null;
 
   // Persist the latest Edge Score on the strategy params so the Go-Live flow can
   // warn when a Fragile strategy is wired to a live account (no migration: it
@@ -92,6 +148,11 @@ export async function runStrategyValidation(input: {
             edgeVerdict: report.edge.verdict,
             edgeExpectancyR: report.walkForward.outOfSample.expectancyR,
             edgeCheckedAt: new Date().toISOString(),
+            // Carry the prior score + delta so the hub and Go-Live flow can show
+            // an at-a-glance "edge improving / decaying" indicator without a
+            // separate history table.
+            edgePrevScore: previousScore,
+            edgeDelta,
           } as unknown as Prisma.InputJsonValue,
         },
       });
@@ -102,8 +163,7 @@ export async function runStrategyValidation(input: {
 
   const planConfig = PLANS[user.plan as Plan];
   const locked = !(planConfig.id === "PRO" || planConfig.id === "ELITE");
-  void days;
-  return { ok: true, locked, report };
+  return { ok: true, locked, report, edgeDelta, intervalAdjusted };
 }
 
 export async function runAiOptimization(accountId: string) {

@@ -5,6 +5,39 @@ import { executeLiveOrder, closeLivePosition } from "./live-broker";
 import { getSessionForInstrument } from "@/lib/market";
 
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Retry a broker order on transient failures (network blips, rate limits) with
+ * a short backoff. Capped at `maxRetries` so a genuine rejection (insufficient
+ * balance, bad symbol) surfaces quickly instead of looping. Each attempt is
+ * timed so we can see broker latency in the logs.
+ */
+async function submitWithRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  maxRetries = 2,
+  backoffMs = 500,
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const t0 = Date.now();
+    try {
+      const result = await fn();
+      console.log(`[execution-router] ${label} filled in ${Date.now() - t0}ms (attempt ${attempt + 1})`);
+      return result;
+    } catch (e) {
+      lastErr = e;
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`[execution-router] ${label} attempt ${attempt + 1} failed after ${Date.now() - t0}ms: ${msg}`);
+      // Don't waste retries on deterministic rejections.
+      if (/insufficient|balance|not support|invalid|rejected/i.test(msg)) break;
+      if (attempt < maxRetries) await sleep(backoffMs * (attempt + 1));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
 function computeSlippageBps(intended: number, filled: number, direction: string, type: "ENTRY" | "EXIT"): number {
   if (!intended || !filled) return 0;
   const rawDiff = type === "ENTRY" 
@@ -42,14 +75,19 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     
     // Abstracted live order placement
     console.log(`[LIVE EXECUTION] Dispatching ${signal.direction} order for ${instrument} to ${account.broker}`);
-    
+
     try {
-      const order = await executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits);
+      const order = await submitWithRetry(
+        `${account.broker} ${signal.direction} ${instrument}`,
+        () => executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits),
+      );
       filledPrice = order.filledPrice || signal.entryPrice;
     } catch (e: unknown) {
       const err = e as Error;
       console.error("Live Execution Failed:", err.message);
-      throw new Error(`Failed to execute live order: ${err.message}`);
+      throw new Error(
+        `Failed to execute ${signal.direction} ${risk.sizeUnits} ${instrument} on ${account.broker}: ${err.message}`,
+      );
     }
   } else {
     // ---------------------------------------------------------
@@ -60,6 +98,8 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     const slippage = signal.direction === 'LONG' ? signal.entryPrice * 0.0001 : -(signal.entryPrice * 0.0001);
     filledPrice = signal.entryPrice + slippage;
   }
+
+  console.log(`[execution-router] ${signal.direction} ${instrument} entry resolved in ${Date.now() - fillStart}ms @ ${filledPrice}`);
 
   const trade = await prisma.trade.create({
     data: {
@@ -114,12 +154,17 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
     creds.mode = account.mode;
 
     try {
-      const order = await closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits));
+      const order = await submitWithRetry(
+        `${account.broker} CLOSE ${trade.direction} ${trade.instrument}`,
+        () => closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits)),
+      );
       finalExitPrice = order.filledPrice || exitPrice;
     } catch (e: unknown) {
       const err = e as Error;
       console.error("Live Exit Execution Failed:", err.message);
-      throw new Error(`Failed to close live position: ${err.message}`);
+      throw new Error(
+        `Failed to close ${trade.direction} ${trade.sizeUnits} ${trade.instrument} on ${account.broker}: ${err.message}`,
+      );
     }
   } else {
     // Exit slippage injection for Paper

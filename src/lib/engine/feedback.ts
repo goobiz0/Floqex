@@ -14,6 +14,10 @@ export const RISK_REASON_TEXT: Record<string, string> = {
   MAX_TRADES_REACHED:
     "Daily trade limit for this strategy has been reached. No more entries until tomorrow.",
   ACCOUNT_NOT_FOUND: "Account could not be found.",
+  INVALID_BALANCE:
+    "Couldn't read a valid account balance to size the trade. Skipping this entry and retrying.",
+  INVALID_STOP_DISTANCE:
+    "The stop sat on top of the entry, so there was no measurable risk to size against. Entry skipped.",
 };
 
 /**

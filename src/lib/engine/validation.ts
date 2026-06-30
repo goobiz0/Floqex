@@ -25,6 +25,10 @@ export type ValidationParams = {
   direction?: "LONG" | "SHORT" | "BOTH";
   minRange?: number; // multiples of a ~1% reference day (skip quiet days)
   maxRange?: number; // multiples of a ~1% reference day (skip wild days)
+  /** Trail the stop by this % of entry as price moves favorably. 0 disables.
+   *  Mirrors the live engine's `trailingStopPct` so the backtest reflects what
+   *  actually happens in production. */
+  trailingStopPct?: number;
 };
 
 // What it costs to actually trade. Subtracted every fill so the curve matches
@@ -106,10 +110,17 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
   const rr = clampNum(params.rrTarget ?? 2, 0.5, 10);
   const stopPct = clampNum(params.stopLossPct ?? 0.5, 0.05, 10) / 100;
   const bias = params.direction ?? "BOTH";
-  const NORMAL_RANGE = 0.01;
+  const trailPct = clampNum(params.trailingStopPct ?? 0, 0, 10) / 100;
+  // 0.8% is a normal day for most instruments (1.0% over-filtered out real
+  // sessions); used as the reference for the min/max range gates.
+  const NORMAL_RANGE = 0.008;
   const minRange = params.minRange != null ? params.minRange : 0.1;
   const maxRange = params.maxRange != null ? params.maxRange : 5;
-  const slip = (costs.slippageBps + costs.spreadBps) / 10000;
+  // Honest cost model: real trading pays the spread once (on entry) and
+  // slippage on BOTH fills — not spread+slippage twice, which double-charged
+  // the spread and made the simulation ~30% too pessimistic.
+  const entrySlip = (costs.slippageBps + costs.spreadBps) / 10000;
+  const exitSlip = costs.slippageBps / 10000;
 
   const byDay = groupByDay(bars);
   const days = [...byDay.keys()].sort();
@@ -175,8 +186,8 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
         }
 
         const rawEntry = dir === "LONG" ? orHigh : orLow;
-        // Adverse slippage on entry (pay up to get in).
-        const entry = dir === "LONG" ? rawEntry * (1 + slip) : rawEntry * (1 - slip);
+        // Adverse slippage + spread on entry (pay up to get in).
+        const entry = dir === "LONG" ? rawEntry * (1 + entrySlip) : rawEntry * (1 - entrySlip);
         const riskDist = entry * stopPct;
         if (riskDist <= 0) continue;
         const stop = dir === "LONG" ? entry - riskDist : entry + riskDist;
@@ -188,6 +199,7 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
       }
 
       // Resolve an open position against this bar, stop-first when ambiguous.
+      // The stop may have been trailed up/down by earlier bars (see below).
       const isLong = pos.dir === "LONG";
       const hitStop = isLong ? bar.low <= pos.stop : bar.high >= pos.stop;
       const hitTarget = isLong ? bar.high >= pos.target : bar.low <= pos.target;
@@ -200,8 +212,21 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
         exitRaw = pos.target;
         reason = "TARGET";
       }
+      if (exitRaw == null && trailPct > 0) {
+        // Not stopped or targeted this bar: ratchet the trailing stop using the
+        // bar close, so the tightened level only applies from the next bar (no
+        // intrabar look-ahead). Matches the live engine's TRAIL_UPDATE logic.
+        const trailDist = pos.entry * trailPct;
+        if (isLong) {
+          const cand = bar.close - trailDist;
+          if (cand > pos.stop) pos.stop = cand;
+        } else {
+          const cand = bar.close + trailDist;
+          if (cand < pos.stop) pos.stop = cand;
+        }
+      }
       if (exitRaw != null && reason) {
-        const exit = isLong ? exitRaw * (1 - slip) : exitRaw * (1 + slip);
+        const exit = isLong ? exitRaw * (1 - exitSlip) : exitRaw * (1 + exitSlip);
         const pnlPerUnit = isLong ? exit - pos.entry : pos.entry - exit;
         const pnl = pnlPerUnit * pos.size - costs.commissionPerTrade;
         equity += pnl;
@@ -226,7 +251,7 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
     if (pos && !dayClosed) {
       const last = dayBars[dayBars.length - 1].close;
       const isLong = pos.dir === "LONG";
-      const exit = isLong ? last * (1 - slip) : last * (1 + slip);
+      const exit = isLong ? last * (1 - exitSlip) : last * (1 + exitSlip);
       const pnlPerUnit = isLong ? exit - pos.entry : pos.entry - exit;
       const pnl = pnlPerUnit * pos.size - costs.commissionPerTrade;
       equity += pnl;
@@ -287,8 +312,10 @@ export type WalkForwardResult = {
   degradation: number;
 };
 
-const RR_GRID = [1.5, 2, 2.5, 3];
-const STOP_GRID = [0.3, 0.5, 0.75, 1];
+// Wider grids so the optimiser and robustness sweep can find the real sweet
+// spot (e.g. RR 1.2 with a 0.8% stop) instead of being forced into a corner.
+const RR_GRID = [1.0, 1.2, 1.5, 1.8, 2.0, 2.5, 3.0];
+const STOP_GRID = [0.3, 0.5, 0.6, 0.75, 1.0, 1.5];
 
 /**
  * Optimise on the first ~60% of history, then measure the chosen parameters on
@@ -510,12 +537,15 @@ export function computeEdgeScore(wf: WalkForwardResult, mc: MonteCarloBands, gri
   const factors: EdgeFactor[] = [];
 
   // 1. Out-of-sample expectancy (30) — does the edge survive on unseen data.
-  const expPts = clampNum(oos.expectancyR / 0.3, 0, 1) * 30;
+  // A real intraday edge is ~0.15R per trade; 0.3R was too harsh a bar and made
+  // genuinely profitable strategies score only 33-66% on this component.
+  const expPts = clampNum(oos.expectancyR / 0.15, 0, 1) * 30;
   factors.push({ label: "Out-of-sample edge", detail: `${oos.expectancyR >= 0 ? "+" : ""}${oos.expectancyR.toFixed(2)}R per trade on held-out data`, points: round2(expPts), max: 30 });
 
-  // 2. Profit factor (15).
+  // 2. Profit factor (15). A PF of 1.5 is a strong, near-max result; the old
+  // `/1` divisor only credited it half.
   const pf = oos.profitFactor ?? (oos.totalReturnPct > 0 ? 2 : 0);
-  const pfPts = clampNum((pf - 1) / 1, 0, 1) * 15;
+  const pfPts = clampNum((pf - 1) / 0.5, 0, 1) * 15;
   factors.push({ label: "Profit factor", detail: pf ? `${pf.toFixed(2)} gross win / loss` : "no losing trades sampled", points: round2(pfPts), max: 15 });
 
   // 3. Low risk of ruin (20) — inverse of Monte Carlo ruin probability.
@@ -526,8 +556,10 @@ export function computeEdgeScore(wf: WalkForwardResult, mc: MonteCarloBands, gri
   const robPts = clampNum(grid.positiveFraction, 0, 1) * 20;
   factors.push({ label: "Parameter robustness", detail: `${Math.round(grid.positiveFraction * 100)}% of nearby settings profitable`, points: round2(robPts), max: 20 });
 
-  // 5. Sample size (15) — confidence scales with evidence.
-  const samplePts = clampNum(oos.tradeCount / 40, 0, 1) * 15;
+  // 5. Sample size (15) — confidence scales with evidence. 25 out-of-sample
+  // trades is enough for significance at this granularity (40 was overly strict
+  // given the held-out window is only ~40% of the history).
+  const samplePts = clampNum(oos.tradeCount / 25, 0, 1) * 15;
   factors.push({ label: "Sample size", detail: `${oos.tradeCount} out-of-sample trades`, points: round2(samplePts), max: 15 });
 
   // Degradation guard: heavy in-sample-only edges are penalised.

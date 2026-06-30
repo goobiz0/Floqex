@@ -90,6 +90,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
                   direction: data.params.direction === "SHORT" ? "SHORT" : data.params.direction === "LONG" ? "LONG" : "BOTH",
                   minRange: typeof data.params.minRange === "number" ? data.params.minRange : 0.1,
                   maxRange: typeof data.params.maxRange === "number" ? data.params.maxRange : 5,
+                  trailingStopPct: typeof data.params.trailingStopPct === "number" ? data.params.trailingStopPct : 0,
                 }}
               />
             </div>

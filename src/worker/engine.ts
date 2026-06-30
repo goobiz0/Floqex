@@ -1,6 +1,6 @@
 import { prisma } from "../lib/db";
 import { getRealMarketData } from "../lib/engine/market-data";
-import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit } from "../lib/engine/signal-generator";
+import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit, recordStopOut } from "../lib/engine/signal-generator";
 import { executeTrade, closeTrade } from "../lib/engine/execution-router";
 import { validateRisk } from "../lib/engine/risk-engine";
 import { BrokerNotConfiguredError, brokerSupportsInstrument } from "../lib/engine/live-broker";
@@ -113,6 +113,9 @@ async function tick() {
           console.log(`[EXIT SIGNAL] ${exitSignal.reason} on bot ${bot.id}`);
           try {
             const pnl = await closeTrade(openTrade.id, bot.accountId!, exitSignal.reason, exitSignal.exitPrice);
+
+            // Start the anti-revenge cooldown on the instrument after a stop-out.
+            if (exitSignal.reason === "STOP") recordStopOut(bot.id, instrument);
             
             await prisma.agentEvent.create({
               data: {
@@ -183,10 +186,11 @@ async function tick() {
         }
 
         let entrySignal = null;
+        const signalGuard = { botId: bot.id, instrument };
         if (bot.strategy.kind === 'CUSTOM') {
-          entrySignal = evaluateCustomStrategy(params, marketData, null);
+          entrySignal = evaluateCustomStrategy(params, marketData, null, signalGuard);
         } else {
-          entrySignal = evaluateOrbStrategy(params, marketData, null);
+          entrySignal = evaluateOrbStrategy(params, marketData, null, signalGuard);
         }
         if (!entrySignal) {
           // Alive and scanning — no qualifying setup yet. Static copy so the
@@ -297,9 +301,23 @@ if (process.env.DEBUG === "1" || process.env.DEBUG === "true") {
   console.log("==========================================");
 }
 
+let shuttingDown = false;
+
 async function runLoop() {
+  if (shuttingDown) return;
   await tick();
-  setTimeout(runLoop, TICK_RATE_MS);
+  if (!shuttingDown) setTimeout(runLoop, TICK_RATE_MS);
 }
+
+// Graceful shutdown: stop scheduling new ticks so PM2's kill_timeout window lets
+// the in-flight tick finish (and any open-order writes land) before SIGKILL.
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[engine] ${signal} received — draining current tick and shutting down.`);
+  prisma.$disconnect().catch(() => {});
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 runLoop();

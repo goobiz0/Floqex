@@ -5,7 +5,7 @@
 
 import { backtestStrategy, type Bar, type BacktestResult } from "./backtest";
 
-export type Objective = "return" | "profitFactor" | "drawdown" | "winRate";
+export type Objective = "return" | "profitFactor" | "drawdown" | "winRate" | "balanced";
 
 export type SweepParams = { rrTarget: number; stopLossPct: number; trendFilter: boolean };
 
@@ -16,14 +16,19 @@ export type SweepRow = {
   maxDrawdownPct: number;
   profitFactor: number | null;
   trades: number;
+  /** 0-1: how little performance swings when rr/stop are nudged to neighbours.
+   *  A robust setting sits on a plateau (high), a lucky one on a spike (low). */
+  stabilityScore: number;
 };
 
-// Bounded grids that stay inside the schema's safe ranges (rr 1-5, stop derived
-// as a percent of price). riskPct is intentionally left to the user: it scales
-// exposure, it doesn't change the edge, so we optimise the edge and let the
-// trader size it.
-const RR_GRID = [1, 1.5, 2, 2.5, 3, 4];
-const STOP_GRID = [0.25, 0.5, 0.75, 1, 1.5, 2];
+const clampNum = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+// Grids matched to the rigorous validation engine so the quick sweep and the
+// deep Validation Lab explore the same space (rr 1-3, stops 0.3-1.5% — all
+// inside the schema's safe ranges). riskPct is intentionally left to the user:
+// it scales exposure, it doesn't change the edge.
+const RR_GRID = [1.0, 1.2, 1.5, 1.8, 2.0, 2.5, 3.0];
+const STOP_GRID = [0.3, 0.5, 0.6, 0.75, 1.0, 1.5];
 const TREND_GRID = [false, true];
 const MIN_TRADES = 5;
 
@@ -39,13 +44,25 @@ function scoreFor(row: SweepRow, objective: Objective): number {
     case "drawdown":
       // Lower drawdown is better, so negate; tie-break toward higher return.
       return -row.maxDrawdownPct + row.totalReturnPct / 1000;
+    case "balanced":
+      // Multi-objective: reward return and win rate, penalise drawdown, and
+      // lean toward settings that are robust to small parameter changes. The
+      // weights keep all terms on a comparable 0-ish scale.
+      return (
+        row.totalReturnPct * 0.6 +
+        row.winRate * 0.4 -
+        row.maxDrawdownPct * 0.8 +
+        row.stabilityScore * 25
+      );
   }
 }
 
 /**
  * Run the backtest across a bounded grid of parameter combinations and return
  * the top results for the chosen objective. Only combinations with enough trades
- * to be meaningful are ranked.
+ * to be meaningful are ranked. Each row also carries a stability score derived
+ * from its grid neighbours, so a setting on a smooth plateau is preferred over
+ * one perched on an isolated spike (the signature of an overfit).
  */
 export function optimizeStrategy(
   bars: Bar[],
@@ -53,29 +70,59 @@ export function optimizeStrategy(
   objective: Objective,
   topN = 5,
 ): SweepRow[] {
-  const rows: SweepRow[] = [];
-  for (const rrTarget of RR_GRID) {
-    for (const stopLossPct of STOP_GRID) {
-      for (const trendFilter of TREND_GRID) {
-        const r: BacktestResult = backtestStrategy(bars, {
+  // First pass: full grid of returns, keyed by index so we can look up neighbours.
+  const grid: (number | null)[][][] = RR_GRID.map(() =>
+    STOP_GRID.map(() => TREND_GRID.map(() => null)),
+  );
+  type Raw = { ri: number; si: number; ti: number; r: BacktestResult };
+  const raws: Raw[] = [];
+  for (let ri = 0; ri < RR_GRID.length; ri++) {
+    for (let si = 0; si < STOP_GRID.length; si++) {
+      for (let ti = 0; ti < TREND_GRID.length; ti++) {
+        const r = backtestStrategy(bars, {
           riskPct: base.riskPct,
-          rrTarget,
-          stopLossPct,
-          trendFilter,
+          rrTarget: RR_GRID[ri],
+          stopLossPct: STOP_GRID[si],
+          trendFilter: TREND_GRID[ti],
           direction: base.direction,
         });
-        if (r.trades < MIN_TRADES) continue;
-        rows.push({
-          params: { rrTarget, stopLossPct, trendFilter },
-          totalReturnPct: r.totalReturnPct,
-          winRate: r.winRate,
-          maxDrawdownPct: r.maxDrawdownPct,
-          profitFactor: r.profitFactor,
-          trades: r.trades,
-        });
+        grid[ri][si][ti] = r.trades >= MIN_TRADES ? r.totalReturnPct : null;
+        if (r.trades >= MIN_TRADES) raws.push({ ri, si, ti, r });
       }
     }
   }
+
+  // Second pass: stability = inverse of how far a cell's return is from its
+  // immediate rr/stop neighbours (same trend setting). Normalised against the
+  // grid's overall spread so it is comparable across instruments.
+  const allReturns = raws.map((x) => x.r.totalReturnPct);
+  const spread = allReturns.length ? Math.max(1, Math.max(...allReturns) - Math.min(...allReturns)) : 1;
+
+  const rows: SweepRow[] = raws.map(({ ri, si, ti, r }) => {
+    const neighbours: number[] = [];
+    for (const [dr, ds] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const nr = ri + dr;
+      const ns = si + ds;
+      const v = grid[nr]?.[ns]?.[ti];
+      if (typeof v === "number") neighbours.push(v);
+    }
+    let stabilityScore = 1;
+    if (neighbours.length) {
+      const avgGap =
+        neighbours.reduce((acc, v) => acc + Math.abs(v - r.totalReturnPct), 0) / neighbours.length;
+      stabilityScore = clampNum(1 - avgGap / spread, 0, 1);
+    }
+    return {
+      params: { rrTarget: RR_GRID[ri], stopLossPct: STOP_GRID[si], trendFilter: TREND_GRID[ti] },
+      totalReturnPct: r.totalReturnPct,
+      winRate: r.winRate,
+      maxDrawdownPct: r.maxDrawdownPct,
+      profitFactor: r.profitFactor,
+      trades: r.trades,
+      stabilityScore: Math.round(stabilityScore * 100) / 100,
+    };
+  });
+
   return rows.sort((a, b) => scoreFor(b, objective) - scoreFor(a, objective)).slice(0, topN);
 }
 
