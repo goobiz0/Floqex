@@ -37,7 +37,7 @@ const DEFAULT_INSTRUMENTS = ["NQ"];
 
 /** Shared scaffold for a no-code custom-signal template. */
 function builderParams(opts: {
-  direction: "LONG" | "SHORT";
+  direction: "LONG" | "SHORT" | "BOTH";
   groups: ConditionGroup[];
   stopLossPct?: number;
   targetRatio?: number;
@@ -66,7 +66,14 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     category: "Breakout",
     iconKey: "breakout",
     kind: "ORB",
-    buildParams: () => ({ ...DEFAULT_PARAMS }),
+    buildParams: () => ({ 
+      ...DEFAULT_PARAMS,
+      rrTarget: 2.5,
+      minRange: 0.5,
+      stopLossPct: 0.5,
+      trendFilter: true,
+      maxTrades: 4
+    }),
   },
   {
     id: "orb-conservative",
@@ -80,12 +87,14 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     buildParams: () => ({
       ...DEFAULT_PARAMS,
       riskPct: 0.5,
-      rrTarget: 1.5,
+      rrTarget: 2,
+      stopLossPct: 0.4,
       dailyLoss: 2,
-      maxTrades: 4,
+      maxTrades: 3,
       trailingStopPct: 0.4,
       trendFilter: true,
       newsPause: true,
+      minRange: 0.6,
     }),
   },
   {
@@ -101,11 +110,13 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     buildParams: () => ({
       ...DEFAULT_PARAMS,
       riskPct: 1.5,
-      rrTarget: 3,
-      maxTrades: 12,
+      rrTarget: 3.5,
+      stopLossPct: 0.6,
+      maxTrades: 6,
+      minRange: 0.4,
       trailingStopPct: 1,
       reEntry: true,
-      trendFilter: true,
+      trendFilter: false,
     }),
   },
   {
@@ -119,7 +130,12 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     kind: "CUSTOM",
     buildParams: () =>
       builderParams({
-        direction: "LONG",
+        direction: "BOTH", // Changed to BOTH to improve resilience across market regimes
+        targetRatio: 2.5,
+        stopLossPct: 0.5,
+        overrides: {
+          minRange: 0.5,
+        },
         groups: [
           {
             join: "ALL",
@@ -143,8 +159,13 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     premium: true,
     buildParams: () =>
       builderParams({
-        direction: "LONG",
-        targetRatio: 2.5,
+        direction: "BOTH",
+        targetRatio: 3,
+        stopLossPct: 0.5,
+        overrides: {
+          minRange: 0.5,
+          trendFilter: true,
+        },
         groups: [
           {
             join: "ALL",
@@ -168,8 +189,12 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     premium: true,
     buildParams: () =>
       builderParams({
-        direction: "LONG",
+        direction: "BOTH",
+        targetRatio: 2,
         stopLossPct: 0.75,
+        overrides: {
+          minRange: 0.6,
+        },
         groups: [
           {
             join: "ALL",

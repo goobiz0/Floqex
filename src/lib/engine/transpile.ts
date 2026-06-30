@@ -237,7 +237,7 @@ function convertPyLine(line: string): string {
 
 function transpilePython(code: string): TranspileResult {
   const conv = pythonToJs(code);
-  if (!conv.ok) return { ok: false, error: conv.error };
+  if (!conv.ok) return { ok: false, error: (conv as any).error };
 
   const js = conv.js;
   const guard = staticGuard(js);
@@ -717,7 +717,7 @@ function parsePine(code: string): { ok: false; error: string } | { ok: true; res
   // Validate expressions
   for (const expr of [longExpr, shortExpr].filter(Boolean) as string[]) {
     const v = validatePineExpr(expr);
-    if (!v.ok) return { ok: false, error: v.error };
+    if (!v.ok) return { ok: false, error: (v as any).error };
   }
 
   // Parse both expressions to collect mapping/warnings
@@ -759,7 +759,7 @@ function makeConditionEvaluator(expr: string): (ctx: IndicatorContext) => boolea
 
 function transpilePine(code: string): TranspileResult {
   const parsed = parsePine(code);
-  if (!parsed.ok) return { ok: false, error: parsed.error };
+  if (!parsed.ok) return { ok: false, error: (parsed as any).error };
 
   const { longExpr, shortExpr, mapping, warnings } = parsed.result;
 

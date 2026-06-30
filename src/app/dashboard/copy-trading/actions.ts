@@ -61,13 +61,12 @@ async function requireEntitledUser(): Promise<
 }
 
 /** A positive, finite optional number, or an error if the value is malformed. */
-function optionalPositive(value: number | null | undefined, label: string, max?: number):
-  | { ok: true; value: number | null }
-  | { ok: false; error: string } {
-  if (value === null || value === undefined) return { ok: true, value: null };
+function optionalPositive(value: number | undefined | null, label: string, max?: number, scale?: number): { ok: true; value: number | null } | { ok: false; error: string } {
+  if (value === undefined || value === null) return { ok: true, value: null };
   if (!Number.isFinite(value) || value <= 0) return { ok: false, error: `${label} must be greater than zero.` };
   if (max !== undefined && value > max) return { ok: false, error: `${label} must be ${max} or less.` };
-  return { ok: true, value };
+  const val = scale !== undefined ? Number(value.toFixed(scale)) : value;
+  return { ok: true, value: val };
 }
 
 /** Validate and normalize the link sizing rule (shared by create + update). */
@@ -90,18 +89,18 @@ function normalizeSettings(s: LinkSettings):
     fixedUnits = null; // only meaningful for FIXED
   }
 
-  const maxRisk = optionalPositive(s.maxRiskPct, "Max risk per trade", 100);
+  const maxRisk = optionalPositive(s.maxRiskPct, "Max risk per trade", 100, 3);
   if (!maxRisk.ok) return { ok: false, error: maxRisk.error };
 
-  const minU = optionalPositive(s.minUnits, "Minimum size");
+  const minU = optionalPositive(s.minUnits, "Minimum size", undefined, 4);
   if (!minU.ok) return { ok: false, error: minU.error };
-  const maxU = optionalPositive(s.maxUnits, "Maximum size");
+  const maxU = optionalPositive(s.maxUnits, "Maximum size", undefined, 4);
   if (!maxU.ok) return { ok: false, error: maxU.error };
   if (minU.value !== null && maxU.value !== null && minU.value > maxU.value) {
     return { ok: false, error: "Minimum size cannot be larger than the maximum size." };
   }
 
-  const dailyLoss = optionalPositive(s.maxDailyLossPct, "Daily loss limit", 100);
+  const dailyLoss = optionalPositive(s.maxDailyLossPct, "Daily loss limit", 100, 3);
   if (!dailyLoss.ok) return { ok: false, error: dailyLoss.error };
 
   const symbolFilterMode: CopyFilterMode = FILTER_MODES.includes(s.symbolFilterMode as CopyFilterMode)

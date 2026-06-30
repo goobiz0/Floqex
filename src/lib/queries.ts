@@ -946,6 +946,7 @@ export type CopyLinkAnalytics = {
   winRate: number | null; // 0..1, null when nothing has closed yet
   realizedPnl: number; // all-time realized on this link
   todayPnl: number; // realized today (UTC), drives the daily-loss meter
+  todayLoss: number; // gross loss today (UTC), drives the daily-loss circuit breaker
   openCopies: number; // copied trades still open
 };
 
@@ -1027,6 +1028,8 @@ const EMPTY_COPY_TRADING: CopyTradingData = {
     totalCopied: 0,
     copiedToday: 0,
     realizedPnl: 0,
+    todayPnl: 0,
+    todayLoss: 0,
     openCopies: 0,
     winRate: null,
     pnlSeries: [],
@@ -1115,7 +1118,7 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
     // One batched pass for everything events-backed: the recent feed, per-link
     // analytics, the headline aggregates, and the 14-day P&L series. Empty link
     // sets short-circuit the per-link queries so the page stays cheap.
-    const [eventRows, copiedToday, realizedAgg, closeGroups, winGroups, todayGroups, openEventRows, seriesRows] =
+    const [eventRows, copiedToday, realizedAgg, closeGroups, winGroups, todayGroups, todayLossGroups, openEventRows, seriesRows] =
       await Promise.all([
         prisma.copyTradeEvent.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 40 }),
         prisma.copyTradeEvent.count({
@@ -1144,6 +1147,13 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
           ? prisma.copyTradeEvent.groupBy({
               by: ["copyLinkId"],
               where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED", createdAt: { gte: startOfToday } },
+              _sum: { pnl: true },
+            })
+          : Promise.resolve([] as { copyLinkId: string | null; _sum: { pnl: unknown } }[]),
+        linkIds.length
+          ? prisma.copyTradeEvent.groupBy({
+              by: ["copyLinkId"],
+              where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED", createdAt: { gte: startOfToday }, pnl: { lt: 0 } },
               _sum: { pnl: true },
             })
           : Promise.resolve([] as { copyLinkId: string | null; _sum: { pnl: unknown } }[]),
@@ -1182,6 +1192,7 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
     const closeByLink = new Map(closeGroups.map((g) => [g.copyLinkId as string, g]));
     const winsByLink = new Map(winGroups.map((g) => [g.copyLinkId as string, g._count._all]));
     const todayByLink = new Map(todayGroups.map((g) => [g.copyLinkId as string, g._sum.pnl === null ? 0 : num(g._sum.pnl)]));
+    const todayLossByLink = new Map(todayLossGroups.map((g) => [g.copyLinkId as string, Math.abs(g._sum.pnl ? num(g._sum.pnl) : 0)]));
 
     const links: CopyLinkRow[] = rawLinks.map((l) => {
       const close = closeByLink.get(l.id);
@@ -1214,6 +1225,7 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
           winRate: closed > 0 ? wins / closed : null,
           realizedPnl: close && close._sum.pnl !== null ? num(close._sum.pnl) : 0,
           todayPnl: todayByLink.get(l.id) ?? 0,
+          todayLoss: todayLossByLink.get(l.id) ?? 0,
           openCopies: openCopiesByLink.get(l.id) ?? 0,
         },
       };

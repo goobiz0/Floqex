@@ -269,6 +269,11 @@ export function resolveCopyOrder(input: ResolveCopyInput): ResolvedCopyOrder {
   }
   units = round4(units);
 
+  if (rule.minUnits !== null && rule.minUnits > 0 && units > 0 && units < rule.minUnits) {
+    const reason = `Risk or maximum caps reduced the copy size to ${units}, which is below your strict minimum of ${rule.minUnits}. Order skipped.`;
+    return { ...base, units: 0, riskPct: 0, skip: { code: "MIN_SIZE", reason } };
+  }
+
   if (units <= 0) {
     const reason =
       rule.sizingMode === "PROPORTIONAL" && !(input.masterBalance > 0)

@@ -13,6 +13,7 @@ import { runStrategyValidation, type ValidationResponse } from "@/app/dashboard/
 import type { Interval } from "@/lib/engine/market-data";
 import type { ValidationReport, MonteCarloBands, RobustnessGrid } from "@/lib/engine/validation";
 import { EdgeScorecard } from "./edge-scorecard";
+import { EquityPaths } from "./calculators/shared";
 
 const INTERVALS: { value: Interval; label: string }[] = [
   { value: "1m", label: "1m" },
@@ -142,7 +143,13 @@ export function ValidationLab({
               title="Monte Carlo outlook"
               tip="Resamples your real trade sequence 1,000 times to map the range of plausible futures. The band is the 5th to 95th percentile."
             >
-              <MonteCarloBandChart bands={report.monteCarlo} />
+              <div className="h-48 overflow-hidden rounded-[var(--radius-card)] bg-surface/30">
+                <EquityPaths 
+                  paths={report.monteCarlo.samplePaths.slice(0, 100)} 
+                  baseline={10000} 
+                  height={192} 
+                />
+              </div>
               <dl className="mt-4 grid grid-cols-3 gap-2">
                 <MetricCell k="Worst 5%" v={fmtMoney(report.monteCarlo.finalP5)} tone={report.monteCarlo.finalP5 >= 10000 ? "pos" : "neg"} />
                 <MetricCell k="Median" v={fmtMoney(report.monteCarlo.finalP50)} tone="neutral" />
@@ -196,7 +203,7 @@ function LockableCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="relative overflow-hidden p-5">
+    <Card className="relative p-5">
       <div className="flex items-center gap-2">
         {icon}
         <CardTitle>{title}</CardTitle>
@@ -206,7 +213,7 @@ function LockableCard({
         {children}
       </div>
       {locked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-overlay/70 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 overflow-hidden rounded-[inherit] bg-overlay/70 backdrop-blur-[2px]">
           <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/30 bg-accent-soft text-accent">
             <LockSimple size={18} weight="duotone" />
           </div>
@@ -275,8 +282,29 @@ function SampleVsHoldout({ wf }: { wf: ValidationReport }) {
         {[0.25, 0.5, 0.75].map((p) => (
           <line key={p} x1="0" y1={CH * p} x2={CW} y2={CH * p} stroke="var(--color-line)" strokeWidth="1" />
         ))}
-        <path d={linePath(isVals, min, max)} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={linePath(oosVals, min, max)} fill="none" stroke="var(--color-fg-muted)" strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" />
+        <motion.path 
+          d={linePath(isVals, min, max)} 
+          fill="none" 
+          stroke="var(--color-accent)" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+        />
+        <motion.path 
+          d={linePath(oosVals, min, max)} 
+          fill="none" 
+          stroke="var(--color-fg-muted)" 
+          strokeWidth="2" 
+          strokeDasharray="5 4" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut", delay: 1.5 }}
+        />
       </svg>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Legend swatch="var(--color-accent)" label="In-sample" value={`${is.totalReturnPct >= 0 ? "+" : ""}${is.totalReturnPct.toFixed(1)}%`} />
@@ -298,32 +326,6 @@ function Legend({ swatch, label, value, dashed }: { swatch: string; label: strin
   );
 }
 
-function MonteCarloBandChart({ bands }: { bands: MonteCarloBands }) {
-  if (bands.steps.length < 2) {
-    return <div className="flex h-[200px] items-center justify-center text-sm text-fg-subtle">Not enough trades to simulate yet.</div>;
-  }
-  const all = bands.steps.flatMap((s) => [s.p5, s.p95]);
-  const min = Math.min(...all);
-  const max = Math.max(...all);
-  const span = max - min || 1;
-  const n = bands.steps.length;
-  const x = (i: number) => (i / (n - 1)) * CW;
-  const y = (v: number) => CH - 10 - ((v - min) / span) * (CH - 20);
-
-  const upper = bands.steps.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.p95).toFixed(1)}`).join(" ");
-  const lowerRev = [...bands.steps].reverse().map((s, idx) => `L${x(n - 1 - idx).toFixed(1)},${y(s.p5).toFixed(1)}`).join(" ");
-  const band = `${upper} ${lowerRev} Z`;
-  const median = bands.steps.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.p50).toFixed(1)}`).join(" ");
-  const startY = y(bands.steps[0].p50);
-
-  return (
-    <svg viewBox={`0 0 ${CW} ${CH}`} className="w-full" preserveAspectRatio="none" role="img" aria-label="Monte Carlo equity confidence band">
-      <line x1="0" y1={startY} x2={CW} y2={startY} stroke="var(--color-line-strong)" strokeWidth="1" strokeDasharray="3 3" />
-      <path d={band} fill="var(--color-accent)" fillOpacity="0.14" stroke="none" />
-      <path d={median} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function RobustnessHeatmap({ grid }: { grid: RobustnessGrid }) {
   const maxAbs = Math.max(1, ...grid.cells.map((c) => Math.abs(c.totalReturnPct)));
@@ -340,8 +342,8 @@ function RobustnessHeatmap({ grid }: { grid: RobustnessGrid }) {
             {rr}R
           </div>
         ))}
-        {grid.stopAxis.map((stop) => (
-          <Row key={`r-${stop}`} stop={stop} rrAxis={grid.rrAxis} cell={cell} maxAbs={maxAbs} />
+        {grid.stopAxis.map((stop, rowIndex) => (
+          <Row key={`r-${stop}`} stop={stop} rrAxis={grid.rrAxis} cell={cell} maxAbs={maxAbs} rowIndex={rowIndex} />
         ))}
       </div>
       <p className="mt-3 text-[11px] text-fg-faint">
@@ -356,29 +358,34 @@ function Row({
   rrAxis,
   cell,
   maxAbs,
+  rowIndex,
 }: {
   stop: number;
   rrAxis: number[];
   cell: (rr: number, stop: number) => { totalReturnPct: number; trades: number } | undefined;
   maxAbs: number;
+  rowIndex: number;
 }) {
   return (
     <>
       <div className="flex items-center justify-end pr-2 tnum text-[11px] font-medium text-fg-subtle">{stop}%</div>
-      {rrAxis.map((rr) => {
+      {rrAxis.map((rr, colIndex) => {
         const c = cell(rr, stop);
         const val = c?.totalReturnPct ?? 0;
         const intensity = Math.min(100, Math.round((Math.abs(val) / maxAbs) * 90) + 10);
         const color = val >= 0 ? "var(--color-positive)" : "var(--color-negative)";
         return (
-          <div
+          <motion.div
             key={`${rr}-${stop}`}
             className="flex h-12 flex-col items-center justify-center rounded-[8px] border border-line"
             style={{ backgroundColor: `color-mix(in srgb, ${color} ${intensity}%, transparent)` }}
             title={`${rr}R, ${stop}% stop: ${val >= 0 ? "+" : ""}${val.toFixed(1)}% over ${c?.trades ?? 0} trades`}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: (rowIndex * rrAxis.length + colIndex) * 0.04, ease: "easeOut" }}
           >
             <span className="tnum text-[11px] font-semibold text-fg">{val >= 0 ? "+" : ""}{val.toFixed(0)}%</span>
-          </div>
+          </motion.div>
         );
       })}
     </>

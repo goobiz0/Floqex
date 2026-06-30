@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useId } from "react";
+import { motion } from "motion/react";
 import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
@@ -420,10 +421,31 @@ export function EquityPaths({
         <line x1={padX} y1={py(baseline)} x2={W - padX} y2={py(baseline)} stroke={COLOR.line} strokeWidth="1" strokeDasharray="5 4" />
       ) : null}
       {paths.map((p, i) => (
-        <path key={i} d={toPath(p)} fill="none" stroke={COLOR.accent} strokeWidth="1" opacity={0.18} vectorEffect="non-scaling-stroke" />
+        <motion.path 
+          key={i} 
+          d={toPath(p)} 
+          fill="none" 
+          stroke={COLOR.accent} 
+          strokeWidth="1" 
+          opacity={0.18} 
+          vectorEffect="non-scaling-stroke"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut", delay: i * 0.02 }}
+        />
       ))}
       {highlight ? (
-        <path d={toPath(highlight)} fill="none" stroke={COLOR.profit} strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <motion.path 
+          d={toPath(highlight)} 
+          fill="none" 
+          stroke={COLOR.profit} 
+          strokeWidth="2.5" 
+          strokeLinejoin="round" 
+          vectorEffect="non-scaling-stroke"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut", delay: 1 }}
+        />
       ) : null}
     </svg>
   );
