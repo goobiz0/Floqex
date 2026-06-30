@@ -163,6 +163,12 @@
       "skillPath": "skills/gpt-tasteskill/SKILL.md",
       "computedHash": "cc8f0c601d8240a124e1d11634351a2be7b8a72fd807c75e5b6bf7afcd5ddee0"
     },
+    "hallmark": {
+      "source": "nutlope/hallmark",
+      "sourceType": "github",
+      "skillPath": "skills/hallmark/SKILL.md",
+      "computedHash": "8a8ecafd613f09e701330b5aa4a591ac539abb2605596df4a2394f03628d1d76"
+    },
     "high-end-visual-design": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",

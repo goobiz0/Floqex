@@ -162,6 +162,23 @@ export async function runAiOptimization(accountId: string) {
         confidence: object.confidence
       }
     });
+
+    // 4. Cleanup old adjustments (keep only the 10 most recent)
+    const recent = await prisma.botAdjustment.findMany({
+      where: { strategyId: account.bot.strategyId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+      take: 10,
+    });
+    
+    if (recent.length === 10) {
+      await prisma.botAdjustment.deleteMany({
+        where: {
+          strategyId: account.bot.strategyId,
+          id: { notIn: recent.map(r => r.id) }
+        }
+      });
+    }
   } catch (e) {
     console.error("Failed to generate AI optimization:", e);
     return { ok: false, error: "Failed to generate AI optimization." };

@@ -160,7 +160,7 @@ export function BotsNewClient({
   function handleNumParam(key: NumericParam, value: number) {
     setParams((p) => ({ ...p, [key]: value }));
   }
-  function handleBoolParam(key: "trendFilter" | "reEntry" | "newsPause", value: boolean) {
+  function handleBoolParam(key: "trendFilter" | "reEntry" | "newsPause" | "extendedHours", value: boolean) {
     setParams((p) => ({ ...p, [key]: value }));
   }
 
@@ -402,10 +402,11 @@ export function BotsNewClient({
                   <SliderField key={key} bound={PARAM_BOUNDS[key]} value={params[key]} onChange={(v) => handleNumParam(key, v)} premium={PREMIUM_PARAMS.has(key)} />
                 ))}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-line">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-line">
                 <CheckField label="Trend filter" premium checked={params.trendFilter} onChange={(v) => handleBoolParam("trendFilter", v)} help="Only take trades that agree with the longer-term trend." />
                 <CheckField label="Allow re-entries" premium checked={params.reEntry} onChange={(v) => handleBoolParam("reEntry", v)} help="Re-enter after a pullback inside the range." />
                 <CheckField label="Pause on high-impact news" checked={params.newsPause} onChange={(v) => handleBoolParam("newsPause", v)} help="Stand aside around scheduled high-impact news." />
+                <CheckField label="Extended hours" checked={params.extendedHours} onChange={(v) => handleBoolParam("extendedHours", v)} help="Allow trading during pre-market and after-hours sessions." />
               </div>
             </div>
           ) : strategyMode === "BUILDER" ? (
@@ -475,34 +476,18 @@ export function BotsNewClient({
         )}
       </form>
 
-      {/* Sticky action bar with live config summary */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-base/90 backdrop-blur lg:left-60">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
-          <div className="hidden min-w-0 flex-1 items-center gap-3 text-xs text-fg-subtle sm:flex">
-            {strategyMode !== "EXISTING" && (
-              <SummaryChip icon={<Stack size={13} weight="bold" />} label={`${instruments.length} asset${instruments.length === 1 ? "" : "s"}`} />
-            )}
-            <SummaryChip
-              icon={strategyMode === "EXISTING" ? <Stack size={13} weight="bold" /> : strategyMode === "CODE" ? <Code size={13} weight="bold" /> : <Sliders size={13} weight="bold" />}
-              label={strategyMode === "EXISTING" ? "Existing Strategy" : strategyMode === "ORB" ? "Breakout" : strategyMode === "BUILDER" ? "Custom signal" : "Custom code"}
-            />
-            {strategyMode !== "EXISTING" && (
-              <SummaryChip icon={<ShieldCheck size={13} weight="bold" />} label={`${params.riskPct}% risk · ${params.dailyLoss}% daily cap`} />
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
-            <Button
-              type="button"
-              disabled={loading || !selectedAccountId}
-              onClick={handleSubmit}
-              className="px-8"
-            >
-              <Robot size={16} weight="bold" className="mr-1" />
-              {loading ? "Deploying..." : "Deploy bot"}
-            </Button>
-          </div>
-        </div>
+      {/* Action buttons at the end of the form */}
+      <div className="mt-8 flex justify-end gap-3">
+        <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
+        <Button
+          type="button"
+          disabled={loading || !selectedAccountId}
+          onClick={handleSubmit}
+          className="px-8 rounded-[var(--radius-pill)]"
+        >
+          <Robot size={16} weight="bold" className="mr-1" />
+          {loading ? "Deploying..." : "Deploy bot"}
+        </Button>
       </div>
     </motion.div>
   );

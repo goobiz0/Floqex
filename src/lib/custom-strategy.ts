@@ -119,33 +119,56 @@ const JS_TEMPLATE = `// Return { side: "LONG" } or { side: "SHORT" } to enter, o
 // Any indicator can be null until there is enough data.
 
 function decide(ctx) {
-  // Example: buy oversold pullbacks that are still in an uptrend.
-  if (ctx.sma50 && ctx.price > ctx.sma50 && ctx.rsi14 !== null && ctx.rsi14 < 35) {
-    return { side: "LONG", stopLossPct: 0.5, targetRatio: 2 };
+  // Wait for long-term indicators to calculate
+  if (ctx.sma200 === null || ctx.rsi14 === null || ctx.macd === null) return null;
+  
+  // Trend conditions
+  const isUptrend = ctx.price > ctx.sma200 && ctx.sma50 > ctx.sma200;
+  const isDowntrend = ctx.price < ctx.sma200 && ctx.sma50 < ctx.sma200;
+  
+  // Mean-reversion entries
+  if (isUptrend && ctx.rsi14 < 40 && ctx.macd > 0) {
+    return { side: "LONG", stopLossPct: 0.8, targetRatio: 1.5 };
   }
+  
+  if (isDowntrend && ctx.rsi14 > 60 && ctx.macd < 0) {
+    return { side: "SHORT", stopLossPct: 0.8, targetRatio: 1.5 };
+  }
+  
   return null;
 }`;
 
 const PY_TEMPLATE = `# Return {"side": "LONG"} / {"side": "SHORT"} to enter, or None to stay flat.
 # 'ctx' exposes the same indicators as the JavaScript runtime.
-# Supported: if/elif/else, is/is not None, and/or/not, ctx["key"] or ctx.key
 
 def decide(ctx):
-    if ctx["sma50"] and ctx["price"] > ctx["sma50"] and ctx["rsi14"] is not None and ctx["rsi14"] < 35:
-        return {"side": "LONG", "stopLossPct": 0.5, "targetRatio": 2}
+    if ctx["sma200"] is None or ctx["rsi14"] is None or ctx["macd"] is None:
+        return None
+        
+    isUptrend = ctx["price"] > ctx["sma200"] and ctx["sma50"] > ctx["sma200"]
+    isDowntrend = ctx["price"] < ctx["sma200"] and ctx["sma50"] < ctx["sma200"]
+    
+    if isUptrend and ctx["rsi14"] < 40 and ctx["macd"] > 0:
+        return {"side": "LONG", "stopLossPct": 0.8, "targetRatio": 1.5}
+        
+    if isDowntrend and ctx["rsi14"] > 60 and ctx["macd"] < 0:
+        return {"side": "SHORT", "stopLossPct": 0.8, "targetRatio": 1.5}
+        
     return None`;
 
 const PINE_TEMPLATE = `//@version=5
-// Pine Script strategy. Supported: ta.sma(close,20|50|200), ta.ema(close,12|26),
-// ta.rsi(close,14), ta.atr(14), ta.crossover/crossunder, close/high/low/volume.
-strategy("My Strategy", overlay=true)
+strategy("Trend + Pullback", overlay=true)
 
-fastMA = ta.sma(close, 20)
-slowMA = ta.sma(close, 50)
+sma50 = ta.sma(close, 50)
+sma200 = ta.sma(close, 200)
 myRsi = ta.rsi(close, 14)
+[macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
 
-longCondition = ta.crossover(fastMA, slowMA) and myRsi < 35
-shortCondition = ta.crossunder(fastMA, slowMA)
+isUptrend = close > sma200 and sma50 > sma200
+isDowntrend = close < sma200 and sma50 < sma200
+
+longCondition = isUptrend and myRsi < 40 and hist > 0
+shortCondition = isDowntrend and myRsi > 60 and hist < 0
 
 if (longCondition)
     strategy.entry("Long", strategy.long)
@@ -154,20 +177,18 @@ if (shortCondition)
     strategy.entry("Short", strategy.short)`;
 
 const TV_TEMPLATE = `//@version=5
-// Paste a strategy exported from TradingView's Pine Script editor.
-// Floqex maps supported indicators to live engine data and executes the
-// entry conditions on each tick. Supported: ta.sma(close,20|50|200),
-// ta.ema(close,12|26), ta.rsi(close,N), ta.atr(N), ta.crossover/crossunder,
-// strategy.entry() with when= or if blocks. plot()/indicator()/strategy() calls
-// are ignored. open is not supported.
-strategy("SMA Crossover + RSI", overlay=true)
+strategy("Trend Pullbacks", overlay=true)
 
-fastMA = ta.sma(close, 20)
-slowMA = ta.sma(close, 50)
+sma50 = ta.sma(close, 50)
+sma200 = ta.sma(close, 200)
 myRsi  = ta.rsi(close, 14)
+[macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
 
-longCondition  = ta.crossover(fastMA, slowMA) and myRsi < 40
-shortCondition = ta.crossunder(fastMA, slowMA)
+isUptrend  = close > sma200 and sma50 > sma200
+isDowntrend = close < sma200 and sma50 < sma200
+
+longCondition  = isUptrend and myRsi < 40 and hist > 0
+shortCondition = isDowntrend and myRsi > 60 and hist < 0
 
 if (longCondition)
     strategy.entry("Long", strategy.long)
@@ -175,8 +196,8 @@ if (longCondition)
 if (shortCondition)
     strategy.entry("Short", strategy.short)
 
-plot(fastMA, title="Fast MA", color=color.green)
-plot(slowMA, title="Slow MA", color=color.red)`;
+plot(sma50, title="SMA 50", color=color.blue)
+plot(sma200, title="SMA 200", color=color.orange)`;
 
 export const LANGUAGES: LanguageMeta[] = [
   { id: "javascript", label: "JavaScript", executesLive: true, pro: false, badge: "Runs live", template: JS_TEMPLATE },
@@ -325,7 +346,7 @@ export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
       if (guard) return { ok: false, error: guard };
     } else {
       const transpileResult = transpileStrategy(language, code);
-      if (!transpileResult.ok) return { ok: false, error: transpileResult.error };
+      if (!transpileResult.ok) return { ok: false, error: (transpileResult as { error: string }).error };
     }
     return { ok: true, instruments, config: { mode: "CODE", language, code, direction, stopLossPct, targetRatio } };
   }

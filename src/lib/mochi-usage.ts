@@ -16,10 +16,10 @@ export type MochiUsageSummary = {
   window: "5h" | "week" | null; // which window is exhausted, if any
 };
 
-function sumWindow(rows: { ts: Date; totalTokens: number }[], sinceMs: number, now: number): number {
+function sumWindow(rows: { ts: Date; totalTokens: number }[], startMs: number): number {
   let total = 0;
   for (const r of rows) {
-    if (now - r.ts.getTime() <= sinceMs) total += r.totalTokens;
+    if (r.ts.getTime() >= startMs) total += r.totalTokens;
   }
   return total;
 }
@@ -46,14 +46,21 @@ export async function getMochiUsage(userId: string, plan: Plan): Promise<MochiUs
 
   try {
     const now = Date.now();
-    const since = new Date(now - WEEK_MS);
+    const start5h = Math.floor(now / FIVE_HOURS_MS) * FIVE_HOURS_MS;
+    
+    // Weekly boundary (Sunday midnight UTC). 
+    // Epoch (0) was Thursday. To align to Sunday: Thursday -> Sunday is 3 days.
+    // So we add 3 days to align the grid to Sunday.
+    const startWeek = Math.floor((now + 3 * 24 * 60 * 60 * 1000) / WEEK_MS) * WEEK_MS - (3 * 24 * 60 * 60 * 1000);
+    
+    const since = new Date(Math.min(start5h, startWeek));
     const rows = await prisma.mochiUsage.findMany({
       where: { userId, ts: { gte: since } },
       select: { ts: true, totalTokens: true },
       orderBy: { ts: "asc" },
     });
-    const used5h = sumWindow(rows, FIVE_HOURS_MS, now);
-    const usedWeek = sumWindow(rows, WEEK_MS, now);
+    const used5h = sumWindow(rows, start5h);
+    const usedWeek = sumWindow(rows, startWeek);
     const window = usedWeek >= limits.perWeek ? "week" : used5h >= limits.per5h ? "5h" : null;
     return {
       used5h,

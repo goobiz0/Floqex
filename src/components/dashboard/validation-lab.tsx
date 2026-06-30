@@ -205,7 +205,7 @@ function LockableCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="relative overflow-hidden p-5">
+    <Card className="relative p-5">
       <div className="flex items-center gap-2">
         {icon}
         <CardTitle>{title}</CardTitle>
@@ -215,7 +215,7 @@ function LockableCard({
         {children}
       </div>
       {locked && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-overlay/70 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 overflow-hidden rounded-[inherit] bg-overlay/70 backdrop-blur-[2px]">
           <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/30 bg-accent-soft text-accent">
             <LockSimple size={18} weight="duotone" />
           </div>
@@ -284,8 +284,29 @@ function SampleVsHoldout({ wf }: { wf: ValidationReport }) {
         {[0.25, 0.5, 0.75].map((p) => (
           <line key={p} x1="0" y1={CH * p} x2={CW} y2={CH * p} stroke="var(--color-line)" strokeWidth="1" />
         ))}
-        <path d={linePath(isVals, min, max)} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={linePath(oosVals, min, max)} fill="none" stroke="var(--color-fg-muted)" strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" />
+        <motion.path 
+          d={linePath(isVals, min, max)} 
+          fill="none" 
+          stroke="var(--color-accent)" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+        />
+        <motion.path 
+          d={linePath(oosVals, min, max)} 
+          fill="none" 
+          stroke="var(--color-fg-muted)" 
+          strokeWidth="2" 
+          strokeDasharray="5 4" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut", delay: 1.5 }}
+        />
       </svg>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Legend swatch="var(--color-accent)" label="In-sample" value={`${is.totalReturnPct >= 0 ? "+" : ""}${is.totalReturnPct.toFixed(1)}%`} />
@@ -378,8 +399,8 @@ function RobustnessHeatmap({ grid }: { grid: RobustnessGrid }) {
             {rr}R
           </div>
         ))}
-        {grid.stopAxis.map((stop) => (
-          <Row key={`r-${stop}`} stop={stop} rrAxis={grid.rrAxis} cell={cell} maxAbs={maxAbs} />
+        {grid.stopAxis.map((stop, rowIndex) => (
+          <Row key={`r-${stop}`} stop={stop} rrAxis={grid.rrAxis} cell={cell} maxAbs={maxAbs} rowIndex={rowIndex} />
         ))}
       </div>
       <p className="mt-3 text-[11px] text-fg-faint">
@@ -394,29 +415,34 @@ function Row({
   rrAxis,
   cell,
   maxAbs,
+  rowIndex,
 }: {
   stop: number;
   rrAxis: number[];
   cell: (rr: number, stop: number) => { totalReturnPct: number; trades: number } | undefined;
   maxAbs: number;
+  rowIndex: number;
 }) {
   return (
     <>
       <div className="flex items-center justify-end pr-2 tnum text-[11px] font-medium text-fg-subtle">{stop}%</div>
-      {rrAxis.map((rr) => {
+      {rrAxis.map((rr, colIndex) => {
         const c = cell(rr, stop);
         const val = c?.totalReturnPct ?? 0;
         const intensity = Math.min(100, Math.round((Math.abs(val) / maxAbs) * 90) + 10);
         const color = val >= 0 ? "var(--color-positive)" : "var(--color-negative)";
         return (
-          <div
+          <motion.div
             key={`${rr}-${stop}`}
             className="flex h-12 flex-col items-center justify-center rounded-[8px] border border-line"
             style={{ backgroundColor: `color-mix(in srgb, ${color} ${intensity}%, transparent)` }}
             title={`${rr}R, ${stop}% stop: ${val >= 0 ? "+" : ""}${val.toFixed(1)}% over ${c?.trades ?? 0} trades`}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: (rowIndex * rrAxis.length + colIndex) * 0.04, ease: "easeOut" }}
           >
             <span className="tnum text-[11px] font-semibold text-fg">{val >= 0 ? "+" : ""}{val.toFixed(0)}%</span>
-          </div>
+          </motion.div>
         );
       })}
     </>

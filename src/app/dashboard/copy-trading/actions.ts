@@ -5,20 +5,44 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { PLANS, type Plan } from "@/lib/plans";
-import type { CopySizingMode } from "@/lib/copy-trading";
+import { parseSymbolFilter, type CopySizingMode, type CopyFilterMode } from "@/lib/copy-trading";
 
 type Result = { ok: boolean; error?: string; warning?: string };
 
 const SIZING_MODES: CopySizingMode[] = ["MIRROR", "MULTIPLIER", "PROPORTIONAL", "FIXED"];
+const FILTER_MODES: CopyFilterMode[] = ["ALLOW", "DENY"];
+const MAX_FILTER_TOKENS = 40;
+
+const CHAIN_ERROR = "That pairing would create a copy chain. An account can be a master or a follower, not both.";
 
 type LinkSettings = {
   sizingMode: CopySizingMode;
   multiplier?: number;
   fixedUnits?: number | null;
   maxRiskPct?: number | null;
+  minUnits?: number | null;
+  maxUnits?: number | null;
+  symbolFilter?: string | null;
+  symbolFilterMode?: CopyFilterMode;
+  maxDailyLossPct?: number | null;
   reverse?: boolean;
   copyOpen?: boolean;
   copyClose?: boolean;
+};
+
+type NormalizedSettings = {
+  sizingMode: CopySizingMode;
+  multiplier: number;
+  fixedUnits: number | null;
+  maxRiskPct: number | null;
+  minUnits: number | null;
+  maxUnits: number | null;
+  symbolFilter: string | null;
+  symbolFilterMode: CopyFilterMode;
+  maxDailyLossPct: number | null;
+  reverse: boolean;
+  copyOpen: boolean;
+  copyClose: boolean;
 };
 
 /** Resolve the signed-in user and gate the whole surface on entitlement. */
@@ -36,9 +60,18 @@ async function requireEntitledUser(): Promise<
   return { ok: true, user: { id: user.id, plan } };
 }
 
+/** A positive, finite optional number, or an error if the value is malformed. */
+function optionalPositive(value: number | undefined | null, label: string, max?: number, scale?: number): { ok: true; value: number | null } | { ok: false; error: string } {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (!Number.isFinite(value) || value <= 0) return { ok: false, error: `${label} must be greater than zero.` };
+  if (max !== undefined && value > max) return { ok: false, error: `${label} must be ${max} or less.` };
+  const val = scale !== undefined ? Number(value.toFixed(scale)) : value;
+  return { ok: true, value: val };
+}
+
 /** Validate and normalize the link sizing rule (shared by create + update). */
 function normalizeSettings(s: LinkSettings):
-  | { ok: true; data: Required<Pick<LinkSettings, "sizingMode" | "reverse" | "copyOpen" | "copyClose">> & { multiplier: number; fixedUnits: number | null; maxRiskPct: number | null } }
+  | { ok: true; data: NormalizedSettings }
   | { ok: false; error: string } {
   if (!SIZING_MODES.includes(s.sizingMode)) return { ok: false, error: "Choose a valid sizing mode." };
 
@@ -56,12 +89,28 @@ function normalizeSettings(s: LinkSettings):
     fixedUnits = null; // only meaningful for FIXED
   }
 
-  const maxRiskPct: number | null = s.maxRiskPct ?? null;
-  if (maxRiskPct !== null) {
-    if (!Number.isFinite(maxRiskPct) || maxRiskPct <= 0 || maxRiskPct > 100) {
-      return { ok: false, error: "Max risk per trade must be between 0 and 100 percent." };
-    }
+  const maxRisk = optionalPositive(s.maxRiskPct, "Max risk per trade", 100, 3);
+  if (!maxRisk.ok) return { ok: false, error: maxRisk.error };
+
+  const minU = optionalPositive(s.minUnits, "Minimum size", undefined, 4);
+  if (!minU.ok) return { ok: false, error: minU.error };
+  const maxU = optionalPositive(s.maxUnits, "Maximum size", undefined, 4);
+  if (!maxU.ok) return { ok: false, error: maxU.error };
+  if (minU.value !== null && maxU.value !== null && minU.value > maxU.value) {
+    return { ok: false, error: "Minimum size cannot be larger than the maximum size." };
   }
+
+  const dailyLoss = optionalPositive(s.maxDailyLossPct, "Daily loss limit", 100, 3);
+  if (!dailyLoss.ok) return { ok: false, error: dailyLoss.error };
+
+  const symbolFilterMode: CopyFilterMode = FILTER_MODES.includes(s.symbolFilterMode as CopyFilterMode)
+    ? (s.symbolFilterMode as CopyFilterMode)
+    : "ALLOW";
+  const tokens = parseSymbolFilter(s.symbolFilter);
+  if (tokens.length > MAX_FILTER_TOKENS) {
+    return { ok: false, error: `Symbol filter is limited to ${MAX_FILTER_TOKENS} instruments.` };
+  }
+  const symbolFilter = tokens.length > 0 ? tokens.join(", ") : null;
 
   return {
     ok: true,
@@ -69,7 +118,12 @@ function normalizeSettings(s: LinkSettings):
       sizingMode: s.sizingMode,
       multiplier,
       fixedUnits,
-      maxRiskPct,
+      maxRiskPct: maxRisk.value,
+      minUnits: minU.value,
+      maxUnits: maxU.value,
+      symbolFilter,
+      symbolFilterMode,
+      maxDailyLossPct: dailyLoss.value,
       reverse: Boolean(s.reverse),
       copyOpen: s.copyOpen ?? true,
       copyClose: s.copyClose ?? true,
@@ -103,7 +157,7 @@ export async function createCopyLink(
 
     // Keep the graph a clean hub-and-spoke: no chains, no reciprocal loops. A
     // follower cannot also be a master, and a master cannot also be a follower.
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const conflicts = await tx.copyLink.findMany({
         where: {
           userId: user.id,
@@ -112,7 +166,7 @@ export async function createCopyLink(
         select: { id: true },
       });
       if (conflicts.length > 0) {
-        throw new Error("That pairing would create a copy chain. An account can be a master or a follower, not both.");
+        throw new Error(CHAIN_ERROR);
       }
 
       return await tx.copyLink.create({
@@ -129,8 +183,8 @@ export async function createCopyLink(
     return follower.bot
       ? { ok: true }
       : { ok: true, warning: "This follower has no bot attached yet, so copies will be skipped until you connect one." };
-  } catch (err: any) {
-    if (err.message === "That pairing would create a copy chain. An account can be a master or a follower, not both.") {
+  } catch (err) {
+    if (err instanceof Error && err.message === CHAIN_ERROR) {
       return { ok: false, error: err.message };
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -169,9 +223,11 @@ export async function toggleCopyLink(id: string): Promise<Result> {
     const link = await prisma.copyLink.findUnique({ where: { id }, select: { userId: true, status: true } });
     if (!link || link.userId !== gate.user.id) return { ok: false, error: "Copy link not found." };
 
+    // Either direction clears any stale breaker note: a manual pause is not a
+    // breaker trip, and resuming should arm the link fresh.
     await prisma.copyLink.update({
       where: { id },
-      data: { status: link.status === "ACTIVE" ? "PAUSED" : "ACTIVE" },
+      data: { status: link.status === "ACTIVE" ? "PAUSED" : "ACTIVE", pausedReason: null },
     });
     revalidatePath("/dashboard/copy-trading");
     return { ok: true };
@@ -193,14 +249,14 @@ export async function deleteCopyLink(id: string): Promise<Result> {
       where: { copyLinkId: id, action: "OPEN", status: "FILLED", followerTradeId: { not: null } },
       select: { followerTradeId: true },
     });
-    
+
     if (openEvents.length > 0) {
-      const followerTradeIds = openEvents.map(e => e.followerTradeId!);
+      const followerTradeIds = openEvents.map((e) => e.followerTradeId!);
       const activeTrades = await prisma.trade.count({
         where: {
           id: { in: followerTradeIds },
           status: "OPEN",
-        }
+        },
       });
       if (activeTrades > 0) {
         return { ok: false, error: "Cannot delete this link while there are open copied trades. Please pause the link or close the positions first." };

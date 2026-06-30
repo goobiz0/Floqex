@@ -43,10 +43,11 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
   if (dayRangePct > NORMAL_RANGE * maxRange) return null;
 
   // The Strategy Lab params define user preferences
-  const targetRatio = params && params.rrTarget ? Number(params.rrTarget) : 2.0;
+  const targetRatio = params && params.rrTarget != null ? Number(params.rrTarget) : 2.0;
+  const stopLossPct = params && params.stopLossPct != null ? Number(params.stopLossPct) : 0.5;
 
   if (isHighBreakout && (!trendFilterEnabled || isUptrend)) {
-    const stopPrice = price * 0.995; // 0.5% stop distance
+    const stopPrice = price * (1 - stopLossPct / 100); 
     const riskAmt = price - stopPrice;
     return {
       direction: 'LONG',
@@ -57,7 +58,7 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
   }
 
   if (isLowBreakout && (!trendFilterEnabled || isDowntrend)) {
-    const stopPrice = price * 1.005; 
+    const stopPrice = price * (1 + stopLossPct / 100); 
     const riskAmt = stopPrice - price;
     return {
       direction: 'SHORT',

@@ -503,6 +503,13 @@ enum CopySizingMode {
   @@schema("public")
 }
 
+enum CopyFilterMode {
+  ALLOW
+  DENY
+
+  @@schema("public")
+}
+
 enum CopyLinkStatus {
   ACTIVE
   PAUSED
@@ -523,10 +530,16 @@ model CopyLink {
   sizingMode        CopySizingMode @default(PROPORTIONAL)
   multiplier        Decimal        @default(1) @db.Decimal(8, 4)
   fixedUnits        Decimal?       @db.Decimal(18, 4)
-  maxRiskPct        Decimal?       @db.Decimal(6, 3) // cap risk per copied trade
+  maxRiskPct        Decimal?       @db.Decimal(6, 3) // cap risk per copied trade (% of follower equity)
+  minUnits          Decimal?       @db.Decimal(18, 4) // floor a copy up to this size (skip dust)
+  maxUnits          Decimal?       @db.Decimal(18, 4) // hard ceiling on any copied order
+  symbolFilter      String? // comma list of instruments to allow or block
+  symbolFilterMode  CopyFilterMode @default(ALLOW) // ALLOW = copy only these, DENY = copy all but these
+  maxDailyLossPct   Decimal?       @db.Decimal(6, 3) // auto-pause the link past this daily copied loss
   reverse           Boolean        @default(false) // copy the opposite direction
   copyOpen          Boolean        @default(true)
   copyClose         Boolean        @default(true)
+  pausedReason      String? // why the breaker tripped, cleared on resume
   copiedCount       Int            @default(0)
   lastCopiedAt      DateTime?
   createdAt         DateTime       @default(now())

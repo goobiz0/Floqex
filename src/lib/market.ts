@@ -69,15 +69,24 @@ export function getSessionForInstrument(instrument: string): "ASIA" | "NY" {
 
 type LocalTime = { hour: number; minute: number; weekday: number };
 
+const timeZoneFormatters: Record<string, Intl.DateTimeFormat> = {};
+
+function getFormatter(timeZone: string) {
+  if (!timeZoneFormatters[timeZone]) {
+    timeZoneFormatters[timeZone] = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  return timeZoneFormatters[timeZone];
+}
+
 // Local wall-clock time in a given IANA timezone, DST-correct via Intl.
 function localTimeInZone(timeZone: string, at: Date): LocalTime {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(at);
+  const parts = getFormatter(timeZone).formatToParts(at);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   const weekdayMap: Record<string, number> = {
     Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
@@ -92,13 +101,16 @@ function localTimeInZone(timeZone: string, at: Date): LocalTime {
 }
 
 // Regular cash-session hours. Crypto trades continuously.
-export function isMarketOpen(kind: MarketKind, at: Date = new Date()): boolean {
+export function isMarketOpen(kind: MarketKind, at: Date = new Date(), allowExtended = false): boolean {
   if (kind === "CRYPTO") return true;
 
   if (kind === "US") {
     const t = localTimeInZone("America/New_York", at);
     if (t.weekday < 1 || t.weekday > 5) return false;
     const mins = t.hour * 60 + t.minute;
+    if (allowExtended) {
+      return mins >= 4 * 60 && mins < 20 * 60; // 04:00 - 20:00 ET
+    }
     return mins >= 9 * 60 + 30 && mins < 16 * 60; // 09:30 - 16:00 ET
   }
 
@@ -109,8 +121,8 @@ export function isMarketOpen(kind: MarketKind, at: Date = new Date()): boolean {
   return mins >= 10 * 60 && mins < 16 * 60;
 }
 
-export function isInstrumentTradeable(instrument: string, at: Date = new Date()): boolean {
-  return isMarketOpen(getMarketForInstrument(instrument), at);
+export function isInstrumentTradeable(instrument: string, at: Date = new Date(), allowExtended = false): boolean {
+  return isMarketOpen(getMarketForInstrument(instrument), at, allowExtended);
 }
 
 export function marketLabel(kind: MarketKind): string {

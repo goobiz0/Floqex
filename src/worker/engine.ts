@@ -3,7 +3,7 @@ import { getRealMarketData } from "../lib/engine/market-data";
 import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit } from "../lib/engine/signal-generator";
 import { executeTrade, closeTrade } from "../lib/engine/execution-router";
 import { validateRisk } from "../lib/engine/risk-engine";
-import { BrokerNotConfiguredError } from "../lib/engine/live-broker";
+import { BrokerNotConfiguredError, brokerSupportsInstrument } from "../lib/engine/live-broker";
 import { recordBotStatus, RISK_REASON_TEXT } from "../lib/engine/feedback";
 import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
@@ -33,9 +33,10 @@ async function tick() {
 
     console.log(`[${new Date().toISOString()}] Engine Tick: Processing ${bots.length} running bot(s)...`);
 
-    for (const bot of bots) {
-      // Skip bots not attached to an account
-      if (!bot.accountId || !bot.account) continue;
+    await Promise.all(bots.map(async (bot) => {
+      try {
+        // Skip bots not attached to an account
+        if (!bot.accountId || !bot.account) return;
 
       // Check Edge Decay periodically (every 1 hour)
       const now = Date.now();
@@ -58,6 +59,17 @@ async function tick() {
       // per-account risk limits below still span all of them.
       const instruments = instrumentsFromParams(params);
       for (const instrument of instruments) {
+      if (bot.account.broker !== "PAPER" && !brokerSupportsInstrument(bot.account.broker, instrument)) {
+        await recordBotStatus({
+          botId: bot.id,
+          accountId: bot.accountId!,
+          kind: "RISK",
+          message: `Broker ${bot.account.broker} does not support trading ${instrument}. Please configure a compatible broker or change the instrument.`,
+          throttleMs: 60 * 60 * 1000,
+        });
+        continue;
+      }
+
       const openTrade = await prisma.trade.findFirst({
         where: { botId: bot.id, status: "OPEN", instrument },
       });
@@ -73,6 +85,15 @@ async function tick() {
           throttleMs: 10 * 60 * 1000,
         });
         continue;
+      }
+
+      const allowExtended = params.extendedHours === true || params.extendedHours === "true";
+      
+      if (!allowExtended && !marketData.isOpen) {
+        continue; // wait for regular market open
+      }
+      if (allowExtended && !marketData.isExtendedOpen) {
+        continue; // wait for extended market open
       }
 
       if (openTrade) {
@@ -260,7 +281,10 @@ async function tick() {
         }
       }
       }
-    }
+      } catch (botError) {
+        console.error(`[FATAL] Error processing bot ${bot.id}:`, botError);
+      }
+    }));
   } catch (error) {
     console.error("Engine tick error:", error);
   }

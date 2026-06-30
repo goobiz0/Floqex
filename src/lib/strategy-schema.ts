@@ -22,6 +22,7 @@ export type StrategyParams = {
   trailingStopPct: number;
   minVolume: number;
   newsPause: boolean;
+  extendedHours: boolean;
   [key: string]: unknown;
 };
 
@@ -132,6 +133,7 @@ export const PARAM_LABELS: Record<keyof StrategyParams, string> = {
   trendFilter: "Trend filter",
   reEntry: "Re-entry rule",
   newsPause: "News event pause",
+  extendedHours: "Extended hours trading",
 };
 
 export const DEFAULT_PARAMS: StrategyParams = {
@@ -147,6 +149,7 @@ export const DEFAULT_PARAMS: StrategyParams = {
   trendFilter: true,
   reEntry: true,
   newsPause: true,
+  extendedHours: false,
 };
 
 const NUMERIC_KEYS = Object.keys(PARAM_BOUNDS) as NumericParam[];
@@ -183,10 +186,11 @@ export function parseStrategyParams(
   out.trendFilter = Boolean(o.trendFilter);
   out.reEntry = Boolean(o.reEntry);
   out.newsPause = Boolean(o.newsPause);
+  out.extendedHours = Boolean(o.extendedHours);
   
   // Custom parameters
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
+    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause" && key !== "extendedHours") {
       out[key] = o[key];
     }
   }
@@ -211,9 +215,10 @@ export function coerceStrategyParams(input: unknown): StrategyParams {
   if (typeof o.trendFilter === "boolean") out.trendFilter = o.trendFilter;
   if (typeof o.reEntry === "boolean") out.reEntry = o.reEntry;
   if (typeof o.newsPause === "boolean") out.newsPause = o.newsPause;
+  if (typeof o.extendedHours === "boolean") out.extendedHours = o.extendedHours;
 
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause") {
+    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause" && key !== "extendedHours") {
       out[key] = o[key];
     }
   }
@@ -228,7 +233,7 @@ export function formatParamValue(key: keyof StrategyParams, value: number | bool
   return `${value}${suffix}`;
 }
 
-const BOOLEAN_KEYS = new Set<keyof StrategyParams>(["trendFilter", "reEntry", "newsPause"]);
+const BOOLEAN_KEYS = new Set<keyof StrategyParams>(["trendFilter", "reEntry", "newsPause", "extendedHours"]);
 
 /** Serialize a param value to a raw, round-trippable string for storage. */
 export function rawParamValue(key: keyof StrategyParams, value: number | boolean): string {

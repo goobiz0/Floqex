@@ -26,10 +26,21 @@ export interface MarketData {
   sma50: number | null;
   market: MarketKind;
   isOpen: boolean;
+  isExtendedOpen: boolean;
   timestamp: Date;
   /** Full indicator set computed from daily history. Optional so any failure to
    * compute it never blocks the core quote; consumers fall back gracefully. */
   indicators?: IndicatorContext;
+}
+
+async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 500): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (retries <= 0) throw error;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return fetchWithRetry(fn, retries - 1, delayMs * 2);
+  }
 }
 
 export async function getRealMarketData(instrument: string): Promise<MarketData | null> {
@@ -39,12 +50,26 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
   const cached = quoteCache[symbol];
   if (cached && cached.expiresAt > Date.now()) {
     // Refresh the open flag (cheap) without re-hitting the network.
-    return { ...cached.data, isOpen: isInstrumentTradeable(instrument) };
+    return { 
+      ...cached.data, 
+      isOpen: isInstrumentTradeable(instrument),
+      isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true)
+    };
   }
 
   try {
-    const quote = (await yahooFinance.quote(symbol)) as Record<string, unknown>;
-    if (!quote || !quote.regularMarketPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
+    const quote = (await fetchWithRetry(() => yahooFinance.quote(symbol))) as Record<string, unknown>;
+    
+    // Choose the best price based on extended hours availability
+    const regularPrice = quote.regularMarketPrice as number;
+    const postPrice = quote.postMarketPrice as number;
+    const prePrice = quote.preMarketPrice as number;
+    
+    let currentPrice = regularPrice;
+    if (quote.marketState === 'POST' || quote.marketState === 'POSTPOST') currentPrice = postPrice || regularPrice;
+    if (quote.marketState === 'PRE' || quote.marketState === 'PREPRE') currentPrice = prePrice || regularPrice;
+    
+    if (!quote || !currentPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
       return null;
     }
 
@@ -66,6 +91,7 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
         });
         if (indicators.sma50 != null) {
           sma50 = indicators.sma50;
+          pruneCache(smaCache, 1000);
           smaCache[symbol] = { value: sma50, expiresAt: Date.now() + 1000 * 60 * 60 };
         }
       }
@@ -74,16 +100,18 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
     }
 
     const data: MarketData = {
-      price: quote.regularMarketPrice as number,
+      price: currentPrice,
       dayHigh: quote.regularMarketDayHigh as number,
       dayLow: quote.regularMarketDayLow as number,
       sma50,
       market,
       isOpen: isInstrumentTradeable(instrument),
+      isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true),
       timestamp: (quote.regularMarketTime as Date) || new Date(),
       indicators,
     };
 
+    pruneCache(quoteCache, 1000);
     quoteCache[symbol] = { data, expiresAt: Date.now() + QUOTE_TTL_MS };
     return data;
   } catch (error) {
