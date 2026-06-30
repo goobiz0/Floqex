@@ -476,34 +476,18 @@ export function BotsNewClient({
         )}
       </form>
 
-      {/* Sticky action bar with live config summary */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-base/90 backdrop-blur lg:left-60">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
-          <div className="hidden min-w-0 flex-1 items-center gap-3 text-xs text-fg-subtle sm:flex">
-            {strategyMode !== "EXISTING" && (
-              <SummaryChip icon={<Stack size={13} weight="bold" />} label={`${instruments.length} asset${instruments.length === 1 ? "" : "s"}`} />
-            )}
-            <SummaryChip
-              icon={strategyMode === "EXISTING" ? <Stack size={13} weight="bold" /> : strategyMode === "CODE" ? <Code size={13} weight="bold" /> : <Sliders size={13} weight="bold" />}
-              label={strategyMode === "EXISTING" ? "Existing Strategy" : strategyMode === "ORB" ? "Breakout" : strategyMode === "BUILDER" ? "Custom signal" : "Custom code"}
-            />
-            {strategyMode !== "EXISTING" && (
-              <SummaryChip icon={<ShieldCheck size={13} weight="bold" />} label={`${params.riskPct}% risk · ${params.dailyLoss}% daily cap`} />
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
-            <Button
-              type="button"
-              disabled={loading || !selectedAccountId}
-              onClick={handleSubmit}
-              className="px-8"
-            >
-              <Robot size={16} weight="bold" className="mr-1" />
-              {loading ? "Deploying..." : "Deploy bot"}
-            </Button>
-          </div>
-        </div>
+      {/* Action buttons at the end of the form */}
+      <div className="mt-8 flex justify-end gap-3">
+        <Button type="button" variant="secondary" onClick={() => router.push("/dashboard")}>Cancel</Button>
+        <Button
+          type="button"
+          disabled={loading || !selectedAccountId}
+          onClick={handleSubmit}
+          className="px-8 rounded-[var(--radius-pill)]"
+        >
+          <Robot size={16} weight="bold" className="mr-1" />
+          {loading ? "Deploying..." : "Deploy bot"}
+        </Button>
       </div>
     </motion.div>
   );
