@@ -362,6 +362,7 @@ export type StrategyData = {
   hasStrategy: boolean;
   accountId: string | null;
   strategyId: string | null;
+  kind: string;
   params: StrategyParams | null;
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
@@ -374,6 +375,7 @@ const EMPTY_STRATEGY: StrategyData = {
   hasStrategy: false,
   accountId: null,
   strategyId: null,
+  kind: "ORB",
   params: null,
   changeLog: [],
   pending: [],
@@ -462,6 +464,7 @@ export async function getStrategyData(accountId?: string, strategyId?: string): 
       hasStrategy: true,
       accountId: account?.id ?? null,
       strategyId: strategy.id,
+      kind: strategy.kind ?? "ORB",
       params: coerceStrategyParams(strategy.params),
       changeLog: adjustments.filter((a) => a.status !== "PENDING").map(serializeAdjustment),
       pending: adjustments.filter((a) => a.status === "PENDING").map(serializeAdjustment),

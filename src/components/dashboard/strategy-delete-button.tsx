@@ -1,22 +1,22 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Trash, Warning } from "@phosphor-icons/react";
+import { Trash, Warning, SpinnerGap } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "motion/react";
-import { deleteStrategy } from "@/app/dashboard/strategy/actions";
 
 export function StrategyDeleteButton({
-  strategyId,
   strategyName,
   hasBots,
+  pending,
+  onConfirm,
 }: {
-  strategyId: string;
   strategyName: string;
   hasBots: boolean;
+  pending: boolean;
+  onConfirm: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -26,24 +26,22 @@ export function StrategyDeleteButton({
 
   function handleDelete() {
     setOpen(false);
-    
-    // Optimistically hide the card instantly to eliminate perceived delay
-    const el = document.getElementById(`strategy-card-${strategyId}`);
-    if (el) el.style.display = 'none';
-
-    startTransition(async () => {
-      await deleteStrategy(strategyId);
-    });
+    onConfirm();
   }
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="p-1.5 rounded-[var(--radius-control)] text-fg-subtle hover:text-negative hover:bg-negative/10 transition-colors"
+        disabled={pending}
+        className="p-1.5 rounded-[var(--radius-control)] text-fg-subtle hover:text-negative hover:bg-negative/10 transition-colors disabled:opacity-40"
         aria-label="Delete strategy"
       >
-        <Trash size={16} weight="duotone" />
+        {pending ? (
+          <SpinnerGap size={16} className="animate-spin text-negative" />
+        ) : (
+          <Trash size={16} weight="duotone" />
+        )}
       </button>
 
       <AnimatePresence>
@@ -55,7 +53,7 @@ export function StrategyDeleteButton({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               className="absolute inset-0 bg-base/80 backdrop-blur-sm"
-              onClick={() => !isPending && setOpen(false)}
+              onClick={() => !pending && setOpen(false)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -90,22 +88,22 @@ export function StrategyDeleteButton({
                 <div className="flex gap-3 pt-1">
                   <button
                     onClick={() => setOpen(false)}
-                    disabled={isPending}
+                    disabled={pending}
                     className="flex-1 py-2.5 text-sm font-semibold rounded-[var(--radius-control)] bg-surface hover:bg-surface-hover border border-line transition-colors text-fg disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDelete}
-                    disabled={isPending}
+                    disabled={pending}
                     className="flex-1 py-2.5 text-sm font-semibold rounded-[var(--radius-control)] bg-negative/15 hover:bg-negative/25 border border-negative/30 text-negative transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {isPending ? (
+                    {pending ? (
                       <span className="h-4 w-4 rounded-full border-2 border-negative/30 border-t-negative animate-spin" />
                     ) : (
                       <Trash size={15} weight="duotone" />
                     )}
-                    {isPending ? "Deleting..." : "Delete strategy"}
+                    {pending ? "Deleting..." : "Delete strategy"}
                   </button>
                 </div>
               </div>

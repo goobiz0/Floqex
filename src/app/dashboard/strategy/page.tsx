@@ -9,11 +9,11 @@ import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
 import { DashboardError } from "@/components/dashboard/states";
 import Link from "next/link";
-import { Robot, Flask, MagicWand, ArrowLeft, Plus } from "@phosphor-icons/react/dist/ssr";
+import { MagicWand, ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import AIStrategyBuilder from "@/components/dashboard/ai-strategy-builder";
-import { StrategyDeleteButton } from "@/components/dashboard/strategy-delete-button";
 import { NewStrategyButton } from "@/components/dashboard/new-strategy-button";
 import { NewStrategyFlow } from "@/components/dashboard/new-strategy-flow";
+import { StrategyHubGrid, type HubStrategy } from "@/components/dashboard/strategy-hub-grid";
 
 export const metadata: Metadata = { title: "Strategy Management" };
 
@@ -61,7 +61,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
             Tune the rules within safe bounds. Every change is logged.
           </p>
         </div>
-        
+
         {data.accountId && <AIOptimizer activeAccountId={data.accountId} />}
 
         {data.error ? (
@@ -76,6 +76,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
               plan={data.plan}
               accountId={data.accountId}
               strategyId={data.strategyId}
+              kind={data.kind}
             />
             <div className="pt-2">
               <ValidationLab
@@ -113,6 +114,25 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
     orderBy: { createdAt: "desc" }
   });
 
+  // Serialize to client-safe shape, reading edgeScore/edgeVerdict from params JSON.
+  const serialized: HubStrategy[] = strategies.map((strategy) => {
+    const p = (strategy.params ?? {}) as Record<string, unknown>;
+    return {
+      id: strategy.id,
+      name: strategy.name,
+      kind: strategy.kind,
+      version: strategy.version,
+      edgeScore: typeof p.edgeScore === "number" ? Math.round(p.edgeScore) : null,
+      edgeVerdict: typeof p.edgeVerdict === "string" ? p.edgeVerdict : null,
+      bots: strategy.bots.map((bot) => ({
+        id: bot.id,
+        status: bot.status,
+        accountId: bot.accountId ?? null,
+        nickname: bot.account?.nickname ?? "No Account",
+      })),
+    };
+  });
+
   return (
     <div className="max-w-7xl mx-auto p-6 lg:p-10 space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -129,80 +149,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {strategies.map(strategy => (
-          <div key={strategy.id} id={`strategy-card-${strategy.id}`} className="group relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line hover:border-line-strong transition-[border-color,box-shadow,transform] duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
-            <div className="relative z-10 flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-surface-hover border border-line flex items-center justify-center text-fg">
-                  <Flask size={20} weight="duotone" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-fg text-lg">{strategy.name}</h3>
-                  <p className="text-xs text-fg-subtle uppercase tracking-widest">{strategy.kind} • v{strategy.version}</p>
-                </div>
-              </div>
-              <StrategyDeleteButton
-                strategyId={strategy.id}
-                strategyName={strategy.name}
-                hasBots={strategy.bots.length > 0}
-              />
-            </div>
-            
-            <div className="relative z-10 flex-1 mt-2 mb-6">
-              <h4 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3">Assigned To</h4>
-              {strategy.bots.length > 0 ? (
-                <div className="space-y-2">
-                  {strategy.bots.map(bot => (
-                    <div key={bot.id} className="flex items-center gap-2 text-sm text-fg bg-base/50 p-2 rounded-[var(--radius-control)] border border-line">
-                      <Robot size={16} weight="duotone" className="text-fg-subtle shrink-0" />
-                      <span className="font-medium truncate">{bot.account?.nickname ?? "No Account"}</span>
-                      <span className={`ml-auto text-[10px] font-bold tracking-widest px-2 py-0.5 rounded-[var(--radius-pill)] uppercase shrink-0 ${bot.status === 'RUNNING' ? 'bg-profit/10 text-profit' : 'bg-surface border border-line text-fg-subtle'}`}>
-                        {bot.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-fg-subtle italic flex items-center gap-2 bg-base/50 p-2 rounded-[var(--radius-control)] border border-transparent">
-                  <span className="h-1.5 w-1.5 rounded-full bg-fg-muted" /> No accounts assigned
-                </p>
-              )}
-            </div>
-
-            <div className="relative z-10 mt-auto pt-4 border-t border-line/50">
-              <Link
-                href={`/dashboard/strategy?view=edit${strategy.bots[0] ? `&account=${strategy.bots[0].accountId}` : `&strategyId=${strategy.id}`}`}
-                className="block w-full text-center py-2.5 text-sm font-semibold bg-surface-hover hover:bg-base rounded-[var(--radius-control)] transition-all hover:-translate-y-[1px] text-fg border border-transparent hover:border-line"
-              >
-                Tune Parameters
-              </Link>
-            </div>
-          </div>
-        ))}
-        {strategies.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center py-24 border border-dashed border-line rounded-[var(--radius-card)] bg-surface/30">
-            <div className="h-16 w-16 rounded-full bg-surface border border-line flex items-center justify-center text-fg-subtle mb-6">
-              <Flask size={32} weight="duotone" />
-            </div>
-            <h3 className="text-lg font-bold text-fg mb-2">No strategies defined</h3>
-            <p className="text-sm text-fg-subtle text-center max-w-md mb-6">
-              You haven&apos;t created any trading algorithms yet. Start from a curated template, write your own logic, or let AI draft one for you.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <Link href="/dashboard/strategy?view=new" className="relative group inline-flex items-center gap-2 px-6 py-3 bg-accent border border-accent/50 rounded-[var(--radius-pill)] text-sm font-bold text-base transition-all hover:shadow-[0_0_30px_rgba(var(--color-accent-rgb),0.4)] hover:-translate-y-[1px]">
-                <Plus size={18} weight="bold" className="text-base" />
-                Create a strategy
-              </Link>
-              <Link href="/dashboard/strategy?view=builder" className="inline-flex items-center gap-2 px-6 py-3 bg-surface border border-line rounded-[var(--radius-pill)] text-sm font-semibold text-fg transition-all hover:border-line-strong hover:-translate-y-[1px]">
-                <MagicWand size={18} weight="fill" className="text-accent" />
-                Generate with AI
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
+      <StrategyHubGrid strategies={serialized} />
     </div>
   );
 }

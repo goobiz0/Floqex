@@ -13,6 +13,7 @@ import { runStrategyValidation, type ValidationResponse } from "@/app/dashboard/
 import type { Interval } from "@/lib/engine/market-data";
 import type { ValidationReport, MonteCarloBands, RobustnessGrid } from "@/lib/engine/validation";
 import { EdgeScorecard } from "./edge-scorecard";
+import { DistributionChart } from "./calculators/shared";
 
 const INTERVALS: { value: Interval; label: string }[] = [
   { value: "1m", label: "1m" },
@@ -140,12 +141,20 @@ export function ValidationLab({
             <LockableCard
               locked={locked}
               title="Monte Carlo outlook"
-              tip="Resamples your real trade sequence 1,000 times to map the range of plausible futures. The band is the 5th to 95th percentile."
+              tip="Resamples your real trade sequence 1,000 times to map the range of plausible futures. The lighter band is the 5th to 95th percentile, the denser core is the 25th to 75th, and the line is the median path."
             >
               <MonteCarloBandChart bands={report.monteCarlo} />
+              {report.monteCarlo.finalsHistogram.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Final equity distribution</p>
+                  <DistributionChart bins={report.monteCarlo.finalsHistogram} baseline={10000} format={fmtMoney} height={120} />
+                </div>
+              )}
               <dl className="mt-4 grid grid-cols-3 gap-2">
                 <MetricCell k="Worst 5%" v={fmtMoney(report.monteCarlo.finalP5)} tone={report.monteCarlo.finalP5 >= 10000 ? "pos" : "neg"} />
                 <MetricCell k="Median" v={fmtMoney(report.monteCarlo.finalP50)} tone="neutral" />
+                <MetricCell k="Best 5%" v={fmtMoney(report.monteCarlo.finalP95)} tone="pos" />
+                <MetricCell k="Prob of profit" v={`${report.monteCarlo.probProfit.toFixed(0)}%`} tone={report.monteCarlo.probProfit >= 50 ? "pos" : "neg"} />
                 <MetricCell k="Risk of ruin" v={`${report.monteCarlo.riskOfRuin.toFixed(0)}%`} tone={report.monteCarlo.riskOfRuin > 20 ? "neg" : "pos"} />
               </dl>
             </LockableCard>
@@ -299,6 +308,7 @@ function Legend({ swatch, label, value, dashed }: { swatch: string; label: strin
 }
 
 function MonteCarloBandChart({ bands }: { bands: MonteCarloBands }) {
+  const reduce = useReducedMotion();
   if (bands.steps.length < 2) {
     return <div className="flex h-[200px] items-center justify-center text-sm text-fg-subtle">Not enough trades to simulate yet.</div>;
   }
@@ -310,18 +320,46 @@ function MonteCarloBandChart({ bands }: { bands: MonteCarloBands }) {
   const x = (i: number) => (i / (n - 1)) * CW;
   const y = (v: number) => CH - 10 - ((v - min) / span) * (CH - 20);
 
-  const upper = bands.steps.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.p95).toFixed(1)}`).join(" ");
-  const lowerRev = [...bands.steps].reverse().map((s, idx) => `L${x(n - 1 - idx).toFixed(1)},${y(s.p5).toFixed(1)}`).join(" ");
-  const band = `${upper} ${lowerRev} Z`;
+  // Outer band: 5th to 95th percentile. Inner core: 25th to 75th, drawn denser.
+  const outerUpper = bands.steps.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.p95).toFixed(1)}`).join(" ");
+  const outerLowerRev = [...bands.steps].reverse().map((s, idx) => `L${x(n - 1 - idx).toFixed(1)},${y(s.p5).toFixed(1)}`).join(" ");
+  const outerBand = `${outerUpper} ${outerLowerRev} Z`;
+  const innerUpper = bands.steps.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.p75).toFixed(1)}`).join(" ");
+  const innerLowerRev = [...bands.steps].reverse().map((s, idx) => `L${x(n - 1 - idx).toFixed(1)},${y(s.p25).toFixed(1)}`).join(" ");
+  const innerBand = `${innerUpper} ${innerLowerRev} Z`;
   const median = bands.steps.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s.p50).toFixed(1)}`).join(" ");
   const startY = y(bands.steps[0].p50);
 
   return (
-    <svg viewBox={`0 0 ${CW} ${CH}`} className="w-full" preserveAspectRatio="none" role="img" aria-label="Monte Carlo equity confidence band">
-      <line x1="0" y1={startY} x2={CW} y2={startY} stroke="var(--color-line-strong)" strokeWidth="1" strokeDasharray="3 3" />
-      <path d={band} fill="var(--color-accent)" fillOpacity="0.14" stroke="none" />
-      <path d={median} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="relative">
+      <svg viewBox={`0 0 ${CW} ${CH}`} className="w-full" preserveAspectRatio="none" role="img" aria-label="Monte Carlo equity confidence band, 5th to 95th and 25th to 75th percentiles">
+        {[0.25, 0.5, 0.75].map((p) => (
+          <line key={p} x1="0" y1={CH * p} x2={CW} y2={CH * p} stroke="var(--color-line)" strokeWidth="1" />
+        ))}
+        <line x1="0" y1={startY} x2={CW} y2={startY} stroke="var(--color-line-strong)" strokeWidth="1" strokeDasharray="3 3" />
+        <path d={outerBand} fill="var(--color-accent)" fillOpacity="0.12" stroke="none" />
+        <path d={innerBand} fill="var(--color-accent)" fillOpacity="0.22" stroke="none" />
+        <motion.path
+          d={median}
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={reduce ? false : { pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: reduce ? 0 : 0.7, ease: [0.23, 1, 0.32, 1] }}
+        />
+      </svg>
+      <div className="pointer-events-none absolute right-1 top-0 flex h-full flex-col justify-between py-1 text-right">
+        <span className="tnum text-[10px] text-fg-faint">{fmtMoney(max)}</span>
+        <span className="tnum text-[10px] text-fg-faint">{fmtMoney(min)}</span>
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-fg-faint">
+        <span>Trade 0</span>
+        <span className="tnum">{n - 1} trades</span>
+      </div>
+    </div>
   );
 }
 

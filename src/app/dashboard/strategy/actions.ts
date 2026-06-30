@@ -404,14 +404,12 @@ export async function deleteStrategy(strategyId: string) {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
-  const strategy = await prisma.strategy.findUnique({
-    where: { id: strategyId },
-    include: { user: true, bots: true },
+  const strategy = await prisma.strategy.findFirst({
+    where: { id: strategyId, user: { clerkId: userId } },
+    select: { id: true },
   });
 
-  if (!strategy || strategy.user.clerkId !== userId) {
-    return { ok: false, error: "Strategy not found" };
-  }
+  if (!strategy) return { ok: false, error: "Strategy not found" };
 
   // Delete bots first since there is no cascade from Strategy -> Bot
   await prisma.$transaction([
@@ -420,6 +418,5 @@ export async function deleteStrategy(strategyId: string) {
   ]);
 
   revalidatePath("/dashboard/strategy");
-  revalidatePath("/dashboard");
   return { ok: true };
 }

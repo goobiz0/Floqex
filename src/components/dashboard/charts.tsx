@@ -20,7 +20,7 @@ export function HBars({
             <div className="relative h-5 flex-1 rounded-[4px] bg-base/60">
               <div
                 className={cn(
-                  "absolute inset-y-0 rounded-[4px]",
+                  "absolute inset-y-0 rounded-[4px] bar-rise-x",
                   pos ? "left-0 bg-profit/80" : "left-0 bg-negative/80",
                 )}
                 style={{ width: `${pct}%` }}
@@ -60,7 +60,7 @@ export function VBars({
             <div className="flex h-full w-full flex-col justify-end">
               <div
                 className={cn(
-                  "w-full rounded-t-[4px]",
+                  "w-full rounded-t-[4px] bar-rise-y",
                   pos ? "bg-profit/80" : "bg-negative/80",
                 )}
                 style={{ height: `${Math.max(4, pct)}%` }}
@@ -95,7 +95,7 @@ export function Histogram({
         <div key={d.label} className="flex flex-1 flex-col items-center gap-2">
           <div className="flex h-full w-full flex-col justify-end">
             <div
-              className="w-full rounded-t-[4px] bg-accent/70"
+              className="w-full rounded-t-[4px] bg-accent/70 bar-rise-y"
               style={{ height: `${Math.max(4, (d.count / max) * 100)}%` }}
             />
           </div>

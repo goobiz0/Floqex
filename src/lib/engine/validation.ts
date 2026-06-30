@@ -337,7 +337,29 @@ export type MonteCarloBands = {
   riskOfRuin: number; // % of paths that breach the ruin drawdown
   riskOfRuinAnalytic: number; // closed-form sanity check
   samplePaths: number[][];
+  finalsHistogram: { x0: number; x1: number; count: number }[];
 };
+
+function buildHistogram(values: number[], binCount = 24): { x0: number; x1: number; count: number }[] {
+  if (values.length === 0) return [];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min;
+  if (span === 0) {
+    return [{ x0: min - 1, x1: max + 1, count: values.length }];
+  }
+  const bw = span / binCount;
+  const bins = Array.from({ length: binCount }, (_, i) => ({
+    x0: min + i * bw,
+    x1: min + (i + 1) * bw,
+    count: 0,
+  }));
+  for (const v of values) {
+    const idx = Math.min(binCount - 1, Math.floor((v - min) / bw));
+    bins[idx].count++;
+  }
+  return bins;
+}
 
 function percentileAsc(sortedAsc: number[], p: number): number {
   if (sortedAsc.length === 0) return 0;
@@ -367,7 +389,7 @@ export function bootstrapMonteCarlo(
   const rand = mulberry32((opts.seed ?? 7) >>> 0 || 1);
 
   if (rSequence.length === 0) {
-    return { steps: [], finalP5: start, finalP50: start, finalP95: start, probProfit: 0, riskOfRuin: 0, riskOfRuinAnalytic: 100, samplePaths: [] };
+    return { steps: [], finalP5: start, finalP50: start, finalP95: start, probProfit: 0, riskOfRuin: 0, riskOfRuinAnalytic: 100, samplePaths: [], finalsHistogram: [] };
   }
 
   // equityAtStep[step] holds every sim's equity at that step, for percentiles.
@@ -433,6 +455,7 @@ export function bootstrapMonteCarlo(
     riskOfRuin: round2((ruinCount / sims) * 100),
     riskOfRuinAnalytic: round2(roirAnalytic),
     samplePaths,
+    finalsHistogram: buildHistogram(finals, 24),
   };
 }
 
