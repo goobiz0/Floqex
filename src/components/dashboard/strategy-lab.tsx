@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { Check, X, Plus, Spinner, Star } from "@phosphor-icons/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Check, X, Spinner, Star } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
 import type { AdjustmentRow } from "@/lib/queries";
 import { backtestStrategy, type Bar } from "@/lib/engine/backtest";
 import { optimizeStrategy, monteCarlo, type SweepRow, type Objective } from "@/lib/engine/optimize";
-import { Histogram } from "./charts";
+import { EquityPaths, DistributionChart } from "./calculators/shared";
 import {
   saveStrategy,
   approveSuggestion,
@@ -64,6 +64,7 @@ export function StrategyLab({
   plan,
   accountId = null,
   strategyId = null,
+  kind = "ORB",
 }: {
   initialParams: StrategyParams;
   changeLog: AdjustmentRow[];
@@ -72,6 +73,7 @@ export function StrategyLab({
   plan: string;
   accountId?: string | null;
   strategyId?: string | null;
+  kind?: string;
 }) {
   const [params, setParams] = useState<StrategyParams>(initialParams);
   const [saved, setSaved] = useState<StrategyParams>(initialParams);
@@ -86,10 +88,7 @@ export function StrategyLab({
     [params, saved],
   );
 
-  const customKeys = useMemo(
-    () => Object.keys(params).filter((k) => !(k in PARAM_LABELS)),
-    [params]
-  );
+  const reduce = useReducedMotion();
 
   // Backtest the strategy over real historical bars for its instrument. The bars
   // are fetched once; the simulation re-runs instantly as parameters change, so
@@ -289,29 +288,140 @@ export function StrategyLab({
           </div>
         )}
 
-        <Group title="Entry & exit" tip="When the bot enters and how far it targets profit relative to the risk on each trade.">
-          <NumberField bound={PARAM_BOUNDS.rangeMinutes} value={params.rangeMinutes} onChange={(v) => set("rangeMinutes", v)} />
-          <NumberField bound={PARAM_BOUNDS.rrTarget} value={params.rrTarget} onChange={(v) => set("rrTarget", v)} />
-        </Group>
+        {kind !== "CUSTOM" ? (
+          <>
+            <Group title="Entry and exit" tip="When the bot enters and how far it targets profit relative to the risk on each trade.">
+              <NumberField bound={PARAM_BOUNDS.rangeMinutes} value={params.rangeMinutes} onChange={(v) => set("rangeMinutes", v)} />
+              <NumberField bound={PARAM_BOUNDS.rrTarget} value={params.rrTarget} onChange={(v) => set("rrTarget", v)} />
+            </Group>
 
-        <Group title="Range filters" premium tip="Skip sessions that are too quiet or too wild. The day's range is measured against a normal ~1% day.">
-          <NumberField bound={PARAM_BOUNDS.minRange} value={params.minRange} onChange={(v) => set("minRange", v)} />
-          <NumberField bound={PARAM_BOUNDS.maxRange} value={params.maxRange} onChange={(v) => set("maxRange", v)} />
-        </Group>
+            <Group title="Range filters" premium tip="Skip sessions that are too quiet or too wild. The day's range is measured against a normal ~1% day.">
+              <NumberField bound={PARAM_BOUNDS.minRange} value={params.minRange} onChange={(v) => set("minRange", v)} />
+              <NumberField bound={PARAM_BOUNDS.maxRange} value={params.maxRange} onChange={(v) => set("maxRange", v)} />
+            </Group>
 
-        <Group title="Risk controls" tip="How much you risk per trade, plus the daily limits that stop the bot to protect the account.">
-          <NumberField bound={PARAM_BOUNDS.riskPct} value={params.riskPct} onChange={(v) => set("riskPct", v)} />
-          <NumberField bound={PARAM_BOUNDS.dailyLoss} value={params.dailyLoss} onChange={(v) => set("dailyLoss", v)} />
-          <NumberField bound={PARAM_BOUNDS.maxTrades} value={params.maxTrades} onChange={(v) => set("maxTrades", v)} premium />
-        </Group>
+            <Group title="Risk controls" tip="How much you risk per trade, plus the daily limits that stop the bot to protect the account.">
+              <NumberField bound={PARAM_BOUNDS.riskPct} value={params.riskPct} onChange={(v) => set("riskPct", v)} />
+              <NumberField bound={PARAM_BOUNDS.dailyLoss} value={params.dailyLoss} onChange={(v) => set("dailyLoss", v)} />
+              <NumberField bound={PARAM_BOUNDS.maxTrades} value={params.maxTrades} onChange={(v) => set("maxTrades", v)} premium />
+            </Group>
 
-        <Group title="Filters" premium tip="Optional confirmations that must agree before a trade is taken.">
-          <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Only take trades that agree with the 20-period trend." />
-          <ToggleField label={PARAM_LABELS.reEntry} value={params.reEntry} onChange={(v) => set("reEntry", v)} help="Wait for a pullback inside the range before re-entering." />
-          <ToggleField label={PARAM_LABELS.extendedHours} value={params.extendedHours} onChange={(v) => set("extendedHours", v)} help="Allow trading during pre-market and after-hours sessions." />
-        </Group>
+            <Group title="Filters" premium tip="Optional confirmations that must agree before a trade is taken.">
+              <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Only take trades that agree with the 20-period trend." />
+              <ToggleField label={PARAM_LABELS.reEntry} value={params.reEntry} onChange={(v) => set("reEntry", v)} help="Wait for a pullback inside the range before re-entering." />
+            </Group>
+          </>
+        ) : (
+          <>
+            <Card className="p-5">
+              <CardTitle>Signal definition</CardTitle>
+              <p className="mt-1 text-xs text-fg-subtle">
+                The entry rules run on the indicator engine and are edited from the builder.
+              </p>
+              <div className="mt-4 space-y-3">
+                {/* Instruments */}
+                {(() => {
+                  const insts: string[] = Array.isArray(params.instruments)
+                    ? (params.instruments as unknown[]).filter((v): v is string => typeof v === "string")
+                    : typeof params.instrument === "string" && params.instrument
+                    ? [params.instrument]
+                    : [];
+                  return insts.length > 0 ? (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle mb-1.5">Instruments</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {insts.map((sym) => (
+                          <span key={sym} className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-fg">
+                            {sym}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
 
+                {/* Direction */}
+                {typeof params.direction === "string" && (
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">Direction</p>
+                    <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-fg">
+                      {String(params.direction)}
+                    </span>
+                  </div>
+                )}
 
+                {/* Mode summary */}
+                {(() => {
+                  const mode = params.mode;
+                  if (mode === "BUILDER") {
+                    const groups = Array.isArray(params.groups) ? params.groups as Array<{ conditions?: unknown[] }> : [];
+                    const condCount = groups.reduce((sum, g) => sum + (Array.isArray(g.conditions) ? g.conditions.length : 0), 0);
+                    return (
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">Entry conditions</p>
+                        <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-fg">
+                          {condCount} condition{condCount !== 1 ? "s" : ""} across {groups.length} group{groups.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (mode === "CODE") {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">Language</p>
+                        <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-fg capitalize">
+                          {typeof params.language === "string" ? params.language : "javascript"}
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            </Card>
+
+            <Card className="p-5">
+              <CardTitle>Risk defaults</CardTitle>
+              <p className="mt-1 text-xs text-fg-subtle">These apply to every trade the bot executes.</p>
+              <div className="mt-4 space-y-5">
+                <NumberField bound={PARAM_BOUNDS.riskPct} value={params.riskPct} onChange={(v) => set("riskPct", v)} />
+                <NumberField bound={PARAM_BOUNDS.dailyLoss} value={params.dailyLoss} onChange={(v) => set("dailyLoss", v)} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="custom-stopLossPct">Stop loss distance</Label>
+                  <ClampedNumberInput
+                    id="custom-stopLossPct"
+                    value={typeof params.stopLossPct === "number" ? params.stopLossPct : 0.5}
+                    min={0.1}
+                    max={20}
+                    onCommit={(v) => set("stopLossPct" as keyof StrategyParams, v as StrategyParams[keyof StrategyParams])}
+                    trailing="%"
+                    className="tnum w-32"
+                    ariaLabel="Stop loss distance"
+                  />
+                  <p className="text-xs leading-relaxed text-fg-subtle">
+                    Distance from entry to stop. <span className="text-fg-faint">Range 0.1 to 20%.</span>
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="custom-targetRatio">Reward to risk</Label>
+                  <ClampedNumberInput
+                    id="custom-targetRatio"
+                    value={typeof params.targetRatio === "number" ? params.targetRatio : 2}
+                    min={0.25}
+                    max={20}
+                    onCommit={(v) => set("targetRatio" as keyof StrategyParams, v as StrategyParams[keyof StrategyParams])}
+                    trailing="R"
+                    className="tnum w-32"
+                    ariaLabel="Reward to risk"
+                  />
+                  <p className="text-xs leading-relaxed text-fg-subtle">
+                    Profit target as a multiple of risk. <span className="text-fg-faint">Range 0.25 to 20R.</span>
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Side: change log + learning */}
@@ -338,10 +448,12 @@ export function StrategyLab({
             ) : (
               <>
                 <EquityCurve series={backtest.series} />
-                <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {[
                     { k: "Return", v: `${backtest.totalReturnPct >= 0 ? "+" : ""}${backtest.totalReturnPct.toFixed(1)}%`, tone: backtest.totalReturnPct >= 0 ? "text-profit" : "text-negative" },
                     { k: "Win rate", v: `${backtest.winRate.toFixed(0)}%`, tone: "text-fg" },
+                    { k: "Profit factor", v: backtest.profitFactor != null ? backtest.profitFactor.toFixed(2) : "N/A", tone: backtest.profitFactor != null && backtest.profitFactor >= 1 ? "text-profit" : "text-fg" },
+                    { k: "Expectancy", v: (() => { const tradeR = backtest.tradeReturns; if (!tradeR || tradeR.length === 0) return "N/A"; const mean = tradeR.reduce((a, b) => a + b, 0) / tradeR.length; return `${mean >= 0 ? "+" : ""}${mean.toFixed(2)}R`; })(), tone: "text-fg" },
                     { k: "Max DD", v: `-${backtest.maxDrawdownPct.toFixed(1)}%`, tone: "text-negative" },
                     { k: "Trades", v: String(backtest.trades), tone: "text-fg" },
                   ].map((s) => (
@@ -364,28 +476,72 @@ export function StrategyLab({
           <Card className="p-5">
             <CardTitle>Edge analysis</CardTitle>
             <p className="mt-1 text-xs text-fg-subtle">How the simulated trades are distributed, and the spread of outcomes if the same edge repeats.</p>
+
+            {/* Animated R-multiple spread */}
             <div className="mt-4">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">R-multiple spread</p>
-              <Histogram data={rBuckets} />
-            </div>
-            {mc && (
-              <div className="mt-5">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
-                  Monte Carlo ({mc.runs} runs)
-                </p>
-                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    { k: "P5 return", v: `${mc.p5ReturnPct >= 0 ? "+" : ""}${mc.p5ReturnPct.toFixed(0)}%`, tone: mc.p5ReturnPct >= 0 ? "text-profit" : "text-negative" },
-                    { k: "Median", v: `${mc.p50ReturnPct >= 0 ? "+" : ""}${mc.p50ReturnPct.toFixed(0)}%`, tone: mc.p50ReturnPct >= 0 ? "text-profit" : "text-negative" },
-                    { k: "P95 return", v: `${mc.p95ReturnPct >= 0 ? "+" : ""}${mc.p95ReturnPct.toFixed(0)}%`, tone: "text-fg" },
-                    { k: "Risk of ruin", v: `${mc.riskOfRuinPct.toFixed(0)}%`, tone: mc.riskOfRuinPct > 10 ? "text-negative" : "text-fg" },
-                  ].map((s) => (
-                    <div key={s.k} className="rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-center">
-                      <dt className="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">{s.k}</dt>
-                      <dd className={cn("mt-0.5 text-sm font-semibold tnum", s.tone)}>{s.v}</dd>
+              <div className="space-y-2">
+                {rBuckets.map((b) => {
+                  const maxCount = Math.max(1, ...rBuckets.map((x) => x.count));
+                  const pct = (b.count / maxCount) * 100;
+                  return (
+                    <div key={b.label} className="flex items-center gap-3">
+                      <span className="w-28 shrink-0 text-xs text-fg-subtle">{b.label}</span>
+                      <div className="relative h-5 flex-1 rounded-[4px] bg-base/60 overflow-hidden">
+                        <motion.div
+                          className="absolute inset-y-0 left-0 rounded-[4px] bg-accent/70"
+                          initial={{ width: reduce ? `${pct}%` : "0%" }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+                        />
+                      </div>
+                      <span className="tnum w-8 shrink-0 text-right text-xs font-medium text-fg-muted">{b.count}</span>
                     </div>
-                  ))}
-                </dl>
+                  );
+                })}
+              </div>
+            </div>
+
+            {mc && (
+              <div className="mt-5 space-y-4">
+                {/* Equity paths fan */}
+                {mc.samplePaths.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+                      Monte Carlo equity paths ({mc.samplePaths.length} of {mc.runs} shown)
+                    </p>
+                    <EquityPaths paths={mc.samplePaths} baseline={10000} height={200} />
+                  </div>
+                )}
+
+                {/* Final balance distribution */}
+                {mc.finalsHistogram.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Final balance distribution</p>
+                    <DistributionChart bins={mc.finalsHistogram} baseline={10000} />
+                  </div>
+                )}
+
+                {/* Stat grid */}
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+                    Monte Carlo ({mc.runs} runs)
+                  </p>
+                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {[
+                      { k: "P5 return", v: `${mc.p5ReturnPct >= 0 ? "+" : ""}${mc.p5ReturnPct.toFixed(0)}%`, tone: mc.p5ReturnPct >= 0 ? "text-profit" : "text-negative" },
+                      { k: "Median", v: `${mc.p50ReturnPct >= 0 ? "+" : ""}${mc.p50ReturnPct.toFixed(0)}%`, tone: mc.p50ReturnPct >= 0 ? "text-profit" : "text-negative" },
+                      { k: "P95 return", v: `${mc.p95ReturnPct >= 0 ? "+" : ""}${mc.p95ReturnPct.toFixed(0)}%`, tone: "text-fg" },
+                      { k: "Prob of profit", v: `${mc.probProfitPct.toFixed(0)}%`, tone: mc.probProfitPct >= 50 ? "text-profit" : "text-negative" },
+                      { k: "Risk of ruin", v: `${mc.riskOfRuinPct.toFixed(0)}%`, tone: mc.riskOfRuinPct > 10 ? "text-negative" : "text-fg" },
+                    ].map((s) => (
+                      <div key={s.k} className="rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-center">
+                        <dt className="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">{s.k}</dt>
+                        <dd className={cn("mt-0.5 text-sm font-semibold tnum", s.tone)}>{s.v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
               </div>
             )}
           </Card>
@@ -514,10 +670,12 @@ export function StrategyLab({
                 {autoAdjustmentsUsed} / {AUTO_LIMIT}
               </span>
             </div>
-            <div className="mt-2 h-1.5 rounded-full bg-surface">
-              <div
-                className="h-full rounded-full bg-accent transition-all duration-1000 ease-out"
-                style={{ width: `${Math.min(100, (autoAdjustmentsUsed / AUTO_LIMIT) * 100)}%` }}
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface">
+              <motion.div
+                className="h-full rounded-full bg-accent"
+                initial={{ width: reduce ? `${Math.min(100, (autoAdjustmentsUsed / AUTO_LIMIT) * 100)}%` : "0%" }}
+                animate={{ width: `${Math.min(100, (autoAdjustmentsUsed / AUTO_LIMIT) * 100)}%` }}
+                transition={{ duration: reduce ? 0 : 0.8, ease: [0.23, 1, 0.32, 1] }}
               />
             </div>
           </div>

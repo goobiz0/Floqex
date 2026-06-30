@@ -99,6 +99,9 @@ export type MonteCarloResult = {
   p95ReturnPct: number;
   medianMaxDrawdownPct: number;
   riskOfRuinPct: number; // share of runs that lost >= 50% at any point
+  samplePaths: number[][]; // up to 20 seeded equity paths in DOLLARS on a $10,000 base
+  finalsHistogram: { x0: number; x1: number; count: number }[]; // ~24 bins over final balances
+  probProfitPct: number; // % of runs whose final dollar balance > 10000
 };
 
 const percentile = (sorted: number[], p: number): number => {
@@ -113,6 +116,27 @@ const percentile = (sorted: number[], p: number): number => {
  * compounds them at the given per-trade risk fraction. Seeded so the bands are
  * stable across renders.
  */
+function buildHistogram(values: number[], binCount = 24): { x0: number; x1: number; count: number }[] {
+  if (values.length === 0) return [];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min;
+  if (span === 0) {
+    return [{ x0: min - 1, x1: max + 1, count: values.length }];
+  }
+  const bw = span / binCount;
+  const bins = Array.from({ length: binCount }, (_, i) => ({
+    x0: min + i * bw,
+    x1: min + (i + 1) * bw,
+    count: 0,
+  }));
+  for (const v of values) {
+    const idx = Math.min(binCount - 1, Math.floor((v - min) / bw));
+    bins[idx].count++;
+  }
+  return bins;
+}
+
 export function monteCarlo(
   tradeReturns: number[],
   riskPct: number,
@@ -123,16 +147,26 @@ export function monteCarlo(
   if (n < 5) return null;
   const rand = mulberry32(seed);
   const riskFraction = Math.min(0.02, Math.max(0.001, riskPct / 100));
+  const BASE = 10000;
 
   const finals: number[] = [];
+  const finalsDollar: number[] = [];
   const drawdowns: number[] = [];
   let ruin = 0;
+  let profitCount = 0;
+
+  const maxSamplePaths = 20;
+  const sampleEvery = Math.max(1, Math.floor(runs / maxSamplePaths));
+  const samplePaths: number[][] = [];
 
   for (let run = 0; run < runs; run++) {
     let equity = 1;
     let peak = 1;
     let maxDd = 0;
     let ruined = false;
+    const keep = run % sampleEvery === 0 && samplePaths.length < maxSamplePaths;
+    const path: number[] = keep ? [BASE] : [];
+
     for (let i = 0; i < n; i++) {
       const r = tradeReturns[Math.floor(rand() * n)];
       equity *= 1 + r * riskFraction;
@@ -142,10 +176,15 @@ export function monteCarlo(
       }
       peak = Math.max(peak, equity);
       maxDd = Math.max(maxDd, peak > 0 ? (peak - equity) / peak : 0);
+      if (keep) path.push(Math.round(equity * BASE));
     }
+    const finalDollar = Math.round(equity * BASE);
     finals.push((equity - 1) * 100);
+    finalsDollar.push(finalDollar);
     drawdowns.push(maxDd * 100);
     if (ruined || maxDd >= 0.5) ruin++;
+    if (finalDollar > BASE) profitCount++;
+    if (keep) samplePaths.push(path);
   }
 
   finals.sort((a, b) => a - b);
@@ -158,5 +197,8 @@ export function monteCarlo(
     p95ReturnPct: percentile(finals, 95),
     medianMaxDrawdownPct: percentile(drawdowns, 50),
     riskOfRuinPct: (ruin / runs) * 100,
+    samplePaths,
+    finalsHistogram: buildHistogram(finalsDollar, 24),
+    probProfitPct: (profitCount / runs) * 100,
   };
 }
