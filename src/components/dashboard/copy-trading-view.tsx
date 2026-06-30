@@ -442,7 +442,7 @@ function PnlText({ value }: { value: number }) {
 
 function DailyLossMeter({ link }: { link: CopyLinkRow }) {
   const limit = link.maxDailyLossPct !== null ? (link.maxDailyLossPct / 100) * link.follower.balance : 0;
-  const loss = link.analytics.todayPnl < 0 ? -link.analytics.todayPnl : 0;
+  const loss = link.analytics.todayLoss;
   const pct = limit > 0 ? Math.min(1, loss / limit) : 0;
   const near = pct >= 0.75;
   return (

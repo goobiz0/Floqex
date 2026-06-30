@@ -503,6 +503,13 @@ enum CopySizingMode {
   @@schema("public")
 }
 
+enum CopyFilterMode {
+  ALLOW
+  DENY
+
+  @@schema("public")
+}
+
 enum CopyLinkStatus {
   ACTIVE
   PAUSED
@@ -527,7 +534,7 @@ model CopyLink {
   minUnits          Decimal?       @db.Decimal(18, 4) // floor a copy up to this size (skip dust)
   maxUnits          Decimal?       @db.Decimal(18, 4) // hard ceiling on any copied order
   symbolFilter      String? // comma list of instruments to allow or block
-  symbolFilterMode  String         @default("ALLOW") // ALLOW = copy only these, DENY = copy all but these
+  symbolFilterMode  CopyFilterMode @default(ALLOW) // ALLOW = copy only these, DENY = copy all but these
   maxDailyLossPct   Decimal?       @db.Decimal(6, 3) // auto-pause the link past this daily copied loss
   reverse           Boolean        @default(false) // copy the opposite direction
   copyOpen          Boolean        @default(true)

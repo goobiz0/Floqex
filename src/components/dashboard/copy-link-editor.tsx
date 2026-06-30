@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect } from "react";
+import React, { useMemo, useState, useTransition, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -74,14 +74,56 @@ export function CopyLinkEditor({
   const [exampleUnits, setExampleUnits] = useState("10");
   const [exampleStopPct, setExampleStopPct] = useState("1");
 
-  // Escape to close + lock body scroll, matching the shared Dialog behavior.
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+
+  // Escape to close + lock body scroll + focus trap, matching the shared Dialog behavior.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
+    
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    
+    const dialog = dialogRef.current;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    
+    if (dialog) {
+      const focusable = dialog.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      
+      first?.focus();
+      
+      const handleTab = (e: KeyboardEvent) => {
+        if (e.key === "Tab") {
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              last?.focus();
+              e.preventDefault();
+            }
+          } else {
+            if (document.activeElement === last) {
+              first?.focus();
+              e.preventDefault();
+            }
+          }
+        }
+      };
+      dialog.addEventListener("keydown", handleTab);
+      
+      return () => {
+        window.removeEventListener("keydown", onKey);
+        dialog.removeEventListener("keydown", handleTab);
+        document.body.style.overflow = prevOverflow;
+        prevFocus?.focus();
+      };
+    }
+
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      document.body.style.overflow = prevOverflow;
     };
   }, [onClose]);
 
@@ -188,6 +230,7 @@ export function CopyLinkEditor({
           onClick={onClose}
         />
         <motion.div
+          ref={dialogRef}
           initial={{ opacity: 0, scale: 0.97, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 12 }}
@@ -320,8 +363,7 @@ export function CopyLinkEditor({
                         <button
                           key={opt}
                           type="button"
-                          role="tab"
-                          aria-selected={symbolFilterMode === opt}
+                          aria-pressed={symbolFilterMode === opt}
                           onClick={() => setSymbolFilterMode(opt)}
                           className={cn(
                             "flex-1 rounded-[var(--radius-pill)] px-3 py-1 text-xs font-medium transition-colors",

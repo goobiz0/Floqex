@@ -42,7 +42,7 @@ function buildRule(link: CopyLink): CopyRule {
     maxUnits: link.maxUnits === null ? null : num(link.maxUnits),
     reverse: link.reverse,
     symbolFilter: link.symbolFilter,
-    symbolFilterMode: (link.symbolFilterMode as CopyFilterMode) ?? "ALLOW",
+    symbolFilterMode: link.symbolFilterMode === "DENY" ? "DENY" : "ALLOW",
   };
 }
 
@@ -139,6 +139,18 @@ export async function replicateOpen(sourceTrade: Trade): Promise<void> {
         if (resolved.skip) {
           await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", resolved.direction, null, {
             reason: resolved.skip.reason,
+          });
+          continue;
+        }
+
+        const linkCheck = await prisma.copyLink.findUnique({
+          where: { id: link.id },
+          select: { status: true, copyOpen: true },
+        });
+
+        if (!linkCheck || linkCheck.status !== "ACTIVE" || !linkCheck.copyOpen) {
+          await logEvent(link.id, link.masterAccount.userId, sourceTrade, "OPEN", "SKIPPED", resolved.direction, null, {
+            reason: "Link was paused or copyOpen disabled while preparing trade.",
           });
           continue;
         }

@@ -325,7 +325,7 @@ export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
       if (guard) return { ok: false, error: guard };
     } else {
       const transpileResult = transpileStrategy(language, code);
-      if (!transpileResult.ok) return { ok: false, error: transpileResult.error };
+      if (!transpileResult.ok) return { ok: false, error: (transpileResult as any).error };
     }
     return { ok: true, instruments, config: { mode: "CODE", language, code, direction, stopLossPct, targetRatio } };
   }
