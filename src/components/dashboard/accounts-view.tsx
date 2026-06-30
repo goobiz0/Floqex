@@ -1152,7 +1152,10 @@ function AdvancedContent({
 
 function WebhookBox({ accountId }: { accountId: string }) {
   const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOrigin(window.location.origin);
+  }, []);
   const url = origin ? `${origin}/api/webhooks/tradingview/${accountId}` : "";
   
   return (
