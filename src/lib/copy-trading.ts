@@ -63,7 +63,7 @@ export type CopySkipCode =
   | "ZERO_SIZE"
   | "NO_BOT"
   | "ENTRIES_DISABLED"
-  | "DAILY_LOSS_LIMIT";
+  | "DAILY_LOSS_LIMIT" | "MIN_SIZE";
 
 /** A short, stable, human-facing id tag for an account (e.g. "#A1B2C3"). */
 export function shortAccountId(id: string): string {
