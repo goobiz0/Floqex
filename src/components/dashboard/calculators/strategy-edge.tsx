@@ -57,7 +57,7 @@ export function KellyCalc(_props: CalcProps) {
             />
           ) : null}
           <StatGrid cols={3}>
-            <Stat label="Half Kelly" value={fmtPct(r.halfKelly * 100)} tone="accent" hint="recommended" />
+            <Stat label="Half Kelly" value={fmtPct(r.halfKelly * 100)} tone="positive" hint="recommended" />
             <Stat label="Quarter Kelly" value={fmtPct(r.quarterKelly * 100)} hint="conservative" />
             <Stat label="Growth / trade" value={fmtPct(r.growthRate * 100, 2)} tone={r.growthRate > 0 ? "positive" : "negative"} />
           </StatGrid>

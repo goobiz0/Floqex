@@ -311,48 +311,7 @@ export function StrategyLab({
           <ToggleField label={PARAM_LABELS.extendedHours} value={params.extendedHours} onChange={(v) => set("extendedHours", v)} help="Allow trading during pre-market and after-hours sessions." />
         </Group>
 
-        <Group title="Custom parameters" tip="Advanced extra values stored with your strategy for custom logic. Leave empty if unsure.">
 
-            <div className="space-y-4">
-            {customKeys.map((k) => (
-              <div key={k} className="flex items-end gap-3">
-                <div className="flex-1 space-y-1.5">
-                  <Label htmlFor={`custom-${k}`}>{k}</Label>
-                  <ClampedNumberInput
-                    id={`custom-${k}`}
-                    value={Number(params[k as keyof StrategyParams]) || 0}
-                    onCommit={(v) => set(k as keyof StrategyParams, v as StrategyParams[keyof StrategyParams])}
-                    className="w-full"
-                    ariaLabel={k}
-                    allowNegative
-                  />
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="px-2 mb-0.5 shrink-0" 
-                  onClick={() => {
-                    const p = { ...params };
-                    delete p[k as keyof StrategyParams];
-                    setParams(p);
-                  }}
-                >
-                  <X size={16} />
-                </Button>
-              </div>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const newKey = `customParam${customKeys.length + 1}`;
-                set(newKey as keyof StrategyParams, 0 as StrategyParams[keyof StrategyParams]);
-              }}
-            >
-              <Plus size={14} className="mr-1" /> Add Parameter
-            </Button>
-          </div>
-        </Group>
       </div>
 
       {/* Side: change log + learning */}

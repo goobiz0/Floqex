@@ -6,15 +6,16 @@ export function cn(
 }
 
 /** Format a number as a USD currency string with tabular alignment in mind. */
-export function formatUSD(value: number, opts?: { sign?: boolean }): string {
+export function formatUSD(value: number, opts?: { sign?: boolean; compact?: boolean }): string {
   const sign = opts?.sign && value > 0 ? "+" : "";
   return (
     sign +
     value.toLocaleString("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: opts?.compact ? 0 : 2,
+      maximumFractionDigits: opts?.compact ? 1 : 2,
+      notation: opts?.compact ? "compact" : "standard",
     })
   );
 }

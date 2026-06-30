@@ -147,9 +147,11 @@ Operating rules:
 - For ANY arithmetic, call the calculate tool. Never do mental math.
 - For projections, risk-of-ruin, or "what if" questions, call runMonteCarlo and briefly interpret the result.
 - For performance questions, call getPerformance (accepts optional days window, default 7).
+- For specific recent trade data, call getRecentTrades (returns up to 20 most recent trades with full detail).
 - For edge analysis (expectancy, Kelly fraction, verdict), call analyzeEdge.
 - For P/L broken down by instrument, session, or weekday, call getBreakdown.
 - For bot questions, call getBotStatus.
+- For account balances, paper trading equity, and broker connection status, call getAccountDetails.
 - To change strategy settings, call updateStrategyParams; the user approves before anything is applied.
 
 Allowed parameters for updateStrategyParams: ${boundsHelp}`;
@@ -192,6 +194,33 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
             avgWin: `$${s.avgWin.toFixed(2)}`,
             avgLoss: `$${s.avgLoss.toFixed(2)}`,
           };
+        },
+      }),
+      getRecentTrades: tool({
+        description: "Get the raw data for the user's most recent trades, including entry/exit prices, PnL, duration, and narrative.",
+        inputSchema: z.object({
+          limit: z.number().optional().describe("Number of trades to fetch, default 10, max 20"),
+        }),
+        execute: async ({ limit = 10 }) => {
+          const l = Math.min(20, Math.max(1, limit));
+          const trades = await prisma.trade.findMany({
+            where: { account: { userId: user.id } },
+            orderBy: { openedAt: "desc" },
+            take: l,
+            select: TRADE_SELECT,
+          });
+          return { trades: toRows(trades) };
+        },
+      }),
+      getAccountDetails: tool({
+        description: "Check the user's account balance, connected broker status, and equity.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const account = await prisma.account.findFirst({
+            where: { userId: user.id },
+            select: { id: true, balance: true, broker: true, mode: true, currency: true },
+          });
+          return { account: account || null };
         },
       }),
       getBotStatus: tool({
