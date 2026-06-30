@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState, useTransition, useEffect } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useId, useState, useTransition, useEffect, useMemo, ReactNode, useOptimistic } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Wallet,
@@ -39,6 +40,8 @@ import {
 import { formatAccountLimit, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
 import type { AccountsOverview, AccountOverviewRow } from "@/lib/queries";
+
+const NEW_ACCOUNT_HREF = dashboardUrl("/accounts/new");
 
 type ModeFilter = "ALL" | "PAPER" | "LIVE";
 type SortKey = "balance" | "today" | "total" | "winRate" | "name" | "recent";
@@ -125,26 +128,6 @@ export function AccountsView({ data }: { data: AccountsOverview }) {
         toast.error(res.error ?? "Could not disconnect this account.");
       }
     });
-  }
-
-  async function handleCopy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Webhook URL copied to clipboard!");
-    } catch {
-      alert("Failed to copy URL");
-    }
-  }
-
-  function handleDisconnect(id: string) {
-    if (confirm("Are you sure you want to disconnect this account? All associated bots and trading history will be permanently deleted.")) {
-      startTransition(async () => {
-        const res = await disconnectAccount(id);
-        if (!res.ok) {
-          alert(res.error);
-        }
-      });
-    }
   }
 
   return (

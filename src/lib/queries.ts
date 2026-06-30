@@ -997,6 +997,8 @@ export type CopyTradingStats = {
   followerAccounts: number;
   masterAccounts: number;
   totalCopied: number;
+  todayPnl: number;
+  todayLoss: number;
   copiedToday: number;
   realizedPnl: number;
   openCopies: number;
@@ -1280,6 +1282,8 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
       masterAccounts: new Set(links.map((l) => l.master.id)).size,
       totalCopied: links.reduce((s, l) => s + l.copiedCount, 0),
       copiedToday,
+      todayPnl: links.reduce((s, l) => s + l.analytics.todayPnl, 0),
+      todayLoss: links.reduce((s, l) => s + l.analytics.todayLoss, 0),
       realizedPnl: realizedAgg._sum.pnl === null ? 0 : num(realizedAgg._sum.pnl),
       openCopies: links.reduce((s, l) => s + l.analytics.openCopies, 0),
       winRate: closedTotal > 0 ? winsTotal / closedTotal : null,

@@ -308,6 +308,7 @@ export function StrategyLab({
         <Group title="Filters" premium tip="Optional confirmations that must agree before a trade is taken.">
           <ToggleField label={PARAM_LABELS.trendFilter} value={params.trendFilter} onChange={(v) => set("trendFilter", v)} help="Only take trades that agree with the 20-period trend." />
           <ToggleField label={PARAM_LABELS.reEntry} value={params.reEntry} onChange={(v) => set("reEntry", v)} help="Wait for a pullback inside the range before re-entering." />
+          <ToggleField label={PARAM_LABELS.extendedHours} value={params.extendedHours} onChange={(v) => set("extendedHours", v)} help="Allow trading during pre-market and after-hours sessions." />
         </Group>
 
         <Group title="Custom parameters" tip="Advanced extra values stored with your strategy for custom logic. Leave empty if unsure.">

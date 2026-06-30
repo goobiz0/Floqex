@@ -160,7 +160,7 @@ export function BotsNewClient({
   function handleNumParam(key: NumericParam, value: number) {
     setParams((p) => ({ ...p, [key]: value }));
   }
-  function handleBoolParam(key: "trendFilter" | "reEntry" | "newsPause", value: boolean) {
+  function handleBoolParam(key: "trendFilter" | "reEntry" | "newsPause" | "extendedHours", value: boolean) {
     setParams((p) => ({ ...p, [key]: value }));
   }
 
@@ -402,10 +402,11 @@ export function BotsNewClient({
                   <SliderField key={key} bound={PARAM_BOUNDS[key]} value={params[key]} onChange={(v) => handleNumParam(key, v)} premium={PREMIUM_PARAMS.has(key)} />
                 ))}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-line">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-line">
                 <CheckField label="Trend filter" premium checked={params.trendFilter} onChange={(v) => handleBoolParam("trendFilter", v)} help="Only take trades that agree with the longer-term trend." />
                 <CheckField label="Allow re-entries" premium checked={params.reEntry} onChange={(v) => handleBoolParam("reEntry", v)} help="Re-enter after a pullback inside the range." />
                 <CheckField label="Pause on high-impact news" checked={params.newsPause} onChange={(v) => handleBoolParam("newsPause", v)} help="Stand aside around scheduled high-impact news." />
+                <CheckField label="Extended hours" checked={params.extendedHours} onChange={(v) => handleBoolParam("extendedHours", v)} help="Allow trading during pre-market and after-hours sessions." />
               </div>
             </div>
           ) : strategyMode === "BUILDER" ? (
