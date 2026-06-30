@@ -9,10 +9,11 @@ type DisplayValueProps = {
   percent?: number;
   className?: string;
   type?: "PNL" | "BALANCE";
+  compact?: boolean;
 };
 
-export function DisplayValue({ money, percent, className, type = "PNL" }: DisplayValueProps) {
-  const moneyStr = formatUSD(money, { sign: type === "PNL" });
+export function DisplayValue({ money, percent, className, type = "PNL", compact }: DisplayValueProps) {
+  const moneyStr = formatUSD(money, { sign: type === "PNL", compact });
   
   let percentStr = "";
   if (type === "PNL") {
