@@ -66,6 +66,7 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
         });
         if (indicators.sma50 != null) {
           sma50 = indicators.sma50;
+          pruneCache(smaCache, 1000);
           smaCache[symbol] = { value: sma50, expiresAt: Date.now() + 1000 * 60 * 60 };
         }
       }
@@ -84,6 +85,7 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
       indicators,
     };
 
+    pruneCache(quoteCache, 1000);
     quoteCache[symbol] = { data, expiresAt: Date.now() + QUOTE_TTL_MS };
     return data;
   } catch (error) {

@@ -34,8 +34,9 @@ async function tick() {
     console.log(`[${new Date().toISOString()}] Engine Tick: Processing ${bots.length} running bot(s)...`);
 
     await Promise.all(bots.map(async (bot) => {
-      // Skip bots not attached to an account
-      if (!bot.accountId || !bot.account) return;
+      try {
+        // Skip bots not attached to an account
+        if (!bot.accountId || !bot.account) return;
 
       // Check Edge Decay periodically (every 1 hour)
       const now = Date.now();
@@ -259,6 +260,9 @@ async function tick() {
           }
         }
       }
+      }
+      } catch (botError) {
+        console.error(`[FATAL] Error processing bot ${bot.id}:`, botError);
       }
     }));
   } catch (error) {

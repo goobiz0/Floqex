@@ -69,15 +69,24 @@ export function getSessionForInstrument(instrument: string): "ASIA" | "NY" {
 
 type LocalTime = { hour: number; minute: number; weekday: number };
 
+const timeZoneFormatters: Record<string, Intl.DateTimeFormat> = {};
+
+function getFormatter(timeZone: string) {
+  if (!timeZoneFormatters[timeZone]) {
+    timeZoneFormatters[timeZone] = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  return timeZoneFormatters[timeZone];
+}
+
 // Local wall-clock time in a given IANA timezone, DST-correct via Intl.
 function localTimeInZone(timeZone: string, at: Date): LocalTime {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(at);
+  const parts = getFormatter(timeZone).formatToParts(at);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   const weekdayMap: Record<string, number> = {
     Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
