@@ -4,7 +4,7 @@ import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow
 export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
 import { PLANS, type Plan } from "./plans";
-import type { CopySizingMode, CopyLinkStatus } from "./copy-trading";
+import type { CopySizingMode, CopyLinkStatus, CopyFilterMode } from "./copy-trading";
 import { getMarketForInstrument, type MarketKind } from "./market";
 import { getForwardTests, type ForwardTestRow } from "./engine/forward-test";
 export type { ForwardTestRow };
@@ -939,6 +939,16 @@ export type CopyAccountLite = {
   hasBot: boolean;
 };
 
+/** Realized performance of a single link, derived from its copy events. */
+export type CopyLinkAnalytics = {
+  closed: number; // closed copied trades
+  wins: number; // closed with positive pnl
+  winRate: number | null; // 0..1, null when nothing has closed yet
+  realizedPnl: number; // all-time realized on this link
+  todayPnl: number; // realized today (UTC), drives the daily-loss meter
+  openCopies: number; // copied trades still open
+};
+
 export type CopyLinkRow = {
   id: string;
   status: CopyLinkStatus;
@@ -946,6 +956,12 @@ export type CopyLinkRow = {
   multiplier: number;
   fixedUnits: number | null;
   maxRiskPct: number | null;
+  minUnits: number | null;
+  maxUnits: number | null;
+  symbolFilter: string | null;
+  symbolFilterMode: CopyFilterMode;
+  maxDailyLossPct: number | null;
+  pausedReason: string | null;
   reverse: boolean;
   copyOpen: boolean;
   copyClose: boolean;
@@ -954,6 +970,7 @@ export type CopyLinkRow = {
   createdAt: string;
   master: CopyAccountLite;
   follower: CopyAccountLite;
+  analytics: CopyLinkAnalytics;
 };
 
 export type CopyEventRow = {
@@ -970,6 +987,9 @@ export type CopyEventRow = {
   followerNickname: string;
 };
 
+/** One day of copied realized P&L for the hero sparkline. */
+export type CopyPnlPoint = { date: string; pnl: number; cumulative: number };
+
 export type CopyTradingStats = {
   activeLinks: number;
   totalLinks: number;
@@ -978,6 +998,9 @@ export type CopyTradingStats = {
   totalCopied: number;
   copiedToday: number;
   realizedPnl: number;
+  openCopies: number;
+  winRate: number | null; // across all closed copies, null when none closed
+  pnlSeries: CopyPnlPoint[]; // last 14 days, oldest first
 };
 
 export type CopyTradingData = {
@@ -1004,6 +1027,9 @@ const EMPTY_COPY_TRADING: CopyTradingData = {
     totalCopied: 0,
     copiedToday: 0,
     realizedPnl: 0,
+    openCopies: 0,
+    winRate: null,
+    pnlSeries: [],
   },
   error: false,
 };
@@ -1078,33 +1104,124 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
     const entitled = Boolean(PLANS[plan]?.copyTrading);
     const accounts = user.accounts.map(serializeCopyAccount);
 
-    const links: CopyLinkRow[] = user.copyLinks.map((l) => ({
-      id: l.id,
-      status: l.status as CopyLinkStatus,
-      sizingMode: l.sizingMode as CopySizingMode,
-      multiplier: num(l.multiplier),
-      fixedUnits: l.fixedUnits === null ? null : num(l.fixedUnits),
-      maxRiskPct: l.maxRiskPct === null ? null : num(l.maxRiskPct),
-      reverse: l.reverse,
-      copyOpen: l.copyOpen,
-      copyClose: l.copyClose,
-      copiedCount: l.copiedCount,
-      lastCopiedAt: l.lastCopiedAt ? l.lastCopiedAt.toISOString() : null,
-      createdAt: l.createdAt.toISOString(),
-      master: serializeCopyAccount(l.masterAccount),
-      follower: serializeCopyAccount(l.followerAccount),
-    }));
+    const rawLinks = user.copyLinks;
+    const linkIds = rawLinks.map((l) => l.id);
+
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const seriesStart = new Date(startOfToday);
+    seriesStart.setUTCDate(seriesStart.getUTCDate() - 13); // 14-day window, inclusive
+
+    // One batched pass for everything events-backed: the recent feed, per-link
+    // analytics, the headline aggregates, and the 14-day P&L series. Empty link
+    // sets short-circuit the per-link queries so the page stays cheap.
+    const [eventRows, copiedToday, realizedAgg, closeGroups, winGroups, todayGroups, openEventRows, seriesRows] =
+      await Promise.all([
+        prisma.copyTradeEvent.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 40 }),
+        prisma.copyTradeEvent.count({
+          where: { userId: user.id, action: "OPEN", status: "FILLED", createdAt: { gte: startOfToday } },
+        }),
+        prisma.copyTradeEvent.aggregate({
+          where: { userId: user.id, action: "CLOSE", status: "FILLED" },
+          _sum: { pnl: true },
+        }),
+        linkIds.length
+          ? prisma.copyTradeEvent.groupBy({
+              by: ["copyLinkId"],
+              where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED" },
+              _sum: { pnl: true },
+              _count: { _all: true },
+            })
+          : Promise.resolve([] as { copyLinkId: string | null; _sum: { pnl: unknown }; _count: { _all: number } }[]),
+        linkIds.length
+          ? prisma.copyTradeEvent.groupBy({
+              by: ["copyLinkId"],
+              where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED", pnl: { gt: 0 } },
+              _count: { _all: true },
+            })
+          : Promise.resolve([] as { copyLinkId: string | null; _count: { _all: number } }[]),
+        linkIds.length
+          ? prisma.copyTradeEvent.groupBy({
+              by: ["copyLinkId"],
+              where: { copyLinkId: { in: linkIds }, action: "CLOSE", status: "FILLED", createdAt: { gte: startOfToday } },
+              _sum: { pnl: true },
+            })
+          : Promise.resolve([] as { copyLinkId: string | null; _sum: { pnl: unknown } }[]),
+        linkIds.length
+          ? prisma.copyTradeEvent.findMany({
+              where: { copyLinkId: { in: linkIds }, action: "OPEN", status: "FILLED", followerTradeId: { not: null } },
+              select: { copyLinkId: true, followerTradeId: true },
+            })
+          : Promise.resolve([] as { copyLinkId: string | null; followerTradeId: string | null }[]),
+        prisma.copyTradeEvent.findMany({
+          where: { userId: user.id, action: "CLOSE", status: "FILLED", createdAt: { gte: seriesStart } },
+          select: { createdAt: true, pnl: true },
+          orderBy: { createdAt: "asc" },
+        }),
+      ]);
+
+    // Which copied trades are still open (for the per-link "open copies" count).
+    const followerTradeIds = openEventRows.map((e) => e.followerTradeId).filter((id): id is string => Boolean(id));
+    const openTradeIds = followerTradeIds.length
+      ? new Set(
+          (
+            await prisma.trade.findMany({
+              where: { id: { in: followerTradeIds }, status: "OPEN" },
+              select: { id: true },
+            })
+          ).map((t) => t.id),
+        )
+      : new Set<string>();
+    const openCopiesByLink = new Map<string, number>();
+    for (const e of openEventRows) {
+      if (e.copyLinkId && e.followerTradeId && openTradeIds.has(e.followerTradeId)) {
+        openCopiesByLink.set(e.copyLinkId, (openCopiesByLink.get(e.copyLinkId) ?? 0) + 1);
+      }
+    }
+
+    const closeByLink = new Map(closeGroups.map((g) => [g.copyLinkId as string, g]));
+    const winsByLink = new Map(winGroups.map((g) => [g.copyLinkId as string, g._count._all]));
+    const todayByLink = new Map(todayGroups.map((g) => [g.copyLinkId as string, g._sum.pnl === null ? 0 : num(g._sum.pnl)]));
+
+    const links: CopyLinkRow[] = rawLinks.map((l) => {
+      const close = closeByLink.get(l.id);
+      const closed = close?._count._all ?? 0;
+      const wins = winsByLink.get(l.id) ?? 0;
+      return {
+        id: l.id,
+        status: l.status as CopyLinkStatus,
+        sizingMode: l.sizingMode as CopySizingMode,
+        multiplier: num(l.multiplier),
+        fixedUnits: l.fixedUnits === null ? null : num(l.fixedUnits),
+        maxRiskPct: l.maxRiskPct === null ? null : num(l.maxRiskPct),
+        minUnits: l.minUnits === null ? null : num(l.minUnits),
+        maxUnits: l.maxUnits === null ? null : num(l.maxUnits),
+        symbolFilter: l.symbolFilter,
+        symbolFilterMode: (l.symbolFilterMode as CopyFilterMode) ?? "ALLOW",
+        maxDailyLossPct: l.maxDailyLossPct === null ? null : num(l.maxDailyLossPct),
+        pausedReason: l.pausedReason,
+        reverse: l.reverse,
+        copyOpen: l.copyOpen,
+        copyClose: l.copyClose,
+        copiedCount: l.copiedCount,
+        lastCopiedAt: l.lastCopiedAt ? l.lastCopiedAt.toISOString() : null,
+        createdAt: l.createdAt.toISOString(),
+        master: serializeCopyAccount(l.masterAccount),
+        follower: serializeCopyAccount(l.followerAccount),
+        analytics: {
+          closed,
+          wins,
+          winRate: closed > 0 ? wins / closed : null,
+          realizedPnl: close && close._sum.pnl !== null ? num(close._sum.pnl) : 0,
+          todayPnl: todayByLink.get(l.id) ?? 0,
+          openCopies: openCopiesByLink.get(l.id) ?? 0,
+        },
+      };
+    });
 
     // Recent replication events for the activity log, mapped back to the human
     // account names via the links we already loaded (no extra nested include).
     const linkMeta = new Map(links.map((l) => [l.id, { master: l.master.nickname, follower: l.follower.nickname }]));
-    const linkIds = links.map((l) => l.id);
-
-    const eventRows = await prisma.copyTradeEvent.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 40,
-    });
 
     const recentEvents: CopyEventRow[] = eventRows.map((e) => {
       const meta = e.copyLinkId ? linkMeta.get(e.copyLinkId) : undefined;
@@ -1123,18 +1240,26 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
       };
     });
 
-    const startOfToday = new Date();
-    startOfToday.setUTCHours(0, 0, 0, 0);
+    // Bucket realized P&L into the 14-day window for the hero sparkline.
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    const buckets = new Map<string, number>();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(seriesStart);
+      d.setUTCDate(d.getUTCDate() + i);
+      buckets.set(dayKey(d), 0);
+    }
+    for (const r of seriesRows) {
+      const key = dayKey(r.createdAt);
+      if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + (r.pnl === null ? 0 : num(r.pnl)));
+    }
+    let running = 0;
+    const pnlSeries: CopyPnlPoint[] = [...buckets.entries()].map(([date, pnl]) => {
+      running += pnl;
+      return { date, pnl, cumulative: running };
+    });
 
-    const [copiedToday, realizedAgg] = await Promise.all([
-      prisma.copyTradeEvent.count({
-        where: { userId: user.id, action: "OPEN", status: "FILLED", createdAt: { gte: startOfToday } },
-      }),
-      prisma.copyTradeEvent.aggregate({
-        where: { userId: user.id, action: "CLOSE", status: "FILLED" },
-        _sum: { pnl: true },
-      }),
-    ]);
+    const closedTotal = links.reduce((s, l) => s + l.analytics.closed, 0);
+    const winsTotal = links.reduce((s, l) => s + l.analytics.wins, 0);
 
     const stats: CopyTradingStats = {
       activeLinks: links.filter((l) => l.status === "ACTIVE").length,
@@ -1144,6 +1269,9 @@ export async function getCopyTradingData(): Promise<CopyTradingData> {
       totalCopied: links.reduce((s, l) => s + l.copiedCount, 0),
       copiedToday,
       realizedPnl: realizedAgg._sum.pnl === null ? 0 : num(realizedAgg._sum.pnl),
+      openCopies: links.reduce((s, l) => s + l.analytics.openCopies, 0),
+      winRate: closedTotal > 0 ? winsTotal / closedTotal : null,
+      pnlSeries,
     };
 
     return { entitled, plan, accounts, links, recentEvents, stats, error: false };

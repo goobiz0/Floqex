@@ -93,6 +93,12 @@ export function CopyTradingDiagram({
   const edgeRelated = (l: CopyLinkRow) =>
     activeAccount === null || l.master.id === activeAccount || l.follower.id === activeAccount;
 
+  // Masters with at least one active link render a small live pulse.
+  const liveMasters = useMemo(
+    () => new Set(links.filter((l) => l.status === "ACTIVE").map((l) => l.master.id)),
+    [links],
+  );
+
   return (
     <div
       ref={containerRef}
@@ -127,13 +133,15 @@ export function CopyTradingDiagram({
             const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
             const active = l.status === "ACTIVE";
             const related = edgeRelated(l);
+            // Edge thickness reads as throughput: busier links draw heavier.
+            const tw = active ? 2 + Math.min(1.5, Math.log10(1 + l.copiedCount)) : 1.5;
             return (
               <path
                 key={l.id}
                 d={d}
                 fill="none"
                 stroke={active ? "var(--color-accent)" : "var(--color-line-strong)"}
-                strokeWidth={related ? 2 : 1.5}
+                strokeWidth={related ? tw : tw * 0.8}
                 strokeLinecap="round"
                 strokeDasharray={active ? "6 6" : "2 7"}
                 markerEnd={active ? "url(#copy-arrow)" : "url(#copy-arrow-muted)"}
@@ -184,6 +192,7 @@ export function CopyTradingDiagram({
               y={p.y}
               dimmed={isDimmed(acc.id)}
               activeSelf={activeAccount === acc.id}
+              live={liveMasters.has(acc.id)}
               onActivate={() => setActiveAccount((cur) => (cur === acc.id ? null : acc.id))}
               onHover={() => setActiveAccount(acc.id)}
             />
@@ -219,6 +228,7 @@ function DiagramNode({
   y,
   dimmed,
   activeSelf,
+  live,
   onActivate,
   onHover,
 }: {
@@ -228,6 +238,7 @@ function DiagramNode({
   y: number;
   dimmed: boolean;
   activeSelf: boolean;
+  live?: boolean;
   onActivate: () => void;
   onHover: () => void;
 }) {
@@ -257,7 +268,15 @@ function DiagramNode({
           {isMaster ? <Lightning size={9} weight="fill" /> : null}
           {isMaster ? "Master" : "Follower"}
         </span>
-        <span className="tnum text-[9px] font-medium text-fg-faint">{shortAccountId(account.id)}</span>
+        <span className="inline-flex items-center gap-1">
+          {isMaster && live && (
+            <span className="relative inline-flex h-1.5 w-1.5" aria-hidden>
+              <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-60 motion-safe:animate-ping" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+            </span>
+          )}
+          <span className="tnum text-[9px] font-medium text-fg-faint">{shortAccountId(account.id)}</span>
+        </span>
       </div>
       <p className="mt-1 truncate text-[13px] font-semibold text-fg">{account.nickname}</p>
       <div className="mt-0.5 flex items-center justify-between gap-2">
