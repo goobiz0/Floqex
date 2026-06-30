@@ -2,15 +2,38 @@ import ccxt from "ccxt";
 import { getMarketForInstrument } from "@/lib/market";
 
 type BrokerCreds = Record<string, string>;
+type CcxtOrder = { id: string; price: number | null; average: number | null; status?: string; filled?: number };
+type CcxtPosition = { symbol?: string; contracts?: number; side?: string; entryPrice?: number };
 type CcxtExchanges = Record<string, new (opts: Record<string, string | boolean | undefined>) => {
-  createMarketOrder: (symbol: string, side: string, amount: number) => Promise<{ id: string; price: number | null; average: number | null }>;
+  createMarketOrder: (symbol: string, side: string, amount: number, price?: number, params?: Record<string, unknown>) => Promise<CcxtOrder>;
   fetchBalance: () => Promise<unknown>;
+  fetchPositions?: (symbols?: string[]) => Promise<CcxtPosition[]>;
+  has?: Record<string, boolean>;
 }>;
 
 export interface BrokerOrderResult {
   id: string;
   filledPrice: number;
   status: "FILLED" | "OPEN";
+}
+
+/** A live position as the broker currently sees it, for startup reconciliation. */
+export interface BrokerPosition {
+  instrument: string;
+  direction: "LONG" | "SHORT";
+  sizeUnits: number;
+}
+
+/**
+ * Deterministic idempotency key for an order. Brokers dedupe on a client order
+ * id, so a retried submission (see execution-router's submitWithRetry) can never
+ * double-fill: the broker recognises the repeated key and returns the original
+ * order instead of opening a second one.
+ */
+export function makeIdempotencyKey(parts: { botId: string; instrument: string; direction: string; kind: "OPEN" | "CLOSE"; nonce: string | number }): string {
+  // <=36 chars-ish, alphanumeric — within Binance/Alpaca client-id limits.
+  const raw = `flx-${parts.kind}-${parts.botId}-${parts.instrument}-${parts.direction}-${parts.nonce}`;
+  return raw.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 36);
 }
 
 // Thrown when a live account points at a broker we cannot truly route to with
@@ -25,6 +48,8 @@ export class BrokerNotConfiguredError extends Error {
 
 const CCXT_BROKERS = ["binance", "coinbase", "kraken", "bybit"];
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // ─────────────────────────── Order routing ──────────────────────────
 
 export async function executeLiveOrder(
@@ -33,15 +58,16 @@ export async function executeLiveOrder(
   instrument: string,
   direction: string,
   sizeUnits: number,
+  idempotencyKey?: string,
 ): Promise<BrokerOrderResult> {
   const side = direction === "LONG" ? "buy" : "sell";
   const b = broker.toLowerCase();
 
-  if (CCXT_BROKERS.includes(b)) return executeCcxtOrder(b, creds, instrument, side, sizeUnits);
-  if (b === "alpaca") return executeAlpacaOrder(creds, instrument, side, sizeUnits);
-  if (b === "ibkr") return executeIbkrOrder(creds, instrument, side, sizeUnits);
+  if (CCXT_BROKERS.includes(b)) return executeCcxtOrder(b, creds, instrument, side, sizeUnits, idempotencyKey);
+  if (b === "alpaca") return executeAlpacaOrder(creds, instrument, side, sizeUnits, idempotencyKey);
+  if (b === "ibkr") return executeIbkrOrder(creds, instrument, side, sizeUnits, idempotencyKey);
   // ASX equities route through Interactive Brokers (the realistic retail path).
-  if (b === "asx") return executeIbkrOrder({ ...creds, exchange: "ASX" }, instrument, side, sizeUnits);
+  if (b === "asx") return executeIbkrOrder({ ...creds, exchange: "ASX" }, instrument, side, sizeUnits, idempotencyKey);
 
   // OANDA, Tradovate, Schwab: no real adapter yet. Be honest, never fake a fill.
   throw new BrokerNotConfiguredError(broker, "no live adapter implemented");
@@ -53,22 +79,26 @@ export async function closeLivePosition(
   instrument: string,
   currentDirection: string,
   sizeUnits: number,
+  idempotencyKey?: string,
 ): Promise<BrokerOrderResult> {
   // To close a LONG we sell; to close a SHORT we buy.
   const closingDirection = currentDirection === "LONG" ? "SHORT" : "LONG";
-  return executeLiveOrder(broker, creds, instrument, closingDirection, sizeUnits);
+  return executeLiveOrder(broker, creds, instrument, closingDirection, sizeUnits, idempotencyKey);
 }
 
 // ─────────────────────────── CCXT (crypto) ──────────────────────────
 
-async function executeCcxtOrder(broker: string, creds: BrokerCreds, instrument: string, side: string, sizeUnits: number): Promise<BrokerOrderResult> {
+async function executeCcxtOrder(broker: string, creds: BrokerCreds, instrument: string, side: string, sizeUnits: number, idempotencyKey?: string): Promise<BrokerOrderResult> {
   const exchangeClass = (ccxt as unknown as CcxtExchanges)[broker];
   if (!exchangeClass) throw new BrokerNotConfiguredError(broker, "unsupported CCXT exchange");
   if (!creds.apiKey || !creds.apiSecret) throw new BrokerNotConfiguredError(broker, "missing API key/secret");
 
   const exchange = new exchangeClass({ apiKey: creds.apiKey, secret: creds.apiSecret, enableRateLimit: true });
   try {
-    const order = await exchange.createMarketOrder(instrument, side, sizeUnits);
+    // clientOrderId makes the submission idempotent: a retry with the same key
+    // is recognised by the exchange instead of opening a second position.
+    const params: Record<string, unknown> = idempotencyKey ? { clientOrderId: idempotencyKey } : {};
+    const order = await exchange.createMarketOrder(instrument, side, sizeUnits, undefined, params);
     const filled = order.price ?? order.average;
     if (filled == null) throw new Error("exchange returned no fill price");
     return { id: order.id, filledPrice: filled, status: "FILLED" };
@@ -84,29 +114,64 @@ function alpacaBaseUrl(creds: BrokerCreds): string {
   return creds.mode === "LIVE" ? "https://api.alpaca.markets" : "https://paper-api.alpaca.markets";
 }
 
-async function executeAlpacaOrder(creds: BrokerCreds, instrument: string, side: string, sizeUnits: number): Promise<BrokerOrderResult> {
+async function alpacaFetch(creds: BrokerCreds, path: string, init?: RequestInit) {
+  return fetch(`${alpacaBaseUrl(creds)}${path}`, {
+    ...init,
+    headers: {
+      "APCA-API-KEY-ID": creds.apiKey,
+      "APCA-API-SECRET-KEY": creds.apiSecret,
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers || {}),
+    },
+  });
+}
+
+async function executeAlpacaOrder(creds: BrokerCreds, instrument: string, side: string, sizeUnits: number, idempotencyKey?: string): Promise<BrokerOrderResult> {
   if (!creds.apiKey || !creds.apiSecret) throw new BrokerNotConfiguredError("alpaca", "missing API key/secret");
   try {
-    const res = await fetch(`${alpacaBaseUrl(creds)}/v2/orders`, {
-      method: "POST",
-      headers: {
-        "APCA-API-KEY-ID": creds.apiKey,
-        "APCA-API-SECRET-KEY": creds.apiSecret,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ symbol: instrument, qty: sizeUnits, side, type: "market", time_in_force: "day" }),
-    });
+    const body: Record<string, unknown> = { symbol: instrument, qty: sizeUnits, side, type: "market", time_in_force: "day" };
+    if (idempotencyKey) body.client_order_id = idempotencyKey; // Alpaca dedupes on this
+    const res = await alpacaFetch(creds, `/v2/orders`, { method: "POST", body: JSON.stringify(body) });
     const order = await res.json();
-    if (!res.ok) throw new Error(order.message || "Unknown Alpaca error");
-    return {
-      id: order.id,
-      filledPrice: Number(order.filled_avg_price) || 0,
-      status: order.status === "filled" ? "FILLED" : "OPEN",
-    };
+    // 422 with "client_order_id ... already exists" means the retry hit an
+    // already-placed order — treat it as success and reconcile the fill below.
+    if (!res.ok && !/already exists/i.test(order?.message ?? "")) {
+      throw new Error(order.message || "Unknown Alpaca error");
+    }
+    let filledPrice = Number(order.filled_avg_price) || 0;
+    let status: "FILLED" | "OPEN" = order.status === "filled" ? "FILLED" : "OPEN";
+    // Fill confirmation: market orders usually fill within a moment; poll briefly
+    // so we return a real average price rather than 0/OPEN.
+    if (status !== "FILLED" && order.id) {
+      const confirmed = await confirmAlpacaFill(creds, order.id);
+      if (confirmed) {
+        filledPrice = confirmed.filledPrice;
+        status = confirmed.status;
+      }
+    }
+    return { id: order.id, filledPrice, status };
   } catch (e) {
     const err = e as Error;
     throw new Error(`Execution failed on Alpaca: ${err.message}`);
   }
+}
+
+/** Poll an Alpaca order up to ~3s until it reports a fill (timeout + retry). */
+async function confirmAlpacaFill(creds: BrokerCreds, orderId: string): Promise<{ filledPrice: number; status: "FILLED" | "OPEN" } | null> {
+  for (let i = 0; i < 6; i++) {
+    await sleep(500);
+    try {
+      const res = await alpacaFetch(creds, `/v2/orders/${orderId}`);
+      if (!res.ok) continue;
+      const o = await res.json();
+      if (o.status === "filled" && o.filled_avg_price) {
+        return { filledPrice: Number(o.filled_avg_price), status: "FILLED" };
+      }
+    } catch {
+      // transient — keep polling
+    }
+  }
+  return null;
 }
 
 // ───────────────── Interactive Brokers (US + ASX) ───────────────────
@@ -137,15 +202,15 @@ async function resolveIbkrConid(creds: BrokerCreds, instrument: string): Promise
   return String(conid);
 }
 
-async function executeIbkrOrder(creds: BrokerCreds, instrument: string, side: string, sizeUnits: number): Promise<BrokerOrderResult> {
+async function executeIbkrOrder(creds: BrokerCreds, instrument: string, side: string, sizeUnits: number, idempotencyKey?: string): Promise<BrokerOrderResult> {
   if (!creds.accountId) throw new BrokerNotConfiguredError("ibkr", "missing accountId");
 
   const conid = await resolveIbkrConid(creds, instrument);
+  const order: Record<string, unknown> = { conid: Number(conid), orderType: "MKT", side: side.toUpperCase(), quantity: sizeUnits, tif: "DAY" };
+  if (idempotencyKey) order.cOID = idempotencyKey; // IBKR client order id (idempotent)
   let reply = await ibkrFetch(creds, `/iserver/account/${creds.accountId}/orders`, {
     method: "POST",
-    body: JSON.stringify({
-      orders: [{ conid: Number(conid), orderType: "MKT", side: side.toUpperCase(), quantity: sizeUnits, tif: "DAY" }],
-    }),
+    body: JSON.stringify({ orders: [order] }),
   });
 
   // IBKR returns a chain of confirmation questions; reply "true" until cleared.
@@ -234,4 +299,44 @@ export function brokerSupportsInstrument(broker: string, instrument: string): bo
   if (market === "CRYPTO") return CCXT_BROKERS.includes(b);
   if (market === "ASX") return b === "ibkr" || b === "asx";
   return b === "alpaca" || b === "ibkr"; // US equities
+}
+
+// ─────────────────────── Position reconciliation ────────────────────
+// On startup the engine compares what the broker actually holds against the
+// OPEN trades in our DB, so a fill that landed while the engine was down (or a
+// manual close on the broker side) is surfaced instead of silently drifting.
+
+/** Fetch the broker's current open positions, best-effort. Returns [] when the
+ *  broker can't report positions with the given credentials. */
+export async function getBrokerPositions(broker: string, creds: BrokerCreds): Promise<BrokerPosition[]> {
+  const b = broker.toLowerCase();
+  try {
+    if (CCXT_BROKERS.includes(b)) {
+      const exchangeClass = (ccxt as unknown as CcxtExchanges)[b];
+      if (!exchangeClass) return [];
+      const exchange = new exchangeClass({ apiKey: creds.apiKey, secret: creds.apiSecret, enableRateLimit: true });
+      if (!exchange.fetchPositions || !(exchange.has?.fetchPositions ?? true)) return [];
+      const positions = await exchange.fetchPositions();
+      return positions
+        .filter((p) => p && p.symbol && Math.abs(Number(p.contracts) || 0) > 0)
+        .map((p) => ({
+          instrument: String(p.symbol),
+          direction: (p.side === "short" ? "SHORT" : "LONG") as "LONG" | "SHORT",
+          sizeUnits: Math.abs(Number(p.contracts) || 0),
+        }));
+    }
+    if (b === "alpaca") {
+      const res = await alpacaFetch(creds, `/v2/positions`);
+      if (!res.ok) return [];
+      const rows = (await res.json()) as Array<{ symbol: string; qty: string; side: string }>;
+      return rows.map((p) => ({
+        instrument: p.symbol,
+        direction: (p.side === "short" ? "SHORT" : "LONG") as "LONG" | "SHORT",
+        sizeUnits: Math.abs(Number(p.qty) || 0),
+      }));
+    }
+  } catch {
+    // Reconciliation is best-effort: never let a broker outage block startup.
+  }
+  return [];
 }

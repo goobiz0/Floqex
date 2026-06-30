@@ -11,8 +11,11 @@ import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
-import { getIntradayBars, type Interval } from "@/lib/engine/market-data";
+import { getIntradayBars, getRealMarketData, type Interval } from "@/lib/engine/market-data";
 import { runValidation, DEFAULT_COSTS, type ValidationReport } from "@/lib/engine/validation";
+import { evaluateOrbStrategy, evaluateCustomStrategy } from "@/lib/engine/signal-generator";
+import { instrumentsFromParams } from "@/lib/custom-strategy";
+import { isInstrumentTradeable } from "@/lib/market";
 
 const INTERVAL_MINUTES: Record<Interval, number> = { "1m": 1, "5m": 5, "15m": 15, "1h": 60 };
 
@@ -164,6 +167,92 @@ export async function runStrategyValidation(input: {
   const planConfig = PLANS[user.plan as Plan];
   const locked = !(planConfig.id === "PRO" || planConfig.id === "ELITE");
   return { ok: true, locked, report, edgeDelta, intervalAdjusted };
+}
+
+// ─────────────────────────── Live Signal Feed ───────────────────────────────
+// Evaluates a strategy against live market data WITHOUT trading, so a user can
+// watch their logic fire (or not) in real time before risking capital. Pure
+// read: it reuses the exact same signal generators the live engine runs.
+
+export type LiveSignalRow = {
+  instrument: string;
+  price: number | null;
+  isOpen: boolean;
+  signal: { direction: "LONG" | "SHORT"; entryPrice: number; stopPrice: number; targetPrice: number; strength?: number } | null;
+  indicators: { rsi14: number | null; macd: number | null; sma50: number | null; rangePosition: number | null } | null;
+  note: string;
+};
+
+export type LiveSignalsResponse =
+  | { ok: true; rows: LiveSignalRow[]; asOf: string }
+  | { ok: false; error: string };
+
+export async function getLiveSignals(input: { strategyId: string }): Promise<LiveSignalsResponse> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+  if (!user) return { ok: false, error: "User not found" };
+
+  const strat = await prisma.strategy.findFirst({
+    where: { id: input.strategyId, userId: user.id },
+    select: { kind: true, params: true },
+  });
+  if (!strat) return { ok: false, error: "Strategy not found" };
+
+  const params = (typeof strat.params === "string" ? JSON.parse(strat.params) : strat.params) as Record<string, unknown>;
+  const instruments = instrumentsFromParams(params).slice(0, 6);
+
+  const rows = await Promise.all(
+    instruments.map(async (instrument): Promise<LiveSignalRow> => {
+      const md = await getRealMarketData(instrument);
+      if (!md) {
+        return { instrument, price: null, isOpen: isInstrumentTradeable(instrument), signal: null, indicators: null, note: "No live price available right now." };
+      }
+      // Evaluate with no open trade and no guard — a pure "what would fire now".
+      const signal = strat.kind === "CUSTOM"
+        ? evaluateCustomStrategy(params, md, null)
+        : evaluateOrbStrategy(params, md, null);
+      const indicators = md.indicators
+        ? { rsi14: md.indicators.rsi14, macd: md.indicators.macd, sma50: md.indicators.sma50, rangePosition: md.indicators.rangePosition }
+        : { rsi14: null, macd: null, sma50: md.sma50, rangePosition: null };
+      const note = signal
+        ? `Setup live: ${signal.direction}${signal.strength != null ? ` (${Math.round(signal.strength * 100)}% confluence)` : ""}.`
+        : !md.isOpen
+          ? "Market closed. Watching for the next session."
+          : strat.kind === "CUSTOM"
+            ? "Conditions not all met yet. Holding flat."
+            : "Price hasn't pushed to the edge of the range yet.";
+      return { instrument, price: md.price, isOpen: md.isOpen, signal, indicators, note };
+    }),
+  );
+
+  return { ok: true, rows, asOf: new Date().toISOString() };
+}
+
+// Engine liveness, derived from how recently the worker stamped a heartbeat on
+// the user's running bots. "live" means the engine is actively ticking; "stale"
+// means bots are RUNNING but no recent heartbeat (worker down or restarting).
+export type EngineHealth = { status: "live" | "stale" | "idle"; lastBeatMs: number | null; runningBots: number };
+
+export async function getEngineHealth(): Promise<EngineHealth> {
+  const { userId } = await auth();
+  if (!userId) return { status: "idle", lastBeatMs: null, runningBots: 0 };
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+  if (!user) return { status: "idle", lastBeatMs: null, runningBots: 0 };
+
+  const bots = await prisma.bot.findMany({
+    where: { status: "RUNNING", account: { userId: user.id } },
+    select: { lastHeartbeat: true },
+  });
+  if (bots.length === 0) return { status: "idle", lastBeatMs: null, runningBots: 0 };
+
+  const latest = bots.reduce((m, b) => Math.max(m, b.lastHeartbeat ? b.lastHeartbeat.getTime() : 0), 0);
+  const age = latest > 0 ? Date.now() - latest : null;
+  // 30s threshold: the worker ticks every 2s and stamps each tick, so a beat
+  // older than 30s means it isn't being processed.
+  const status: EngineHealth["status"] = age != null && age < 30_000 ? "live" : "stale";
+  return { status, lastBeatMs: age, runningBots: bots.length };
 }
 
 export async function runAiOptimization(accountId: string) {

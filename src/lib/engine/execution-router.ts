@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { Signal } from "./signal-generator";
 import { decrypt } from "@/lib/crypto";
-import { executeLiveOrder, closeLivePosition } from "./live-broker";
+import { executeLiveOrder, closeLivePosition, makeIdempotencyKey } from "./live-broker";
+import { recordRealizedPnl } from "./risk-engine";
 import { getSessionForInstrument } from "@/lib/market";
 
 
@@ -77,9 +78,12 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
     console.log(`[LIVE EXECUTION] Dispatching ${signal.direction} order for ${instrument} to ${account.broker}`);
 
     try {
+      // One idempotency key for the whole call, so retries reuse it and the
+      // broker can never open a second position from a re-sent request.
+      const idemKey = makeIdempotencyKey({ botId, instrument, direction: signal.direction, kind: "OPEN", nonce: fillStart });
       const order = await submitWithRetry(
         `${account.broker} ${signal.direction} ${instrument}`,
-        () => executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits),
+        () => executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits, idemKey),
       );
       filledPrice = order.filledPrice || signal.entryPrice;
     } catch (e: unknown) {
@@ -154,9 +158,10 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
     creds.mode = account.mode;
 
     try {
+      const idemKey = makeIdempotencyKey({ botId: trade.botId, instrument: trade.instrument, direction: trade.direction, kind: "CLOSE", nonce: trade.id });
       const order = await submitWithRetry(
         `${account.broker} CLOSE ${trade.direction} ${trade.instrument}`,
-        () => closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits)),
+        () => closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits), idemKey),
       );
       finalExitPrice = order.filledPrice || exitPrice;
     } catch (e: unknown) {
@@ -225,6 +230,10 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
       }
     });
   });
+
+  // Feed the in-memory daily P&L tracker so the risk engine can circuit-break on
+  // the very next entry without waiting on a fresh DB read (sub-second guard).
+  recordRealizedPnl(accountId, pnl);
 
   // Mirror this exit onto any follower trades that copied it. Same recursion
   // guard and best-effort handling as the open path; followers re-apply their

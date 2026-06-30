@@ -4,6 +4,8 @@ import { evaluateOrbStrategy, evaluateCustomStrategy, evaluateExit, recordStopOu
 import { executeTrade, closeTrade } from "../lib/engine/execution-router";
 import { validateRisk } from "../lib/engine/risk-engine";
 import { BrokerNotConfiguredError, brokerSupportsInstrument } from "../lib/engine/live-broker";
+import { ensureCryptoStream, closeAllStreams } from "../lib/engine/live-stream";
+import { reconcileOpenPositions } from "../lib/engine/reconcile";
 import { recordBotStatus, RISK_REASON_TEXT } from "../lib/engine/feedback";
 import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
@@ -13,12 +15,33 @@ import { checkEdgeDecay } from "../lib/engine/edge-decay";
 // Engine configuration
 const TICK_RATE_MS = 2000; // 2 seconds
 
+// Horizontal sharding: under PM2 cluster mode each instance gets a distinct
+// NODE_APP_INSTANCE (0..N-1). Each bot is owned by exactly one shard, so two
+// instances never tick — or trade — the same bot. Defaults to a single shard
+// (owns everything) when not clustered, which is always safe.
+const SHARD_INDEX = Number.parseInt(process.env.NODE_APP_INSTANCE ?? "0", 10) || 0;
+const SHARD_COUNT = Math.max(1, Number.parseInt(process.env.ENGINE_TOTAL_SHARDS ?? "1", 10) || 1);
+
+/** Stable string hash (FNV-1a) so a bot maps to the same shard every tick. */
+function hashStr(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function ownsBot(botId: string): boolean {
+  return SHARD_COUNT <= 1 || hashStr(botId) % SHARD_COUNT === SHARD_INDEX % SHARD_COUNT;
+}
+
 // In-memory tracker for edge decay
 const lastEdgeDecayCheck: Record<string, number> = {};
 
 async function tick() {
   try {
-    const bots = await prisma.bot.findMany({
+    const allBots = await prisma.bot.findMany({
       where: { status: "RUNNING" },
       include: {
         account: true,
@@ -26,12 +49,15 @@ async function tick() {
       },
     });
 
+    // Only process the bots this shard owns (single shard owns everything).
+    const bots = allBots.filter((b) => ownsBot(b.id));
+
     if (bots.length === 0) {
-      console.log(`[${new Date().toISOString()}] Engine Tick: No running bots found.`);
+      console.log(`[${new Date().toISOString()}] Engine Tick [shard ${SHARD_INDEX}/${SHARD_COUNT}]: No running bots for this shard.`);
       return;
     }
 
-    console.log(`[${new Date().toISOString()}] Engine Tick: Processing ${bots.length} running bot(s)...`);
+    console.log(`[${new Date().toISOString()}] Engine Tick [shard ${SHARD_INDEX}/${SHARD_COUNT}]: Processing ${bots.length} running bot(s)...`);
 
     await Promise.all(bots.map(async (bot) => {
       try {
@@ -69,6 +95,10 @@ async function tick() {
         });
         continue;
       }
+
+      // Open a live WebSocket trade stream for crypto so prices are pushed in
+      // real time instead of polled (no-op for non-crypto / already-open).
+      ensureCryptoStream(instrument);
 
       const openTrade = await prisma.trade.findFirst({
         where: { botId: bot.id, status: "OPEN", instrument },
@@ -315,9 +345,17 @@ function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[engine] ${signal} received — draining current tick and shutting down.`);
+  closeAllStreams();
   prisma.$disconnect().catch(() => {});
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-runLoop();
+// Reconcile DB open trades against broker positions once before the loop starts,
+// then begin ticking. Reconciliation is best-effort and never blocks the engine.
+async function bootstrap() {
+  await reconcileOpenPositions(ownsBot).catch((e) => console.error("[engine] reconcile failed:", e));
+  runLoop();
+}
+
+bootstrap();

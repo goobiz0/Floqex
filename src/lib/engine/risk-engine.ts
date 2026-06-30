@@ -5,6 +5,34 @@ import { checkPortfolioRisk } from "./portfolio-risk";
 
 const clampNum = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
+// ── In-memory daily realized-P&L tracker ─────────────────────────────────────
+// The DB `dailySummary` is the source of truth, but it is written inside the
+// close transaction. This in-process accumulator updates the instant a trade
+// closes, so a burst of entries in the same tick can be circuit-broken without
+// waiting on a fresh read. It only ever ADDS an early break; the DB check below
+// remains authoritative, so a partial view (e.g. under sharding) is always safe.
+type DailyPnl = { day: string; realized: number };
+const dailyPnlCache = new Map<string, DailyPnl>();
+
+function utcDayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Add a realized P&L delta for an account's running daily total. */
+export function recordRealizedPnl(accountId: string, pnl: number): void {
+  if (!Number.isFinite(pnl)) return;
+  const day = utcDayKey();
+  const cur = dailyPnlCache.get(accountId);
+  if (!cur || cur.day !== day) dailyPnlCache.set(accountId, { day, realized: pnl });
+  else cur.realized += pnl;
+}
+
+/** Read the in-memory realized P&L for today (0 if none / stale). */
+export function getDailyRealizedPnl(accountId: string): number {
+  const cur = dailyPnlCache.get(accountId);
+  return cur && cur.day === utcDayKey() ? cur.realized : 0;
+}
+
 /**
  * Validate a prospective entry against the account's plan, balance, and the
  * strategy's own risk rules. `params` carries the live strategy settings so the
@@ -67,9 +95,15 @@ export async function validateRisk(
 
   // Strategy-level daily loss limit (percentage of the day's starting balance).
   const dailyLossPct = clampNum(Number(params.dailyLoss) || 0, 0, 5);
-  if (dailyLossPct > 0 && summary) {
-    const startBalance = Number(summary.startBalance) || balance;
-    if (summary.netPnl.toNumber() < -(startBalance * (dailyLossPct / 100))) {
+  if (dailyLossPct > 0) {
+    const startBalance = summary ? Number(summary.startBalance) || balance : balance;
+    const lossThreshold = startBalance * (dailyLossPct / 100);
+    // Fast in-memory guard first (reflects closes from this tick instantly),
+    // then the authoritative DB summary.
+    if (getDailyRealizedPnl(accountId) < -lossThreshold) {
+      return { passed: false, reason: "CIRCUIT_BREAKER_TRIPPED" };
+    }
+    if (summary && summary.netPnl.toNumber() < -lossThreshold) {
       return { passed: false, reason: "CIRCUIT_BREAKER_TRIPPED" };
     }
   }

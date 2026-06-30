@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import ccxt from 'ccxt';
 import { getYahooSymbol, getMarketForInstrument, normalizeInstrument, isInstrumentTradeable, type MarketKind } from '@/lib/market';
 import { computeIndicatorContext, type IndicatorContext } from './indicators';
+import { getStreamedPrice } from './live-stream';
 
 // yahoo-finance2 v3 ships the API as a CLASS that must be instantiated — calling
 // the methods statically (the v2 style) throws "Call `new YahooFinance()`
@@ -104,10 +105,14 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 50
 // instead of each firing their own quote + history fan-out.
 const marketDataInflight: Record<string, Promise<MarketData | null>> = {};
 
-/** Stamp a cached MarketData with the current session flags (cheap, no network). */
+/** Stamp a cached MarketData with the current session flags and, for crypto,
+ *  the freshest streamed (WebSocket) price — so the engine acts on a live tick
+ *  between REST refreshes. Cheap, no network. */
 function withLiveFlags(data: MarketData, instrument: string): MarketData {
+  const streamed = getStreamedPrice(instrument);
   return {
     ...data,
+    price: streamed ?? data.price,
     isOpen: isInstrumentTradeable(instrument),
     isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true),
   };
@@ -135,7 +140,8 @@ export async function getRealMarketData(instrument: string): Promise<MarketData 
 
   // Cold cache. If the breaker is open we have nothing to serve.
   if (breakerIsOpen()) return null;
-  return refreshMarketData(instrument, symbol);
+  const fresh = await refreshMarketData(instrument, symbol);
+  return fresh ? withLiveFlags(fresh, instrument) : null;
 }
 
 /**

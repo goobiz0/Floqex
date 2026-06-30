@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { StrategyLab } from "@/components/dashboard/strategy-lab";
 import { ValidationLab } from "@/components/dashboard/validation-lab";
+import { LiveSignalFeed } from "@/components/dashboard/live-signal-feed";
 import { AIOptimizer } from "@/components/dashboard/ai-optimizer";
 import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
@@ -94,6 +95,11 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
                 }}
               />
             </div>
+            {data.strategyId && (
+              <div className="pt-2">
+                <LiveSignalFeed strategyId={data.strategyId} />
+              </div>
+            )}
           </>
         ) : (
           <Card className="p-10 text-center">
