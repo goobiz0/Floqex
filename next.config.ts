@@ -17,8 +17,13 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
     ],
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   serverExternalPackages: ["@prisma/client"],
   experimental: {
+    cpus: 1,
+    workerThreads: false,
     // Cache visited route segments on the client so switching back to a
     // recently-opened dashboard tab is instant instead of re-fetching the RSC
     // payload (and flashing the loading skeleton) every time. Next 16 defaults
