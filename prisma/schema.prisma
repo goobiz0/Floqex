@@ -63,6 +63,7 @@ model User {
   // Affiliate Program
   affiliateCode       String? @unique
   referredById        String?
+  affiliateBonusPaid  Boolean @default(false)
   affiliateBalanceUsd Decimal @default(0) @db.Decimal(18, 2)
 
   createdAt DateTime @default(now())

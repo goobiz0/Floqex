@@ -96,6 +96,7 @@ export async function previewConditions(
   });
 
   const allMet = groups.length > 0 && groups.every(g => g.met);
+  const previewDirection: "LONG" | "SHORT" = direction === "SHORT" ? "SHORT" : "LONG";
 
-  return { instrument, price: md.price, direction, groups, allMet };
+  return { instrument, price: md.price, direction: previewDirection, groups, allMet };
 }

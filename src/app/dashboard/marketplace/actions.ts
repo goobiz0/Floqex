@@ -37,8 +37,8 @@ export async function createListing(formData: FormData) {
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  if (user.createdAt > thirtyDaysAgo) {
-    return { error: "You must have been on Floqex for longer than a month to list a strategy." };
+  if (user.plan === "FREE" && user.createdAt > thirtyDaysAgo) {
+    return { error: "Free plan users must have been on Floqex for longer than a month to list a strategy." };
   }
 
   const schema = z.object({

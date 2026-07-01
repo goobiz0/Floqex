@@ -197,7 +197,7 @@ Operating rules:
 
 Allowed parameters for updateStrategyParams: ${boundsHelp}`;
 
-  const modelMessages = await convertToModelMessages(messages);
+  const modelMessages = await convertToModelMessages(messages as unknown as UIMessage[]);
 
   const result = streamText({
     model: mochiModel(),

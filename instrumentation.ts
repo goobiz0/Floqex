@@ -10,7 +10,7 @@ export async function register() {
         new PostHogSpanProcessor({
           apiKey: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN!,
           host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-        }),
+        } as any),
       ],
     });
     sdk.start();

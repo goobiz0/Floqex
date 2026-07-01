@@ -7,6 +7,9 @@ import { MOCHI_LIMITS, PLAN_ORDER, PLANS, type Plan } from "@/lib/plans";
 import { MochiUsageCard } from "@/components/dashboard/mochi-usage-card";
 import { Card, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Plus } from "@phosphor-icons/react/dist/ssr";
 
 export const metadata: Metadata = { title: "Usage" };
 
@@ -24,9 +27,17 @@ export default async function UsagePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">Usage</h1>
-        <p className="text-sm text-fg-subtle">Track your Mochi AI token usage against your plan&apos;s limits.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-fg">Usage</h1>
+          <p className="text-sm text-fg-subtle">Track your Mochi AI token usage against your plan&apos;s limits.</p>
+        </div>
+        <Link href="/dashboard/billing">
+          <Button variant="secondary" className="gap-2">
+            <Plus weight="bold" size={16} />
+            Add Extra Credits
+          </Button>
+        </Link>
       </div>
 
       <MochiUsageCard usage={usage} plan={plan} />

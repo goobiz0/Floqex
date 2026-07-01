@@ -40,6 +40,8 @@ export function BillingPlans({
   currentPlan,
   hasCustomer,
   monthlyUsage = 0,
+  extraBalanceUsd: userExtraBalanceUsd = 0,
+  useExtraBalance,
 }: {
   currentPlan: Plan;
   hasCustomer: boolean;
@@ -142,7 +144,7 @@ export function BillingPlans({
           </p>
           <div className="flex items-center gap-4 mt-4">
             <span className="text-3xl font-black text-fg tracking-tight tnum">
-              ${(extraBalanceUsd || 0).toFixed(2)}
+              ${(userExtraBalanceUsd).toFixed(2)}
             </span>
             <div className="flex flex-col">
               <span className="text-sm font-medium text-fg">Auto-use extra balance</span>

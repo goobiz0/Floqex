@@ -135,7 +135,7 @@ export async function connectAccount(rawInput: {
       data: {
         userId: user.id,
         nickname,
-        broker,
+        broker: broker as any,
         mode,
         balance: mode === "PAPER" ? 10000 : 0,
         currency: "USD",

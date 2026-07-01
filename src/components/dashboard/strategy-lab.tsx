@@ -187,6 +187,7 @@ export function StrategyLab({
     const sweepBars = bars;
     const sweepObjective = objective;
     const sweepRiskPct = typeof params.riskPct === "number" ? params.riskPct : 1;
+    const sweepDirection = params.direction || "BOTH";
     setSweeping(true);
     // Defer so the button shows its pending state before the synchronous sweep.
     setTimeout(() => {
@@ -197,7 +198,7 @@ export function StrategyLab({
       }
       const rows = optimizeStrategy(sweepBars, { 
         riskPct: sweepRiskPct, 
-        direction: sweepDirection,
+        direction: sweepDirection as any,
         trailingStopPct: typeof params.trailingStopPct === "number" ? params.trailingStopPct : undefined,
         atrStopMultiple: typeof params.atrStopMultiple === "number" ? params.atrStopMultiple : undefined
       }, sweepObjective);
