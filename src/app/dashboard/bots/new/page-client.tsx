@@ -49,8 +49,10 @@ const StrategyCodeEditor = dynamic(
 import {
   defaultBuilderConfig,
   defaultCodeConfig,
+  defaultShortGroup,
   type ConditionGroup,
   type StrategyLanguage,
+  type TradeDirection,
 } from "@/lib/custom-strategy";
 
 type AccountProp = {
@@ -139,8 +141,9 @@ export function BotsNewClient({
 
   // Builder strategy state.
   const builderDefaults = useMemo(() => defaultBuilderConfig(), []);
-  const [direction, setDirection] = useState<"LONG" | "SHORT">(builderDefaults.direction);
+  const [direction, setDirection] = useState<TradeDirection>(builderDefaults.direction);
   const [groups, setGroups] = useState<ConditionGroup[]>(builderDefaults.groups);
+  const [shortGroups, setShortGroups] = useState<ConditionGroup[]>(() => [defaultShortGroup()]);
 
   // Code strategy state.
   const codeDefaults = useMemo(() => defaultCodeConfig(), []);
@@ -184,6 +187,10 @@ export function BotsNewClient({
       toast.error("Add at least one entry condition.");
       return;
     }
+    if (strategyMode === "BUILDER" && direction === "BOTH" && shortGroups.every((g) => g.conditions.length === 0)) {
+      toast.error("Add at least one short entry condition, or switch to long only.");
+      return;
+    }
     if (strategyMode === "CODE" && !code.trim()) {
       toast.error("Write some strategy code before deploying.");
       return;
@@ -195,9 +202,9 @@ export function BotsNewClient({
         return;
       }
       setLoading(true);
-      const res = await createBot({ accountId: selectedAccountId, strategyId: selectedStrategyId });
+      const res = await createBot({ accountId: selectedAccountId, strategyId: selectedStrategyId, instruments });
       setLoading(false);
-      
+
       if (res.ok) {
         toast.success("Bot created and linked to strategy.");
         router.push("/dashboard/bots");
@@ -209,16 +216,20 @@ export function BotsNewClient({
     }
 
     const strategyKind = strategyMode === "ORB" ? "ORB" : "CUSTOM";
-    const finalParams: Record<string, unknown> = {
-      ...params,
-      instruments,
-      instrument: instruments[0],
-    };
+    // The strategy stays asset-agnostic; the bot carries the instruments.
+    const finalParams: Record<string, unknown> = { ...params };
 
     if (strategyMode === "BUILDER") {
-      Object.assign(finalParams, { mode: "BUILDER", direction, groups, stopLossPct, targetRatio });
+      Object.assign(finalParams, {
+        mode: "BUILDER",
+        direction,
+        groups,
+        ...(direction === "BOTH" ? { shortGroups } : {}),
+        stopLossPct,
+        targetRatio,
+      });
     } else if (strategyMode === "CODE") {
-      Object.assign(finalParams, { mode: "CODE", language, code, direction: "LONG", stopLossPct, targetRatio });
+      Object.assign(finalParams, { mode: "CODE", language, code, direction: "BOTH", stopLossPct, targetRatio });
     }
 
     const symbolSummary = `${instruments[0]}${instruments.length > 1 ? ` +${instruments.length - 1}` : ""}`;
@@ -230,7 +241,7 @@ export function BotsNewClient({
           : `Custom Code · ${symbolSummary}`;
 
     setLoading(true);
-    const res = await createBot({ accountId: selectedAccountId, strategyName: name, strategyKind, params: finalParams });
+    const res = await createBot({ accountId: selectedAccountId, strategyName: name, strategyKind, params: finalParams, instruments });
     setLoading(false);
 
     if (res.ok) {
@@ -289,39 +300,38 @@ export function BotsNewClient({
           </div>
         </Section>
 
-        {/* Step 2: Instruments (multi-asset) */}
-        {strategyMode !== "EXISTING" && (
-          <Section
-            step={2}
-            title="What should this bot trade?"
-            hint="Search any stock, ETF, index or crypto. Add several and the bot manages each one independently with your risk limits."
-            badge={instruments.length > 1 ? <PaidPill label="Multi-asset" /> : undefined}
-          >
-            <AssetMultiSelect value={instruments} onChange={setInstruments} />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-fg-subtle">Quick add:</span>
-              {QUICK_SYMBOLS.map((s) => {
-                const active = instruments.includes(s);
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setInstruments((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
-                    className={cn(
-                      "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
-                      active ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
-                    )}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-          </Section>
-        )}
+        {/* Step 2: Instruments (multi-asset) — assets live on the bot, so this is
+            always shown, including when attaching an existing strategy. */}
+        <Section
+          step={2}
+          title="What should this bot trade?"
+          hint="Search any stock, ETF, index or crypto. Add several and the bot manages each one independently with your risk limits. The strategy stays asset-agnostic, so the same one can run on different markets across bots."
+          badge={instruments.length > 1 ? <PaidPill label="Multi-asset" /> : undefined}
+        >
+          <AssetMultiSelect value={instruments} onChange={setInstruments} />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-fg-subtle">Quick add:</span>
+            {QUICK_SYMBOLS.map((s) => {
+              const active = instruments.includes(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setInstruments((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
+                  className={cn(
+                    "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
+                    active ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
+                  )}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
 
         {/* Step 3: Strategy Type */}
-        <Section step={strategyMode === "EXISTING" ? 2 : 3} title="Strategy" hint={strategyMode === "EXISTING" ? "Pick an existing strategy from your lab." : "Pick how this bot finds trades. Risk management below applies to all three."}>
+        <Section step={3} title="Strategy" hint={strategyMode === "EXISTING" ? "Pick an existing strategy from your lab." : "Pick how this bot finds trades. Risk management below applies to all three."}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StrategyCard
               active={strategyMode === "EXISTING"}
@@ -357,7 +367,7 @@ export function BotsNewClient({
 
         {/* Step 4: Logic */}
         <Section
-          step={strategyMode === "EXISTING" ? 3 : 4}
+          step={4}
           title={strategyMode === "ORB" ? "Execution logic" : strategyMode === "BUILDER" ? "Custom entry rules" : strategyMode === "CODE" ? "Strategy code" : "Strategy settings"}
           icon={strategyMode === "CODE" ? <Lightning size={16} className="text-accent" /> : undefined}
         >
@@ -433,7 +443,14 @@ export function BotsNewClient({
                 </div>
               </div>
 
-              <CustomSignalBuilder groups={groups} onGroupsChange={setGroups} direction={direction} onDirectionChange={setDirection} />
+              <CustomSignalBuilder
+                groups={groups}
+                onGroupsChange={setGroups}
+                direction={direction}
+                onDirectionChange={setDirection}
+                shortGroups={shortGroups}
+                onShortGroupsChange={setShortGroups}
+              />
 
               <CustomRiskFields stopLossPct={stopLossPct} setStopLossPct={setStopLossPct} targetRatio={targetRatio} setTargetRatio={setTargetRatio} />
             </div>

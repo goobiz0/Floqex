@@ -14,6 +14,7 @@ export async function createBot({
   strategyName,
   strategyKind,
   params,
+  instruments,
   name,
 }: {
   accountId?: string;
@@ -21,6 +22,7 @@ export async function createBot({
   strategyName?: string;
   strategyKind?: StrategyKind;
   params?: Record<string, unknown>;
+  instruments?: string[];
   name?: string;
 }) {
   try {
@@ -54,6 +56,13 @@ export async function createBot({
       }
     }
 
+    // Assets are chosen at the bot, not baked into the strategy. Every bot must
+    // name at least one instrument to trade.
+    const botInstruments = parseInstruments(instruments);
+    if (botInstruments.length === 0) {
+      return { ok: false, error: "Choose at least one asset for the bot to trade." };
+    }
+
     let finalStrategyId = strategyId;
 
     if (!finalStrategyId) {
@@ -66,18 +75,9 @@ export async function createBot({
         return { ok: false, error: parsed.error };
       }
 
-      const instruments = parseInstruments(
-        (params as Record<string, unknown>).instruments ?? (params as Record<string, unknown>).instrument,
-      );
-      if (instruments.length === 0) {
-        return { ok: false, error: "Choose at least one asset for the bot to trade." };
-      }
-
-      const finalParams: Record<string, unknown> = {
-        ...parsed.params,
-        instruments,
-        instrument: instruments[0],
-      };
+      // Strategies are asset-agnostic logic now: the risk envelope and (for
+      // CUSTOM) the signal definition, but never the traded symbol.
+      const finalParams: Record<string, unknown> = { ...parsed.params };
 
       if (strategyKind === "CUSTOM") {
         const custom = parseCustomConfig(params);
@@ -85,8 +85,6 @@ export async function createBot({
           return { ok: false, error: custom.error };
         }
         Object.assign(finalParams, custom.config);
-        finalParams.instruments = custom.instruments;
-        finalParams.instrument = custom.instruments[0];
 
         // Server-side pro language gate (defense in depth).
         if (
@@ -136,6 +134,7 @@ export async function createBot({
         strategyId: finalStrategyId,
         name: name ?? "My Bot",
         status: "STOPPED",
+        instruments: botInstruments,
       },
     });
 
@@ -145,6 +144,36 @@ export async function createBot({
   } catch (err) {
     console.error("createBot error", err);
     return { ok: false, error: "Failed to create bot." };
+  }
+}
+
+/**
+ * Update which assets a bot trades. Assets live on the bot, so this is how a user
+ * re-points an existing bot at a different instrument (or adds several) without
+ * touching the strategy. Scoped to the signed-in user's own bot.
+ */
+export async function updateBotInstruments(botId: string, instruments: string[]) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return { ok: false, error: "Not signed in" };
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+    if (!user) return { ok: false, error: "User not found" };
+
+    const bot = await prisma.bot.findFirst({ where: { id: botId, userId: user.id }, select: { id: true } });
+    if (!bot) return { ok: false, error: "Bot not found" };
+
+    const clean = parseInstruments(instruments);
+    if (clean.length === 0) return { ok: false, error: "Choose at least one asset for the bot to trade." };
+
+    await prisma.bot.update({ where: { id: botId }, data: { instruments: clean } });
+
+    revalidatePath("/dashboard/bots");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (err) {
+    console.error("updateBotInstruments error", err);
+    return { ok: false, error: "Failed to update the bot's assets." };
   }
 }
 

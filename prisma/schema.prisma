@@ -190,6 +190,11 @@ model Bot {
   strategyId          String
   name                String    @default("My Bot")
   status              BotStatus @default(STOPPED)
+  // Which assets THIS bot trades. Assets live on the bot, not the strategy, so
+  // the same strategy can drive several bots on different instruments. Empty for
+  // bots created before this field existed; the engine falls back to the
+  // strategy's params for those (see instrumentsForBot).
+  instruments         String[]  @default([])
   autoAdjustmentsUsed Int       @default(0)
   // Share of the portfolio risk budget allocated to this bot (percent).
   riskWeight          Decimal?  @db.Decimal(5, 2)

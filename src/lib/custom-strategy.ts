@@ -81,10 +81,20 @@ export type ConditionGroup = { join: GroupJoin; conditions: Condition[] };
 
 export type StrategyLanguage = "javascript" | "python" | "pinescript" | "tradingview";
 
+/**
+ * A strategy can trade long only, short only, or both. "BOTH" is the sensible
+ * default for a real edge: unless the user deliberately restricts a side, the bot
+ * should be free to take the opportunity in whichever direction the rules fire.
+ */
+export type TradeDirection = "LONG" | "SHORT" | "BOTH";
+
 export type BuilderConfig = {
   mode: "BUILDER";
-  direction: "LONG" | "SHORT";
+  direction: TradeDirection;
+  /** Entry rules for the long side (also used as the sole ruleset for LONG/SHORT). */
   groups: ConditionGroup[];
+  /** Entry rules for the short side, used only when direction is BOTH. */
+  shortGroups?: ConditionGroup[];
   stopLossPct: number;
   targetRatio: number;
 };
@@ -93,7 +103,7 @@ export type CodeConfig = {
   mode: "CODE";
   language: StrategyLanguage;
   code: string;
-  direction: "LONG" | "SHORT";
+  direction: TradeDirection;
   stopLossPct: number;
   targetRatio: number;
 };
@@ -267,12 +277,45 @@ export function defaultGroup(): ConditionGroup {
   return { join: "ALL", conditions: [{ left: "price", op: ">", right: { kind: "indicator", key: "sma50" } }] };
 }
 
+/** A mirrored short-side group, a sensible starting point when a user first
+ *  switches a long strategy to trade both directions. */
+export function defaultShortGroup(): ConditionGroup {
+  return { join: "ALL", conditions: [{ left: "price", op: "<", right: { kind: "indicator", key: "sma50" } }] };
+}
+
+/** Flip a comparison so a long-side rule becomes its short-side mirror. */
+function invertOperator(op: Operator): Operator {
+  switch (op) {
+    case ">": return "<";
+    case "<": return ">";
+    case ">=": return "<=";
+    case "<=": return ">=";
+    case "crossesUp": return "crossesDown";
+    case "crossesDown": return "crossesUp";
+  }
+}
+
+/**
+ * Mirror a set of long-entry rules into short-entry rules by flipping each
+ * comparison ("price above the average" becomes "price below the average"). It is
+ * a symmetric starting point for a both-directions strategy — a far more sensible
+ * default than a single catch-all rule — that the user can then refine. Bounded
+ * oscillator thresholds (e.g. RSI) won't mirror perfectly, which is exactly why it
+ * stays fully editable in the builder.
+ */
+export function mirrorGroups(groups: ConditionGroup[]): ConditionGroup[] {
+  return groups.map((g) => ({
+    join: g.join,
+    conditions: g.conditions.map((c) => ({ ...c, op: invertOperator(c.op) })),
+  }));
+}
+
 export function defaultBuilderConfig(): BuilderConfig {
   return { mode: "BUILDER", direction: "LONG", groups: [defaultGroup()], stopLossPct: 0.5, targetRatio: 2 };
 }
 
 export function defaultCodeConfig(): CodeConfig {
-  return { mode: "CODE", language: "javascript", code: JS_TEMPLATE, direction: "LONG", stopLossPct: 0.5, targetRatio: 2 };
+  return { mode: "CODE", language: "javascript", code: JS_TEMPLATE, direction: "BOTH", stopLossPct: 0.5, targetRatio: 2 };
 }
 
 // ---- Validation (server-trusted) -----------------------------------------
@@ -318,19 +361,45 @@ function parseCondition(input: unknown): Condition | null {
   return { left, op: op as Operator, right: { kind: "indicator", key } };
 }
 
+/** Sanitize an untrusted list of condition groups (bounded, malformed rules dropped). */
+function parseGroups(input: unknown): ConditionGroup[] {
+  const groupsRaw = Array.isArray(input) ? input : [];
+  const groups: ConditionGroup[] = [];
+  for (const g of groupsRaw.slice(0, MAX_GROUPS)) {
+    if (typeof g !== "object" || g === null) continue;
+    const gv = g as Record<string, unknown>;
+    const join: GroupJoin = gv.join === "ANY" ? "ANY" : "ALL";
+    const condsRaw = Array.isArray(gv.conditions) ? gv.conditions : [];
+    const conditions: Condition[] = [];
+    for (const c of condsRaw.slice(0, MAX_CONDITIONS_PER_GROUP)) {
+      const parsed = parseCondition(c);
+      if (parsed) conditions.push(parsed);
+    }
+    if (conditions.length) groups.push({ join, conditions });
+  }
+  return groups;
+}
+
+/** Coerce untrusted input into a trade direction, defaulting to BOTH. */
+export function parseDirection(input: unknown): TradeDirection {
+  return input === "LONG" ? "LONG" : input === "SHORT" ? "SHORT" : input === "BOTH" ? "BOTH" : "BOTH";
+}
+
 /**
- * Validate untrusted custom-strategy input into a clean config plus the
- * instrument list. Rejects malformed rules and empty programs so the engine
- * always receives something it can evaluate.
+ * Validate untrusted custom-strategy input into a clean config plus any
+ * instruments carried alongside it. The asset(s) a bot trades now live on the
+ * bot (chosen when it is deployed), so instruments are optional here and are
+ * NOT required to define a strategy — a strategy is asset-agnostic logic.
+ * Malformed rules and empty programs are still rejected so the engine always
+ * receives something it can evaluate.
  */
 export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
   if (typeof input !== "object" || input === null) return { ok: false, error: "Invalid strategy." };
   const o = input as Record<string, unknown>;
 
   const instruments = parseInstruments(o.instruments ?? o.instrument);
-  if (instruments.length === 0) return { ok: false, error: "Choose at least one asset for the bot to trade." };
 
-  const direction = o.direction === "SHORT" ? "SHORT" : "LONG";
+  const direction = parseDirection(o.direction);
   const stopLossPct = clampNum(o.stopLossPct, 0.1, 20, 0.5);
   const targetRatio = clampNum(o.targetRatio, 0.25, 20, 2);
   const mode = o.mode === "CODE" ? "CODE" : "BUILDER";
@@ -351,23 +420,23 @@ export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
     return { ok: true, instruments, config: { mode: "CODE", language, code, direction, stopLossPct, targetRatio } };
   }
 
-  const groupsRaw = Array.isArray(o.groups) ? o.groups : [];
-  const groups: ConditionGroup[] = [];
-  for (const g of groupsRaw.slice(0, MAX_GROUPS)) {
-    if (typeof g !== "object" || g === null) continue;
-    const gv = g as Record<string, unknown>;
-    const join: GroupJoin = gv.join === "ANY" ? "ANY" : "ALL";
-    const condsRaw = Array.isArray(gv.conditions) ? gv.conditions : [];
-    const conditions: Condition[] = [];
-    for (const c of condsRaw.slice(0, MAX_CONDITIONS_PER_GROUP)) {
-      const parsed = parseCondition(c);
-      if (parsed) conditions.push(parsed);
-    }
-    if (conditions.length) groups.push({ join, conditions });
-  }
+  const groups = parseGroups(o.groups);
   if (groups.length === 0) return { ok: false, error: "Add at least one valid entry condition." };
 
-  return { ok: true, instruments, config: { mode: "BUILDER", direction, groups, stopLossPct, targetRatio } };
+  // When the strategy trades both directions it carries a separate short ruleset.
+  // If the caller didn't supply one, mirror the long rules (flip each comparison)
+  // so a BOTH strategy actually takes shorts instead of silently trading long only.
+  let shortGroups: ConditionGroup[] | undefined;
+  if (direction === "BOTH") {
+    const parsedShort = parseGroups(o.shortGroups);
+    shortGroups = parsedShort.length > 0 ? parsedShort : mirrorGroups(groups);
+  }
+
+  return {
+    ok: true,
+    instruments,
+    config: { mode: "BUILDER", direction, groups, ...(shortGroups ? { shortGroups } : {}), stopLossPct, targetRatio },
+  };
 }
 
 /**
@@ -379,4 +448,20 @@ export function parseCustomConfig(input: unknown): ParseOk | ParseErr {
 export function instrumentsFromParams(params: Record<string, unknown>): string[] {
   const list = parseInstruments(params.instruments ?? params.instrument);
   return list.length ? list : ["NQ"];
+}
+
+/**
+ * Resolve the assets a bot should actually trade. The bot is the source of truth
+ * (assets are chosen when the bot is deployed, not baked into the strategy), so
+ * its instruments win. Bots created before this change carry none, so we fall
+ * back to whatever the strategy params still hold and finally to NQ. This lets
+ * the same strategy power several bots, each trading different assets.
+ */
+export function instrumentsForBot(
+  botInstruments: unknown,
+  strategyParams: Record<string, unknown>,
+): string[] {
+  const onBot = parseInstruments(botInstruments);
+  if (onBot.length) return onBot;
+  return instrumentsFromParams(strategyParams);
 }
