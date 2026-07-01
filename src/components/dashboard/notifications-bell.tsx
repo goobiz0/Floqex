@@ -35,7 +35,7 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
   }, [open]);
 
   return (
-    <>
+    <div className="relative inline-flex">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -52,25 +52,21 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
       <AnimatePresence>
         {open ? (
           <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-base/50 backdrop-blur-sm"
+            {/* Transparent backdrop for click-outside */}
+            <div
+              className="fixed inset-0 z-40"
               onClick={() => setOpen(false)}
             />
             
-            {/* Slide-out Drawer */}
+            {/* Dropdown Menu */}
             <motion.div
               role="dialog"
               aria-modal="true"
-              className="fixed inset-y-0 right-0 z-50 w-full max-w-sm border-l border-line bg-elevated shadow-2xl flex flex-col"
-              initial={reduce ? { x: "100%" } : { x: "100%", opacity: 0 }}
-              animate={reduce ? { x: 0 } : { x: 0, opacity: 1 }}
-              exit={reduce ? { x: "100%" } : { x: "100%", opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="absolute right-0 top-full mt-2 z-50 w-[340px] max-h-[85vh] rounded-[var(--radius-card)] border border-line bg-elevated shadow-lg flex flex-col origin-top-right overflow-hidden"
+              initial={reduce ? { opacity: 0 } : { scale: 0.97, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { scale: 0.97, opacity: 0 }}
+              transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
             >
               <div className="flex items-center justify-between border-b border-line px-5 py-4 shrink-0">
                 <div className="flex items-center gap-2">
@@ -152,6 +148,6 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
           </>
         ) : null}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
