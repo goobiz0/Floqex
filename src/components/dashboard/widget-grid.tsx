@@ -258,14 +258,17 @@ export function WidgetGrid({
         useCSSTransforms={true}
         draggableHandle=".drag-handle"
       >
-        {items.map((item) => {
+        {items.map((item, index) => {
           const canConfigure = WIDGET_CONFIGURABLE[item.type] === true;
           return (
             <div key={item.i} className={cn(
               "relative group rounded-[var(--radius-card)] bg-elevated border border-line overflow-hidden flex flex-col",
               isEditMode && isDesktop && "ring-1 ring-transparent hover:ring-accent/50 transition-shadow"
             )}>
-              <div className="flex-1 overflow-hidden pointer-events-auto">
+              <div 
+                className="flex-1 overflow-hidden pointer-events-auto flex flex-col h-full stagger-in" 
+                style={{ "--stagger-index": index } as React.CSSProperties}
+              >
                 <WidgetBoundary>{renderWidget(item)}</WidgetBoundary>
               </div>
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Gear, Star, Question } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { getRecentNotifications } from "@/lib/queries";
+import { getMockNotifications } from "@/app/dashboard/notifications-actions";
 import { Wordmark } from "@/components/brand/wordmark";
 import { TopbarUser } from "@/components/dashboard/topbar-user";
 import { CommandPalette } from "@/components/dashboard/command-palette";
@@ -20,7 +20,7 @@ export async function Topbar() {
   // lookup concurrently. The plan is read off the user meta row we already load
   // here, so there is no need for a separate plan query.
   const [notifications, user, marketAsxEnabled] = await Promise.all([
-    getRecentNotifications(),
+    getMockNotifications(),
     getTopBarUserMeta(),
     getMarketAsxEnabled(clerkId),
   ]);

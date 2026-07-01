@@ -83,7 +83,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       rel={isDocs ? "noopener noreferrer" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-[13px] font-medium transition-colors hover:text-fg",
+        "group relative flex items-center gap-3 rounded-[var(--radius-pill)] min-h-[44px] py-2 pl-3 pr-4 text-[13px] font-medium transition-colors hover:text-fg",
         active ? "text-fg" : "text-fg-subtle",
         !active && "hover:bg-surface/50"
       )}
@@ -119,7 +119,7 @@ function MiniLink({ item }: { item: NavItem }) {
   return (
     <Link
       href={item.href}
-      className="flex items-center gap-2.5 rounded-[var(--radius-control)] py-1.5 pl-3 pr-3 text-[12px] font-medium text-fg-subtle transition-colors hover:text-fg hover:bg-surface/50"
+      className="flex items-center gap-2.5 rounded-[var(--radius-control)] min-h-[44px] py-1.5 pl-3 pr-3 text-[12px] font-medium text-fg-subtle transition-colors hover:text-fg hover:bg-surface/50"
     >
       <span className="h-1.5 w-1.5 rounded-full bg-line-strong" />
       {item.label}
@@ -146,7 +146,7 @@ function Section({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between px-3 pb-3 text-[12px] font-bold text-fg transition-colors hover:text-fg-muted"
+        className="flex w-full min-h-[44px] items-center justify-between px-3 pb-3 text-[12px] font-bold text-fg transition-colors hover:text-fg-muted"
       >
         {label}
         <CaretUp
@@ -170,7 +170,7 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
     <Link
       href={href}
       className={cn(
-        "group relative flex items-center justify-between rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:text-fg",
+        "group relative flex items-center justify-between rounded-[var(--radius-pill)] min-h-[44px] py-2 pl-3 pr-4 transition-colors hover:text-fg",
         isActive ? "text-fg" : "text-fg-subtle",
         !isActive && "hover:bg-surface/50"
       )}
@@ -204,7 +204,7 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
   const activeAccountId = searchParams?.get("account") || (accounts.length > 0 ? accounts[0].id : undefined);
   
   return (
-    <aside className="fixed bottom-0 left-0 top-16 hidden w-64 flex-col border-r border-line bg-base lg:flex">
+    <aside className="fixed bottom-0 left-0 top-16 hidden w-60 flex-col border-r border-line bg-base md:flex">
       <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-6">
         <Section label="Navigate">
           {NAVIGATE.map((item) => {
@@ -222,7 +222,7 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
               href="/dashboard/accounts"
               aria-current={isActiveRoute("/dashboard/accounts") ? "page" : undefined}
               className={cn(
-                "group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 transition-colors hover:bg-surface/50 hover:text-fg",
+                "group flex items-center gap-3 rounded-[var(--radius-pill)] min-h-[44px] py-2 pl-3 pr-4 transition-colors hover:bg-surface/50 hover:text-fg",
                 isActiveRoute("/dashboard/accounts") ? "text-fg" : "text-fg-subtle",
               )}
             >
@@ -241,7 +241,7 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
             </Link>
             <Link
               href="/dashboard/accounts/new"
-              className="group flex items-center gap-3 rounded-[var(--radius-pill)] py-2 pl-3 pr-4 text-fg-subtle transition-colors hover:bg-surface/50 hover:text-fg"
+              className="group flex items-center gap-3 rounded-[var(--radius-pill)] min-h-[44px] py-2 pl-3 pr-4 text-fg-subtle transition-colors hover:bg-surface/50 hover:text-fg"
             >
               <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[8px] border border-dashed border-line-strong text-fg-subtle transition-colors group-hover:border-accent group-hover:text-accent">
                 <Plus size={12} weight="bold" />
@@ -310,7 +310,7 @@ export function BottomNav() {
   const settingsItem = MORE.find((i) => i.href === "/dashboard/settings");
   const items = settingsItem ? [...NAVIGATE.slice(0, 4), settingsItem] : NAVIGATE;
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-line bg-elevated/95 backdrop-blur lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-line bg-elevated/95 backdrop-blur md:hidden">
       {items.map((item) => {
         const active = isActive(item.href);
         const Icon = item.icon;
@@ -320,7 +320,7 @@ export function BottomNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
+              "flex flex-1 flex-col items-center justify-center min-h-[44px] gap-1 py-2.5 text-[10px] font-medium transition-colors",
               active ? "text-fg" : "text-fg-subtle",
             )}
           >

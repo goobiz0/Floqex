@@ -85,7 +85,10 @@ export async function executeTrade(botId: string, accountId: string, signal: Non
         `${account.broker} ${signal.direction} ${instrument}`,
         () => executeLiveOrder(account.broker, creds, instrument, signal.direction, risk.sizeUnits, idemKey),
       );
-      filledPrice = order.filledPrice || signal.entryPrice;
+      if (order.status !== "FILLED") {
+        throw new Error(`Order ${order.id} is still OPEN on the exchange and did not fill immediately.`);
+      }
+      filledPrice = order.filledPrice;
     } catch (e: unknown) {
       const err = e as Error;
       console.error("Live Execution Failed:", err.message);
@@ -163,7 +166,10 @@ export async function closeTrade(tradeId: string, accountId: string, exitReason:
         `${account.broker} CLOSE ${trade.direction} ${trade.instrument}`,
         () => closeLivePosition(account.broker, creds, trade.instrument, trade.direction, Number(trade.sizeUnits), idemKey),
       );
-      finalExitPrice = order.filledPrice || exitPrice;
+      if (order.status !== "FILLED") {
+        throw new Error(`Close order ${order.id} is still OPEN on the exchange and did not fill immediately.`);
+      }
+      finalExitPrice = order.filledPrice;
     } catch (e: unknown) {
       const err = e as Error;
       console.error("Live Exit Execution Failed:", err.message);

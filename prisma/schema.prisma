@@ -67,6 +67,17 @@ model User {
   copyLinks          CopyLink[]
   forwardTests       ForwardTest[]
 
+  // Marketplace
+  sellerBalance      Decimal  @default(0) @db.Decimal(18, 2)
+  sellerCurrency     String   @default("USD")
+  payoutEmail        String?
+  
+  marketplaceListings  MarketplaceListing[]  @relation("MarketplaceSeller")
+  marketplacePurchases MarketplacePurchase[] @relation("MarketplaceBuyer")
+  marketplaceReviews   MarketplaceReview[]   @relation("MarketplaceReviewer")
+  withdrawalRequests   WithdrawalRequest[]
+  notifications        Notification[]
+
   @@map("users")
   @@schema("public")
 }
@@ -224,10 +235,11 @@ model Strategy {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   bots         Bot[]
   adjustments  BotAdjustment[]
   forwardTests ForwardTest[]
+  listings     MarketplaceListing[]
 
   @@index([userId])
   @@map("strategies")
@@ -581,5 +593,166 @@ model CopyTradeEvent {
   @@index([copyLinkId, createdAt])
   @@index([sourceTradeId])
   @@map("copy_trade_events")
+  @@schema("public")
+}
+
+// ─────────────────── Strategy Marketplace ────────────────────────
+//
+// Sellers list strategies for a fixed price. On every sale the platform keeps
+// 30% (inclusive of Stripe processing fees) and credits 70% to the seller's
+// in-app balance. Sellers can request payouts once their balance exceeds the
+// minimum threshold. Reviews are gated to verified purchasers.
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  REMOVED
+
+  @@schema("public")
+}
+
+model MarketplaceListing {
+  id          String        @id @default(cuid())
+  sellerId    String
+  strategyId  String
+  // Public-facing fields
+  title       String
+  description String        @db.Text
+  tagline     String?
+  category    String        @default("Breakout")
+  priceUsd    Decimal       @db.Decimal(10, 2) // listing price in USD
+  status      ListingStatus @default(DRAFT)
+  // Aggregated stats (denormalized for fast listing pages)
+  salesCount  Int           @default(0)
+  reviewCount Int           @default(0)
+  avgRating   Decimal       @default(0) @db.Decimal(3, 2) // 0.00 to 5.00
+  // Performance snapshot baked at listing time so buyers see real numbers
+  edgeScore       Int?
+  edgeVerdict     String?
+  winRate         Decimal? @db.Decimal(6, 2)
+  totalReturnPct  Decimal? @db.Decimal(10, 2)
+  maxDrawdownPct  Decimal? @db.Decimal(6, 2)
+  tradeCount      Int?
+  // Revenue tracking
+  totalRevenue    Decimal  @default(0) @db.Decimal(18, 2) // gross sales
+  totalPlatformFee Decimal @default(0) @db.Decimal(18, 2)
+  totalSellerEarnings Decimal @default(0) @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seller    User                  @relation("MarketplaceSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  strategy  Strategy              @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  purchases MarketplacePurchase[]
+  reviews   MarketplaceReview[]
+
+  @@unique([sellerId, strategyId])
+  @@index([status, avgRating(sort: Desc)])
+  @@index([status, salesCount(sort: Desc)])
+  @@index([category, status])
+  @@map("marketplace_listings")
+  @@schema("public")
+}
+
+enum PurchaseStatus {
+  PENDING   // Checkout session created but not yet paid
+  COMPLETED // Payment confirmed, strategy cloned to buyer
+  REFUNDED  // Full refund issued
+  FAILED    // Payment failed or expired
+
+  @@schema("public")
+}
+
+model MarketplacePurchase {
+  id               String         @id @default(cuid())
+  buyerId          String
+  listingId        String
+  stripeSessionId  String?        @unique // Stripe Checkout Session ID
+  stripePaymentId  String?        // Stripe PaymentIntent ID (for refunds)
+  status           PurchaseStatus @default(PENDING)
+  priceUsd         Decimal        @db.Decimal(10, 2) // price at time of purchase
+  platformFeeUsd   Decimal        @db.Decimal(10, 2) // 30% kept by platform
+  sellerEarningUsd Decimal        @db.Decimal(10, 2) // 70% credited to seller
+  // The cloned strategy given to the buyer (null until payment confirms)
+  clonedStrategyId String?
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
+
+  buyer   User               @relation("MarketplaceBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId])
+  @@index([listingId])
+  @@index([stripeSessionId])
+  @@map("marketplace_purchases")
+  @@schema("public")
+}
+
+model MarketplaceReview {
+  id        String @id @default(cuid())
+  buyerId   String
+  listingId String
+  rating    Int // 1 to 5 stars
+  title     String?
+  body      String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyer   User               @relation("MarketplaceReviewer", fields: [buyerId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  // One review per buyer per listing
+  @@unique([buyerId, listingId])
+  @@index([listingId, createdAt(sort: Desc)])
+  @@map("marketplace_reviews")
+  @@schema("public")
+}
+
+enum WithdrawalStatus {
+  PENDING    // Seller requested, admin review needed
+  PROCESSING // Admin approved, payout in progress
+  COMPLETED  // Funds sent
+  REJECTED   // Admin rejected (fraud, etc.)
+
+  @@schema("public")
+}
+
+model WithdrawalRequest {
+  id          String           @id @default(cuid())
+  userId      String
+  amountUsd   Decimal          @db.Decimal(18, 2)
+  status      WithdrawalStatus @default(PENDING)
+  payoutEmail String // Email or PayPal address for the payout
+  // Admin-managed fields
+  processedAt DateTime?
+  adminNote   String?
+  // Stripe Transfer/Payout reference (if processed via Stripe)
+  stripeTransferId String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("withdrawal_requests")
+  @@schema("public")
+}
+
+// ─────────────────────── Notifications ──────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
   @@schema("public")
 }

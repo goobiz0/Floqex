@@ -1,115 +1,91 @@
-import { type NextRequest, NextResponse } from "next/server";
-import type Stripe from "stripe";
-import { getStripe } from "@/lib/stripe";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { planFromPriceId, isPaidPriceId, type Plan } from "@/lib/plans";
+import { getStripe } from "@/lib/stripe";
+import type Stripe from "stripe";
 
-export const runtime = "nodejs";
+const stripe = getStripe();
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-/** Mirror the Stripe subscription state onto the matching user row. */
-async function syncSubscription(customerId: string, sub: Stripe.Subscription) {
-  // A subscription can hold multiple items (e.g. add-ons); pick the one whose
-  // price maps to a known paid tier rather than assuming it is the first item.
-  // isPaidPriceId is side-effect free, so scanning never logs spurious warnings.
-  const priceId =
-    sub.items.data.map((i) => i.price?.id).find((id) => isPaidPriceId(id)) ??
-    sub.items.data[0]?.price?.id;
-  const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
-  const plan: Plan = active ? ((sub.metadata?.plan as Plan) || planFromPriceId(priceId)) : "FREE";
-
-  // current_period_end lives on the subscription (older API) or its items (newer).
-  const periodEnd =
-    (sub.items.data[0] as { current_period_end?: number } | undefined)?.current_period_end ??
-    (sub as unknown as { current_period_end?: number }).current_period_end;
-
-  await prisma.user.updateMany({
-    where: { stripeCustomerId: customerId },
-    data: {
-      plan,
-      stripeSubscriptionId: sub.id,
-      stripeSubStatus: sub.status,
-      stripeCurrentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
-    },
-  });
-}
-
-export async function POST(req: NextRequest) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  const sig = req.headers.get("stripe-signature");
-  if (!secret || !sig) {
-    return new NextResponse("Missing webhook secret or signature", { status: 400 });
-  }
-
+export async function POST(req: Request) {
   const body = await req.text();
-  let event: Stripe.Event;
-  try {
-    event = getStripe().webhooks.constructEvent(body, sig, secret);
-  } catch {
-    return new NextResponse("Invalid signature", { status: 400 });
+  const signature = (await headers()).get("stripe-signature");
+
+  if (!signature) {
+    return NextResponse.json({ error: "No signature" }, { status: 400 });
   }
 
+  let event: Stripe.Event;
+
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        
-        // Link the newly created customer ID to our internal user via metadata
-        if (session.metadata?.userId && session.customer) {
-          await prisma.user.update({
-            where: { id: session.metadata.userId },
-            data: { stripeCustomerId: session.customer as string },
-          });
-        }
+    event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
+  } catch (err: any) {
+    console.error(`Webhook Error: ${err.message}`);
+    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+  }
 
-        if (session.subscription && session.customer) {
-          // Fix: Prevent plan stacking by cancelling all OTHER active subscriptions for this customer
-          const existingSubs = await getStripe().subscriptions.list({
-            customer: session.customer as string,
-            status: "active",
-          });
-          
-          for (const s of existingSubs.data) {
-            if (s.id !== session.subscription) {
-              try {
-                await getStripe().subscriptions.cancel(s.id);
-                console.log(`Cancelled previous subscription ${s.id} for customer ${session.customer}`);
-              } catch (e) {
-                console.error(`Failed to cancel previous subscription ${s.id}:`, e);
-              }
-            }
-          }
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    
+    // Check if this is a marketplace purchase
+    if (session.metadata?.type === "marketplace_purchase") {
+      const purchaseId = session.metadata.purchaseId;
+      const buyerId = session.metadata.buyerId;
+      const listingId = session.metadata.listingId;
 
-          const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
-          await syncSubscription(session.customer as string, sub);
-        }
-        break;
+      if (!purchaseId || !buyerId || !listingId) {
+         console.error("Missing metadata for marketplace purchase webhook", session.metadata);
+         return NextResponse.json({ received: true });
       }
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        await syncSubscription(sub.customer as string, sub);
-        break;
+
+      try {
+        await handleMarketplacePurchase(purchaseId, buyerId, listingId);
+      } catch (err) {
+        console.error("Failed to process marketplace purchase:", err);
       }
-      case "invoice.payment_failed": {
-        // Surface the dunning state so the billing page can warn the user; the
-        // plan itself stays until Stripe finally cancels the subscription.
-        const invoice = event.data.object as Stripe.Invoice;
-        if (invoice.customer) {
-          await prisma.user.updateMany({
-            where: { stripeCustomerId: invoice.customer as string },
-            data: { stripeSubStatus: "past_due" },
-          });
-        }
-        break;
-      }
-      default:
-        break;
     }
-  } catch (err) {
-    console.error("stripe webhook handler error", err);
-    return new NextResponse("Webhook handler error", { status: 500 });
   }
 
   return NextResponse.json({ received: true });
+}
+
+async function handleMarketplacePurchase(purchaseId: string, buyerId: string, listingId: string) {
+  // Use a transaction to ensure atomic execution
+  await prisma.$transaction(async (tx) => {
+    // 1. Mark purchase as completed
+    const purchase = await tx.marketplacePurchase.update({
+      where: { id: purchaseId },
+      data: { status: "COMPLETED" },
+    });
+
+    // 2. Fetch the listing and its strategy template
+    const listing = await tx.marketplaceListing.findUnique({
+      where: { id: listingId },
+      include: { strategy: true },
+    });
+
+    if (!listing) throw new Error("Listing not found");
+
+    // 3. Clone the strategy to the buyer
+    const newStrategy = await tx.strategy.create({
+      data: {
+        userId: buyerId,
+        name: `${listing.strategy.name} (Purchased)`,
+        kind: listing.strategy.kind,
+        params: listing.strategy.params as any,
+      }
+    });
+
+    // 4. Update the listing metrics (sales count)
+    await tx.marketplaceListing.update({
+      where: { id: listingId },
+      data: { salesCount: { increment: 1 } },
+    });
+
+    // 5. Credit the seller's balance
+    await tx.user.update({
+      where: { id: listing.sellerId },
+      data: { sellerBalance: { increment: purchase.sellerEarningUsd } },
+    });
+  });
 }

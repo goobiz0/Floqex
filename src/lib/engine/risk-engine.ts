@@ -100,10 +100,10 @@ export async function validateRisk(
     const lossThreshold = startBalance * (dailyLossPct / 100);
     // Fast in-memory guard first (reflects closes from this tick instantly),
     // then the authoritative DB summary.
-    if (getDailyRealizedPnl(accountId) < -lossThreshold) {
+    if (getDailyRealizedPnl(accountId) <= -lossThreshold) {
       return { passed: false, reason: "CIRCUIT_BREAKER_TRIPPED" };
     }
-    if (summary && summary.netPnl.toNumber() < -lossThreshold) {
+    if (summary && summary.netPnl.toNumber() <= -lossThreshold) {
       return { passed: false, reason: "CIRCUIT_BREAKER_TRIPPED" };
     }
   }
@@ -129,6 +129,9 @@ export async function validateRisk(
   // never sizing off a stale snapshot — but we still guard the inputs.)
   if (!Number.isFinite(balance) || balance <= 0) {
     return { passed: false, reason: "INVALID_BALANCE" };
+  }
+  if (!Number.isFinite(signal.entryPrice) || signal.entryPrice <= 0) {
+    return { passed: false, reason: "INVALID_ENTRY_PRICE" };
   }
   const stopDistance = Math.abs(signal.entryPrice - signal.stopPrice);
   if (!Number.isFinite(stopDistance) || stopDistance <= 0) {

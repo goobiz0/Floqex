@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { getIntradayBars, getRealMarketData, type Interval } from "@/lib/engine/market-data";
 import { runValidation, DEFAULT_COSTS, type ValidationReport } from "@/lib/engine/validation";
 import { evaluateOrbStrategy, evaluateCustomStrategy } from "@/lib/engine/signal-generator";
+import { previewConditions, type PreviewResult } from "@/lib/engine/signal-preview";
 import { instrumentsFromParams } from "@/lib/custom-strategy";
 import { isInstrumentTradeable } from "@/lib/market";
 
@@ -81,11 +82,13 @@ export async function runStrategyValidation(input: {
   let saved: Record<string, unknown> = {};
   if (input.strategyId) {
     const strat = await prisma.strategy.findFirst({ where: { id: input.strategyId, userId: user.id }, select: { params: true } });
+    if (!strat) return { ok: false, error: "Strategy not found" };
     saved = (strat?.params as Record<string, unknown>) ?? {};
   }
 
   const instrument = (input.instrument || (typeof saved.instrument === "string" ? saved.instrument : "") || "NQ").trim();
-  const requestedInterval: Interval = input.interval ?? "5m";
+  const requestedInterval: Interval =
+    input.interval && input.interval in INTERVAL_FALLBACK ? input.interval : "5m";
   const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 
   // Adaptive interval selection: try the requested granularity, then step up to
@@ -142,8 +145,8 @@ export async function runStrategyValidation(input: {
   // rides in the existing params JSON).
   if (input.strategyId) {
     try {
-      await prisma.strategy.update({
-        where: { id: input.strategyId },
+      await prisma.strategy.updateMany({
+        where: { id: input.strategyId, userId: user.id },
         data: {
           params: {
             ...saved,
@@ -228,6 +231,30 @@ export async function getLiveSignals(input: { strategyId: string }): Promise<Liv
   );
 
   return { ok: true, rows, asOf: new Date().toISOString() };
+}
+
+export type LiveDebuggerResponse = 
+  | { ok: true; result: PreviewResult; asOf: string }
+  | { ok: false; error: string };
+
+export async function getLiveDebugger(input: { strategyId: string }): Promise<LiveDebuggerResponse> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
+  if (!user) return { ok: false, error: "User not found" };
+
+  const strat = await prisma.strategy.findFirst({
+    where: { id: input.strategyId, userId: user.id },
+    select: { params: true },
+  });
+  if (!strat) return { ok: false, error: "Strategy not found" };
+
+  const params = (typeof strat.params === "string" ? JSON.parse(strat.params) : strat.params) as Record<string, unknown>;
+  const instrument = instrumentsFromParams(params)[0] || "NQ";
+  
+  const result = await previewConditions(params, instrument);
+  return { ok: true, result, asOf: new Date().toISOString() };
 }
 
 // Engine liveness, derived from how recently the worker stamped a heartbeat on
@@ -585,4 +612,18 @@ export async function deleteStrategy(strategyId: string) {
 
   revalidatePath("/dashboard/strategy");
   return { ok: true };
+}
+
+export async function runDualValidation(
+  baseInput: Parameters<typeof runStrategyValidation>[0],
+  compareInput: Parameters<typeof runStrategyValidation>[0]
+): Promise<{ base: ValidationResponse; compare: ValidationResponse }> {
+  // Run both validations in parallel. We strip strategyId to prevent DB updates
+  // during a hypothetical compare so it doesn't overwrite the single canonical score.
+  const [base, compare] = await Promise.all([
+    runStrategyValidation({ ...baseInput, strategyId: undefined }),
+    runStrategyValidation({ ...compareInput, strategyId: undefined }),
+  ]);
+  
+  return { base, compare };
 }

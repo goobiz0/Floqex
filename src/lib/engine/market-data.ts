@@ -89,7 +89,7 @@ export interface MarketData {
 
 // Exponential backoff with jitter. Jitter spreads retries out so a fleet of
 // bots retrying after the same rate-limit don't thunder back in lockstep.
-async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 500): Promise<T> {
+async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 250): Promise<T> {
   try {
     return await fn();
   } catch (error) {
@@ -110,11 +110,26 @@ const marketDataInflight: Record<string, Promise<MarketData | null>> = {};
  *  between REST refreshes. Cheap, no network. */
 function withLiveFlags(data: MarketData, instrument: string): MarketData {
   const streamed = getStreamedPrice(instrument);
+  const nextPrice = streamed ?? data.price;
+  let indicators = data.indicators;
+  
+  if (streamed && indicators) {
+    const range = indicators.dayHigh - indicators.dayLow;
+    indicators = {
+      ...indicators,
+      price: nextPrice,
+      changePct: indicators.prevClose != null && indicators.prevClose > 0 ? ((nextPrice - indicators.prevClose) / indicators.prevClose) * 100 : null,
+      rangePosition: range > 0 ? ((nextPrice - indicators.dayLow) / range) * 100 : null,
+      atrPct: indicators.atr14 != null && nextPrice > 0 ? (indicators.atr14 / nextPrice) * 100 : null,
+    };
+  }
+
   return {
     ...data,
-    price: streamed ?? data.price,
+    price: nextPrice,
     isOpen: isInstrumentTradeable(instrument),
     isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true),
+    indicators,
   };
 }
 

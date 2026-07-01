@@ -100,7 +100,7 @@ export function StrategyHubGrid({ strategies }: { strategies: HubStrategy[] }) {
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] } }}
             transition={reduce ? { duration: 0 } : { duration: 0.2, delay: i * 0.04, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="group transition-gpu relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line hover:border-line-strong hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] transition-[border-color,box-shadow,transform] duration-200 ease-[var(--ease-out-expo)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] h-full">
+            <div className="group transition-gpu lift relative flex flex-col p-6 rounded-[var(--radius-card)] bg-surface border border-line shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] h-full">
               <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
 
               <div className="relative z-10 flex items-start justify-between mb-4">

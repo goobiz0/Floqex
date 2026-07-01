@@ -332,30 +332,36 @@ if (process.env.DEBUG === "1" || process.env.DEBUG === "true") {
 }
 
 let shuttingDown = false;
+let currentTickPromise: Promise<void> | null = null;
 
 async function runLoop() {
   if (shuttingDown) return;
-  await tick();
+  currentTickPromise = tick();
+  await currentTickPromise;
+  currentTickPromise = null;
   if (!shuttingDown) setTimeout(runLoop, TICK_RATE_MS);
 }
 
 // Graceful shutdown: stop scheduling new ticks so PM2's kill_timeout window lets
 // the in-flight tick finish (and any open-order writes land) before SIGKILL.
-function shutdown(signal: string) {
+async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[engine] ${signal} received — draining current tick and shutting down.`);
+  if (currentTickPromise) {
+    await currentTickPromise.catch(() => {});
+  }
   closeAllStreams();
-  prisma.$disconnect().catch(() => {});
+  await prisma.$disconnect().catch(() => {});
 }
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => { shutdown("SIGINT").catch(() => {}); });
+process.on("SIGTERM", () => { shutdown("SIGTERM").catch(() => {}); });
 
-// Reconcile DB open trades against broker positions once before the loop starts,
-// then begin ticking. Reconciliation is best-effort and never blocks the engine.
-async function bootstrap() {
-  await reconcileOpenPositions(ownsBot).catch((e) => console.error("[engine] reconcile failed:", e));
+// Reconcile DB open trades against broker positions in the background,
+// and begin ticking immediately so the engine is non-blocking.
+function bootstrap() {
   runLoop();
+  reconcileOpenPositions(ownsBot).catch((e) => console.error("[engine] reconcile failed:", e));
 }
 
 bootstrap();

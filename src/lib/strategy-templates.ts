@@ -71,7 +71,7 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
       // Calibrated: a 0.75% stop survives normal session noise, RR 1.8 is
       // reachable on most trending days, and a trailing stop locks in the move.
       rrTarget: 1.8,
-      minRange: 0.3,
+      minRange: DEFAULT_PARAMS.minRange,
       stopLossPct: 0.75,
       trailingStopPct: 0.5,
       trendFilter: true,
@@ -137,7 +137,7 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     kind: "CUSTOM",
     buildParams: () =>
       builderParams({
-        direction: "BOTH", // Changed to BOTH to improve resilience across market regimes
+        direction: "LONG",
         targetRatio: 2,
         stopLossPct: 0.75,
         overrides: {
@@ -170,7 +170,7 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     premium: true,
     buildParams: () =>
       builderParams({
-        direction: "BOTH",
+        direction: "LONG",
         // RR 2.5 is more reachable on a continuation than 3.0; the wider 0.6%
         // stop keeps us in the move through the first pullback.
         targetRatio: 2.5,
@@ -206,7 +206,7 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     premium: true,
     buildParams: () =>
       builderParams({
-        direction: "BOTH",
+        direction: "LONG",
         targetRatio: 2,
         // Reversions need room: a 1.0% stop with ATR scaling lets the position
         // breathe instead of getting knifed on the first lower tick.

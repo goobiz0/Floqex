@@ -66,7 +66,7 @@ function scoreFor(row: SweepRow, objective: Objective): number {
  */
 export function optimizeStrategy(
   bars: Bar[],
-  base: { riskPct?: number; direction?: "LONG" | "SHORT" | "BOTH" },
+  base: { riskPct?: number; direction?: "LONG" | "SHORT" | "BOTH"; trailingStopPct?: number; atrStopMultiple?: number },
   objective: Objective,
   topN = 5,
 ): SweepRow[] {
@@ -85,6 +85,8 @@ export function optimizeStrategy(
           stopLossPct: STOP_GRID[si],
           trendFilter: TREND_GRID[ti],
           direction: base.direction,
+          trailingStopPct: base.trailingStopPct,
+          atrStopMultiple: base.atrStopMultiple,
         });
         grid[ri][si][ti] = r.trades >= MIN_TRADES ? r.totalReturnPct : null;
         if (r.trades >= MIN_TRADES) raws.push({ ri, si, ti, r });
@@ -106,7 +108,7 @@ export function optimizeStrategy(
       const v = grid[nr]?.[ns]?.[ti];
       if (typeof v === "number") neighbours.push(v);
     }
-    let stabilityScore = 1;
+    let stabilityScore = 0; // default to 0 for isolated cells
     if (neighbours.length) {
       const avgGap =
         neighbours.reduce((acc, v) => acc + Math.abs(v - r.totalReturnPct), 0) / neighbours.length;

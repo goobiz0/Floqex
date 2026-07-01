@@ -401,10 +401,7 @@ export function DashboardPageClient({
               )}
             </div>
             {hasBot && liveEngineStatus === "ONLINE" && (
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-              </span>
+              <span className="h-2 w-2 shrink-0 rounded-full bg-accent pulse-live"></span>
             )}
           </div>
           <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2">
@@ -589,7 +586,7 @@ export function DashboardPageClient({
       return (
         <div className="relative flex h-full w-full flex-col p-5">
           <div className="flex items-center gap-2 mb-4"><ArrowUpRight size={16} className="text-accent" /><h3 className="text-xs font-medium text-fg">Quick Actions</h3></div>
-          <div className="mt-auto grid grid-cols-2 gap-2 h-full">
+          <div className="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-2 h-full">
             <Link href="/dashboard/bots/new" className="flex flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-surface text-[10px] text-fg-subtle hover:bg-surface-hover border border-line"><Robot size={16} />New Bot</Link>
             <Link href="/dashboard/accounts/new" className="flex flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-surface text-[10px] text-fg-subtle hover:bg-surface-hover border border-line"><Plug size={16} />Broker</Link>
           </div>
@@ -696,7 +693,7 @@ export function DashboardPageClient({
           <Dropdown 
             align="right"
             trigger={
-              <button className="flex items-center gap-2 rounded-[var(--radius-pill)] border border-line bg-surface px-4 py-2 text-sm text-fg hover:bg-surface-hover transition-colors font-medium">
+              <button className="flex items-center gap-2 rounded-[var(--radius-pill)] border border-line bg-surface px-4 py-2 min-h-[44px] md:min-h-0 text-sm text-fg hover:bg-surface-hover transition-colors font-medium">
                 {activeTemplate?.name || "Default Layout"}
                 <CaretDown size={14} className="text-fg-subtle" />
               </button>
@@ -727,7 +724,7 @@ export function DashboardPageClient({
           />
 
           {!isEditMode ? (
-            <button onClick={() => setIsEditMode(true)} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
+            <button onClick={() => setIsEditMode(true)} className="flex h-10 min-h-[44px] md:min-h-0 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
               <PencilSimple size={16} /> Edit Layout
             </button>
           ) : (
@@ -737,10 +734,10 @@ export function DashboardPageClient({
                 setLayoutItems(prev);
                 setIsDraft(false);
                 setIsEditMode(false);
-              }} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
+              }} className="flex h-10 min-h-[44px] md:min-h-0 items-center gap-2 rounded-[var(--radius-control)] bg-surface border border-line px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-hover">
                 Cancel
               </button>
-              <button onClick={handleSaveLayout} disabled={isSavingLayout} className="flex h-10 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:pointer-events-none">
+              <button onClick={handleSaveLayout} disabled={isSavingLayout} className="flex h-10 min-h-[44px] md:min-h-0 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-[var(--color-on-accent)] transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:pointer-events-none">
                 {isSavingLayout ? (
                   <><CircleNotch size={16} className="animate-spin" weight="bold" /> Saving</>
                 ) : (

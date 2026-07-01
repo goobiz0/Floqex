@@ -38,7 +38,7 @@ export function EdgeScorecard({ edge }: { edge: EdgeScore }) {
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
         {/* Score dial */}
         <div className="flex items-center gap-5">
-          <div className="relative h-24 w-24 shrink-0">
+          <div className="relative h-24 w-24 shrink-0 score-reveal">
             <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90" role="img" aria-label={`Edge score ${pct} out of 100`}>
               <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-line)" strokeWidth="8" />
               <motion.circle

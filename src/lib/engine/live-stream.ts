@@ -15,6 +15,7 @@ const ticks = new Map<string, Tick>();
 const sockets = new Map<string, WebSocket>();
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const backoff = new Map<string, number>();
+let isShuttingDown = false;
 
 // A streamed price older than this is treated as stale and ignored (the caller
 // falls back to the REST quote), so a silently-dead socket can't serve a frozen
@@ -31,9 +32,10 @@ function binanceSymbol(instrument: string): string {
 /** Open (once) a trade stream for a crypto instrument. No-op for non-crypto or
  *  if a socket already exists. Call this from the worker for each crypto symbol. */
 export function ensureCryptoStream(instrument: string): void {
+  if (isShuttingDown) return;
   if (getMarketForInstrument(instrument) !== "CRYPTO") return;
   const sym = binanceSymbol(instrument);
-  if (sockets.has(sym)) return;
+  if (sockets.has(sym) || reconnectTimers.has(sym)) return;
   connect(sym);
 }
 
@@ -70,7 +72,8 @@ function connect(sym: string): void {
 }
 
 function scheduleReconnect(sym: string): void {
-  if (reconnectTimers.has(sym)) return;
+  if (isShuttingDown) return;
+  if (reconnectTimers.has(sym) || sockets.has(sym)) return;
   const prev = backoff.get(sym) ?? 0;
   const delay = Math.min(MAX_BACKOFF_MS, prev ? prev * 2 : 1000) + Math.random() * 500;
   backoff.set(sym, delay);
@@ -91,6 +94,7 @@ export function getStreamedPrice(instrument: string): number | null {
 
 /** Tear every socket down (graceful worker shutdown). */
 export function closeAllStreams(): void {
+  isShuttingDown = true;
   for (const timer of reconnectTimers.values()) clearTimeout(timer);
   reconnectTimers.clear();
   for (const ws of sockets.values()) {

@@ -28,7 +28,7 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface shadow-[var(--shadow-sm)]">
+    <div className="-mx-4 sm:mx-0 overflow-x-auto sm:rounded-[var(--radius-card)] border-y sm:border-x border-line bg-surface shadow-[var(--shadow-sm)] max-w-[100vw]">
       <table className="w-full text-left text-sm whitespace-nowrap">
         <thead>
           <tr className="border-b border-line bg-base/50 text-fg-subtle text-[11px] uppercase tracking-wider font-semibold">
@@ -100,7 +100,7 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               className="overflow-hidden border-t border-line bg-base/40"
             >
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-6 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <Detail label="Status" value={trade.status === "OPEN" ? "Open" : "Closed"} />
                 <Detail label="Session" value={trade.session} />
                 <Detail label="Opened" value={fmtDateTime(trade.openedAt)} />

@@ -51,7 +51,7 @@ function EngineStatusPill() {
 }
 
 /**
- * Live Signal Feed — runs the strategy's exact signal logic against live market
+ * Live Signal Feed: runs the strategy's exact signal logic against live market
  * data on a poll, WITHOUT trading, so the user can watch their conditions fire
  * before going live. Read-only; mirrors the engine's generators 1:1.
  */
@@ -71,14 +71,18 @@ export function LiveSignalFeed({ strategyId }: { strategyId: string }) {
     }
     let cancelled = false;
     const poll = async () => {
-      const res = await getLiveSignals({ strategyId });
-      if (cancelled) return;
-      if (res.ok) {
-        setRows(res.rows);
-        setAsOf(res.asOf);
-        setError(null);
-      } else {
-        setError(res.error);
+      try {
+        const res = await getLiveSignals({ strategyId });
+        if (cancelled) return;
+        if (res.ok) {
+          setRows(res.rows);
+          setAsOf(res.asOf);
+          setError(null);
+        } else {
+          setError(res.error);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to fetch live signals");
       }
       if (!cancelled && live) timer.current = setTimeout(() => start(poll), POLL_MS);
     };
@@ -105,6 +109,7 @@ export function LiveSignalFeed({ strategyId }: { strategyId: string }) {
           </div>
         </div>
         <button
+          type="button"
           onClick={() => setLive((v) => !v)}
           className={cn(
             "tactile inline-flex items-center gap-2 rounded-[var(--radius-pill)] px-3.5 py-1.5 text-sm font-semibold",
