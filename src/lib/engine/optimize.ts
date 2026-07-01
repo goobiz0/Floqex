@@ -112,43 +112,66 @@ function scoreFor(row: SweepRow, objective: Objective): number {
  */
 export function optimizeStrategy(
   bars: Bar[],
-  base: { riskPct?: number; direction?: SweepDirection },
+  base: { riskPct?: number; direction?: "LONG" | "SHORT" | "BOTH"; trailingStopPct?: number; atrStopMultiple?: number },
   objective: Objective,
   topN = 6,
 ): SweepRow[] {
-  void base.direction; // the sweep explores every direction itself now
-  const rows: SweepRow[] = [];
-  for (const rrTarget of RR_GRID) {
-    for (const stopLossPct of STOP_GRID) {
-      for (const trendFilter of TREND_GRID) {
-        for (const direction of DIRECTION_GRID) {
-          const r: BacktestResult = backtestStrategy(bars, {
-            riskPct: base.riskPct,
-            rrTarget,
-            stopLossPct,
-            trendFilter,
-            direction,
-          });
-          if (r.trades < MIN_TRADES) continue;
-          const { expectancy, consistency } = expectancyAndConsistency(r.tradeReturns);
-          const partial: Omit<SweepRow, "score"> = {
-            params: { rrTarget, stopLossPct, trendFilter, direction },
-            totalReturnPct: r.totalReturnPct,
-            winRate: r.winRate,
-            maxDrawdownPct: r.maxDrawdownPct,
-            profitFactor: r.profitFactor,
-            trades: r.trades,
-            expectancy,
-            consistency,
-          };
-          rows.push({ ...partial, score: qualityScore(partial) });
-        }
+  // First pass: full grid of returns, keyed by index so we can look up neighbours.
+  const grid: (number | null)[][][] = RR_GRID.map(() =>
+    STOP_GRID.map(() => TREND_GRID.map(() => null)),
+  );
+  type Raw = { ri: number; si: number; ti: number; r: BacktestResult };
+  const raws: Raw[] = [];
+  for (let ri = 0; ri < RR_GRID.length; ri++) {
+    for (let si = 0; si < STOP_GRID.length; si++) {
+      for (let ti = 0; ti < TREND_GRID.length; ti++) {
+        const r = backtestStrategy(bars, {
+          riskPct: base.riskPct,
+          rrTarget: RR_GRID[ri],
+          stopLossPct: STOP_GRID[si],
+          trendFilter: TREND_GRID[ti],
+          direction: base.direction,
+          trailingStopPct: base.trailingStopPct,
+          atrStopMultiple: base.atrStopMultiple,
+        });
+        grid[ri][si][ti] = r.trades >= MIN_TRADES ? r.totalReturnPct : null;
+        if (r.trades >= MIN_TRADES) raws.push({ ri, si, ti, r });
       }
     }
   }
-  return rows
-    .sort((a, b) => scoreFor(b, objective) - scoreFor(a, objective) || b.score - a.score)
-    .slice(0, topN);
+
+  // Second pass: stability = inverse of how far a cell's return is from its
+  // immediate rr/stop neighbours (same trend setting). Normalised against the
+  // grid's overall spread so it is comparable across instruments.
+  const allReturns = raws.map((x) => x.r.totalReturnPct);
+  const spread = allReturns.length ? Math.max(1, Math.max(...allReturns) - Math.min(...allReturns)) : 1;
+
+  const rows: SweepRow[] = raws.map(({ ri, si, ti, r }) => {
+    const neighbours: number[] = [];
+    for (const [dr, ds] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const nr = ri + dr;
+      const ns = si + ds;
+      const v = grid[nr]?.[ns]?.[ti];
+      if (typeof v === "number") neighbours.push(v);
+    }
+    let stabilityScore = 0; // default to 0 for isolated cells
+    if (neighbours.length) {
+      const avgGap =
+        neighbours.reduce((acc, v) => acc + Math.abs(v - r.totalReturnPct), 0) / neighbours.length;
+      stabilityScore = clampNum(1 - avgGap / spread, 0, 1);
+    }
+    return {
+      params: { rrTarget: RR_GRID[ri], stopLossPct: STOP_GRID[si], trendFilter: TREND_GRID[ti] },
+      totalReturnPct: r.totalReturnPct,
+      winRate: r.winRate,
+      maxDrawdownPct: r.maxDrawdownPct,
+      profitFactor: r.profitFactor,
+      trades: r.trades,
+      stabilityScore: Math.round(stabilityScore * 100) / 100,
+    };
+  });
+
+  return rows.sort((a, b) => scoreFor(b, objective) - scoreFor(a, objective)).slice(0, topN);
 }
 
 // ---- Monte Carlo (seeded, reproducible) ----------------------------------

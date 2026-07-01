@@ -12,6 +12,7 @@
 // network, no prisma) so it is deterministic and unit-testable.
 
 import type { Bar } from "./backtest";
+import { atr as atrOf } from "./indicators";
 import { expectancy, riskOfRuinAnalytic, drawdownRecovery, mulberry32 } from "@/lib/calculators";
 
 const clampNum = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -29,6 +30,7 @@ export type ValidationParams = {
    *  Mirrors the live engine's `trailingStopPct` so the backtest reflects what
    *  actually happens in production. */
   trailingStopPct?: number;
+  atrStopMultiple?: number;
 };
 
 // What it costs to actually trade. Subtracted every fill so the curve matches
@@ -111,26 +113,32 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
   const stopPct = clampNum(params.stopLossPct ?? 0.5, 0.05, 10) / 100;
   const bias = params.direction ?? "BOTH";
   const trailPct = clampNum(params.trailingStopPct ?? 0, 0, 10) / 100;
+  const atrMult = clampNum(params.atrStopMultiple ?? 0, 0, 5);
   // 0.8% is a normal day for most instruments (1.0% over-filtered out real
   // sessions); used as the reference for the min/max range gates.
   const NORMAL_RANGE = 0.008;
   const minRange = params.minRange != null ? params.minRange : 0.1;
   const maxRange = params.maxRange != null ? params.maxRange : 5;
-  // Honest cost model: real trading pays the spread once (on entry) and
-  // slippage on BOTH fills — not spread+slippage twice, which double-charged
-  // the spread and made the simulation ~30% too pessimistic.
+  // Honest cost model: real trading pays the spread and slippage on BOTH fills.
   const entrySlip = (costs.slippageBps + costs.spreadBps) / 10000;
-  const exitSlip = costs.slippageBps / 10000;
+  const exitSlip = (costs.slippageBps + costs.spreadBps) / 10000;
 
   const byDay = groupByDay(bars);
   const days = [...byDay.keys()].sort();
 
   // A trend reference computed from each day's closing price across days, so the
   // filter behaves like the live 20-period SMA gate without peeking intraday.
-  const dailyCloses = days.map((d) => {
+  const dailyBars = days.map((d) => {
     const arr = byDay.get(d)!;
-    return arr[arr.length - 1].close;
+    return {
+      date: d,
+      open: arr[0].open,
+      high: Math.max(...arr.map((b) => b.high)),
+      low: Math.min(...arr.map((b) => b.low)),
+      close: arr[arr.length - 1].close,
+    };
   });
+  const dailyCloses = dailyBars.map((b) => b.close);
 
   const series: { date: string; equity: number }[] = [{ date: days[0] ?? "Start", equity: START }];
   const trades: SimTrade[] = [];
@@ -188,7 +196,11 @@ export function simulateIntraday(bars: Bar[], params: ValidationParams, costs: C
         const rawEntry = dir === "LONG" ? orHigh : orLow;
         // Adverse slippage + spread on entry (pay up to get in).
         const entry = dir === "LONG" ? rawEntry * (1 + entrySlip) : rawEntry * (1 - entrySlip);
-        const riskDist = entry * stopPct;
+        let riskDist = entry * stopPct;
+        if (atrMult > 0 && d >= 14) {
+          const atrVal = atrOf(dailyBars.slice(Math.max(0, d - 28), d), 14);
+          if (atrVal != null && atrVal > 0) riskDist = atrVal * atrMult;
+        }
         if (riskDist <= 0) continue;
         const stop = dir === "LONG" ? entry - riskDist : entry + riskDist;
         const target = dir === "LONG" ? entry + riskDist * rr : entry - riskDist * rr;

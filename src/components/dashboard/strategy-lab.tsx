@@ -195,7 +195,12 @@ export function StrategyLab({
         setSweeping(false);
         return;
       }
-      const rows = optimizeStrategy(sweepBars, { riskPct: sweepRiskPct }, sweepObjective);
+      const rows = optimizeStrategy(sweepBars, { 
+        riskPct: sweepRiskPct, 
+        direction: sweepDirection,
+        trailingStopPct: typeof params.trailingStopPct === "number" ? params.trailingStopPct : undefined,
+        atrStopMultiple: typeof params.atrStopMultiple === "number" ? params.atrStopMultiple : undefined
+      }, sweepObjective);
       setSweeping(false);
       setSweep(rows);
     }, 0);

@@ -86,7 +86,7 @@ export function TradesView({ initialTrades, accountId }: { initialTrades: TradeR
               key={sym}
               onClick={() => setInstrument(sym)}
               className={cn(
-                "shrink-0 rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors",
+                "shrink-0 rounded-[var(--radius-pill)] border px-3 py-1 min-h-[44px] sm:min-h-0 text-xs font-medium transition-colors",
                 instrument === sym
                   ? "border-accent/40 bg-accent-soft text-accent"
                   : "border-line bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover",
@@ -107,7 +107,7 @@ export function TradesView({ initialTrades, accountId }: { initialTrades: TradeR
             aria-pressed={liveOn}
             title={liveOn ? "Pause live updates" : "Resume live updates"}
             className={cn(
-              "inline-flex items-center gap-2 rounded-[var(--radius-control)] border px-3.5 py-2 text-sm font-medium transition-colors",
+              "inline-flex items-center gap-2 rounded-[var(--radius-control)] border px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-medium transition-colors",
               isLive
                 ? "border-accent/40 bg-accent-soft text-accent"
                 : liveOn

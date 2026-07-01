@@ -118,7 +118,7 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
     // otherwise a fixed percentage of entry.
     let riskDist = entry * stopPct;
     if (atrMult > 0 && i >= ATR_PERIOD + 1) {
-      const atrVal = atrOf(bars.slice(Math.max(0, i - (ATR_PERIOD * 2)), i + 1), ATR_PERIOD);
+      const atrVal = atrOf(bars.slice(Math.max(0, i - (ATR_PERIOD * 2)), i), ATR_PERIOD);
       if (atrVal != null && atrVal > 0) riskDist = atrVal * atrMult;
     }
     const stop = direction === "LONG" ? entry - riskDist : entry + riskDist;

@@ -31,6 +31,7 @@ type DefaultParams = {
   minRange: number;
   maxRange: number;
   trailingStopPct: number;
+  atrStopMultiple: number;
 };
 
 export function ValidationLab({
@@ -258,10 +259,13 @@ function LockableCard({
 function ValidationSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="skeleton h-28 rounded-[var(--radius-card)]" />
+      <div className="flex flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] border border-line bg-surface py-12 text-center h-28 stagger-in" style={{ "--stagger-index": 0 } as React.CSSProperties}>
+        <SpinnerGap size={24} className="animate-spin text-accent" />
+        <p className="text-sm font-medium text-fg pulse-live">Running strategy validation...</p>
+      </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="skeleton h-56 rounded-[var(--radius-card)]" />
-        <div className="skeleton h-56 rounded-[var(--radius-card)]" />
+        <div className="shimmer h-56 rounded-[var(--radius-card)] stagger-in" style={{ "--stagger-index": 1 } as React.CSSProperties} />
+        <div className="shimmer h-56 rounded-[var(--radius-card)] stagger-in" style={{ "--stagger-index": 2 } as React.CSSProperties} />
       </div>
     </div>
   );

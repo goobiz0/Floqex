@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { StrategyLab } from "@/components/dashboard/strategy-lab";
 import { ValidationLab } from "@/components/dashboard/validation-lab";
 import { LiveSignalFeed } from "@/components/dashboard/live-signal-feed";
+import { LiveSignalDebugger } from "@/components/dashboard/live-signal-debugger";
 import { AIOptimizer } from "@/components/dashboard/ai-optimizer";
 import { Card } from "@/components/ui/card";
 import { getStrategyData } from "@/lib/queries";
@@ -86,18 +87,22 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
                 instrument={data.botInstruments[0] ?? (typeof data.params.instrument === "string" && data.params.instrument ? data.params.instrument : "NQ")}
                 defaults={{
                   riskPct: typeof data.params.riskPct === "number" ? data.params.riskPct : 1,
-                  rrTarget: typeof data.params.rrTarget === "number" ? data.params.rrTarget : 2,
-                  stopLossPct: typeof data.params.stopLossPct === "number" ? data.params.stopLossPct : 0.5,
+                  rrTarget: typeof data.params.rrTarget === "number" ? data.params.rrTarget : 1.8,
+                  stopLossPct: typeof data.params.stopLossPct === "number" ? data.params.stopLossPct : 0.75,
                   trendFilter: Boolean(data.params.trendFilter),
                   direction: data.params.direction === "SHORT" ? "SHORT" : data.params.direction === "LONG" ? "LONG" : "BOTH",
-                  minRange: typeof data.params.minRange === "number" ? data.params.minRange : 0.1,
-                  maxRange: typeof data.params.maxRange === "number" ? data.params.maxRange : 5,
-                  trailingStopPct: typeof data.params.trailingStopPct === "number" ? data.params.trailingStopPct : 0,
+                  minRange: typeof data.params.minRange === "number" ? data.params.minRange : 0.2,
+                  maxRange: typeof data.params.maxRange === "number" ? data.params.maxRange : 3,
+                  trailingStopPct: typeof data.params.trailingStopPct === "number" ? data.params.trailingStopPct : 0.5,
+                  atrStopMultiple: typeof data.params.atrStopMultiple === "number" ? data.params.atrStopMultiple : 0,
                 }}
               />
             </div>
             {data.strategyId && (
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-6">
+                {data.kind === "CUSTOM" && (
+                  <LiveSignalDebugger strategyId={data.strategyId} />
+                )}
                 <LiveSignalFeed strategyId={data.strategyId} />
               </div>
             )}

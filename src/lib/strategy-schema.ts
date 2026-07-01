@@ -193,7 +193,7 @@ export const DEFAULT_PARAMS: StrategyParams = {
   newsPause: true,
   extendedHours: false,
   stopLossPct: 0.75,
-  atrStopMultiple: 1.5,
+  atrStopMultiple: 0,
 };
 
 const NUMERIC_KEYS = Object.keys(PARAM_BOUNDS) as NumericParam[];

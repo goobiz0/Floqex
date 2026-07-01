@@ -344,3 +344,48 @@ export function executionQuality(
     uptimePct,
   };
 }
+
+export function timeOfWeekAttribution(trades: TradeRow[]): { day: string; hour: number; pnl: number; count: number }[] {
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const map = new Map<string, { pnl: number; count: number }>();
+  
+  for (const t of trades.filter(isClosed)) {
+    const d = new Date(t.openedAt);
+    const day = days[d.getUTCDay()];
+    const hour = d.getUTCHours();
+    const key = `${day}-${hour}`;
+    const existing = map.get(key) ?? { pnl: 0, count: 0 };
+    map.set(key, { pnl: existing.pnl + (t.netPnl ?? 0), count: existing.count + 1 });
+  }
+  
+  const out = [];
+  for (let d = 0; d < 7; d++) {
+    for (let h = 0; h < 24; h++) {
+      const day = days[d];
+      const stats = map.get(`${day}-${h}`) ?? { pnl: 0, count: 0 };
+      out.push({ day, hour: h, pnl: stats.pnl, count: stats.count });
+    }
+  }
+  return out;
+}
+
+export function instrumentAttribution(trades: TradeRow[]): { instrument: string; pnl: number; count: number; winRate: number }[] {
+  const map = new Map<string, { pnl: number; count: number; wins: number }>();
+  for (const t of trades.filter(isClosed)) {
+    const pnl = t.netPnl ?? 0;
+    const wins = pnl > 0 ? 1 : 0;
+    const existing = map.get(t.instrument) ?? { pnl: 0, count: 0, wins: 0 };
+    map.set(t.instrument, {
+      pnl: existing.pnl + pnl,
+      count: existing.count + 1,
+      wins: existing.wins + wins
+    });
+  }
+  return Array.from(map.entries()).map(([instrument, stats]) => ({
+    instrument,
+    pnl: stats.pnl,
+    count: stats.count,
+    winRate: stats.count > 0 ? (stats.wins / stats.count) * 100 : 0
+  })).sort((a, b) => b.pnl - a.pnl);
+}
+

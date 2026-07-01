@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <SidebarWrapper />
       </Suspense>
-      <div className="pt-16 lg:pl-64">
+      <div className="pt-16 md:pl-60">
         <main className="mx-auto max-w-[1400px] px-4 pb-32 pt-6 lg:px-8 lg:pb-32">
           <div className="mx-auto max-w-[1100px]">{children}</div>
         </main>

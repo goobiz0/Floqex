@@ -120,12 +120,13 @@ export function BotsView({
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {bots.map((b) => (
+          {bots.map((b, index) => (
             <BotCard
               key={b.id}
               bot={b}
               availableAccounts={availableAccounts}
               forwardTest={b.accountId ? (ftByAccount.get(b.accountId) ?? null) : null}
+              index={index}
             />
           ))}
         </div>
@@ -138,10 +139,12 @@ function BotCard({
   bot,
   availableAccounts,
   forwardTest,
+  index = 0,
 }: {
   bot: BotRow;
   availableAccounts: AvailableAccount[];
   forwardTest: ForwardTestRow | null;
+  index?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -199,8 +202,11 @@ function BotCard({
   }
 
   return (
-    <Card className={cn("flex h-full flex-col p-5 relative", !bot.accountId && "opacity-80 border-dashed")}>
-      {bot.edgeDecayPaused && (
+    <div style={{ "--stagger-index": index } as React.CSSProperties} className="stagger-in h-full">
+      <Card 
+        className={cn("flex h-full flex-col p-5 relative transition-gpu lift", !bot.accountId && "opacity-80 border-dashed")} 
+      >
+        {bot.edgeDecayPaused && (
         <div className="absolute top-0 left-0 right-0 bg-negative-soft border-b border-negative/20 px-4 py-2 flex items-center justify-between rounded-t-[inherit]">
            <div className="flex items-center gap-2 text-negative text-xs font-medium">
              <Warning size={16} weight="bold" />
@@ -379,9 +385,9 @@ function BotCard({
       )}
 
       <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-        <span className="inline-flex items-center gap-1.5 text-xs text-fg-muted">
+        <span className="inline-flex items-center gap-1.5 text-xs text-fg-muted relative">
           <StatusDot tone={status.tone} pulse={isRunning} />
-          {status.label}
+          <span className="transition-all duration-200 ease-out">{status.label}</span>
         </span>
         {bot.accountId && (
           <Button size="sm" variant={isRunning ? "secondary" : "primary"} disabled={pending} onClick={toggle}>
@@ -437,6 +443,7 @@ function BotCard({
         </div>
       )}
     </Card>
+    </div>
   );
 }
 

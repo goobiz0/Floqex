@@ -1,5 +1,6 @@
 import ccxt from "ccxt";
 import { getMarketForInstrument } from "@/lib/market";
+import { createHash } from "crypto";
 
 type BrokerCreds = Record<string, string>;
 type CcxtOrder = { id: string; price: number | null; average: number | null; status?: string; filled?: number };
@@ -31,9 +32,9 @@ export interface BrokerPosition {
  * order instead of opening a second one.
  */
 export function makeIdempotencyKey(parts: { botId: string; instrument: string; direction: string; kind: "OPEN" | "CLOSE"; nonce: string | number }): string {
-  // <=36 chars-ish, alphanumeric — within Binance/Alpaca client-id limits.
   const raw = `flx-${parts.kind}-${parts.botId}-${parts.instrument}-${parts.direction}-${parts.nonce}`;
-  return raw.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 36);
+  const hash = createHash("sha256").update(raw).digest("hex").slice(0, 16);
+  return `flx-${hash}`;
 }
 
 // Thrown when a live account points at a broker we cannot truly route to with
@@ -115,15 +116,22 @@ function alpacaBaseUrl(creds: BrokerCreds): string {
 }
 
 async function alpacaFetch(creds: BrokerCreds, path: string, init?: RequestInit) {
-  return fetch(`${alpacaBaseUrl(creds)}${path}`, {
-    ...init,
-    headers: {
-      "APCA-API-KEY-ID": creds.apiKey,
-      "APCA-API-SECRET-KEY": creds.apiSecret,
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers || {}),
-    },
-  });
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 10000);
+  try {
+    return await fetch(`${alpacaBaseUrl(creds)}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "APCA-API-KEY-ID": creds.apiKey,
+        "APCA-API-SECRET-KEY": creds.apiSecret,
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers || {}),
+      },
+    });
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 async function executeAlpacaOrder(creds: BrokerCreds, instrument: string, side: string, sizeUnits: number, idempotencyKey?: string): Promise<BrokerOrderResult> {
@@ -138,18 +146,26 @@ async function executeAlpacaOrder(creds: BrokerCreds, instrument: string, side: 
     if (!res.ok && !/already exists/i.test(order?.message ?? "")) {
       throw new Error(order.message || "Unknown Alpaca error");
     }
-    let filledPrice = Number(order.filled_avg_price) || 0;
-    let status: "FILLED" | "OPEN" = order.status === "filled" ? "FILLED" : "OPEN";
+    
+    let alpacaOrder = order;
+    if (!res.ok && /already exists/i.test(order?.message ?? "") && idempotencyKey) {
+      const getRes = await alpacaFetch(creds, `/v2/orders:by_client_order_id?client_order_id=${idempotencyKey}`);
+      if (!getRes.ok) throw new Error("Failed to fetch existing Alpaca order after duplication error");
+      alpacaOrder = await getRes.json();
+    }
+    
+    let filledPrice = Number(alpacaOrder.filled_avg_price) || 0;
+    let status: "FILLED" | "OPEN" = alpacaOrder.status === "filled" ? "FILLED" : "OPEN";
     // Fill confirmation: market orders usually fill within a moment; poll briefly
     // so we return a real average price rather than 0/OPEN.
-    if (status !== "FILLED" && order.id) {
-      const confirmed = await confirmAlpacaFill(creds, order.id);
+    if (status !== "FILLED" && alpacaOrder.id) {
+      const confirmed = await confirmAlpacaFill(creds, alpacaOrder.id);
       if (confirmed) {
         filledPrice = confirmed.filledPrice;
         status = confirmed.status;
       }
     }
-    return { id: order.id, filledPrice, status };
+    return { id: alpacaOrder.id, filledPrice, status };
   } catch (e) {
     const err = e as Error;
     throw new Error(`Execution failed on Alpaca: ${err.message}`);
@@ -308,14 +324,14 @@ export function brokerSupportsInstrument(broker: string, instrument: string): bo
 
 /** Fetch the broker's current open positions, best-effort. Returns [] when the
  *  broker can't report positions with the given credentials. */
-export async function getBrokerPositions(broker: string, creds: BrokerCreds): Promise<BrokerPosition[]> {
+export async function getBrokerPositions(broker: string, creds: BrokerCreds): Promise<BrokerPosition[] | null> {
   const b = broker.toLowerCase();
   try {
     if (CCXT_BROKERS.includes(b)) {
       const exchangeClass = (ccxt as unknown as CcxtExchanges)[b];
-      if (!exchangeClass) return [];
+      if (!exchangeClass) return null;
       const exchange = new exchangeClass({ apiKey: creds.apiKey, secret: creds.apiSecret, enableRateLimit: true });
-      if (!exchange.fetchPositions || !(exchange.has?.fetchPositions ?? true)) return [];
+      if (!exchange.fetchPositions || !(exchange.has?.fetchPositions ?? true)) return null;
       const positions = await exchange.fetchPositions();
       return positions
         .filter((p) => p && p.symbol && Math.abs(Number(p.contracts) || 0) > 0)
@@ -327,7 +343,7 @@ export async function getBrokerPositions(broker: string, creds: BrokerCreds): Pr
     }
     if (b === "alpaca") {
       const res = await alpacaFetch(creds, `/v2/positions`);
-      if (!res.ok) return [];
+      if (!res.ok) return null;
       const rows = (await res.json()) as Array<{ symbol: string; qty: string; side: string }>;
       return rows.map((p) => ({
         instrument: p.symbol,
@@ -338,5 +354,5 @@ export async function getBrokerPositions(broker: string, creds: BrokerCreds): Pr
   } catch {
     // Reconciliation is best-effort: never let a broker outage block startup.
   }
-  return [];
+  return null;
 }

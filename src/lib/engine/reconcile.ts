@@ -13,7 +13,7 @@ import { sendUrgentAlert } from "@/lib/alerting";
 
 type ConnRow = { encrypted: string };
 type AccRow = { id: string; mode: string; broker: string; userId: string; connection: ConnRow | null };
-type TradeRow = { botId: string; instrument: string; direction: string; account: AccRow | null };
+type TradeRow = { botId: string; instrument: string; direction: string; sizeUnits: number | string; account: AccRow | null };
 
 function sameInstrument(a: string, b: string): boolean {
   const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -46,7 +46,7 @@ export async function reconcileOpenPositions(owns: (botId: string) => boolean): 
     }
 
     for (const { account, trades } of byAccount.values()) {
-      let positions: BrokerPosition[] = [];
+      let positions: BrokerPosition[] | null = null;
       try {
         const creds = JSON.parse(decrypt(account.connection!.encrypted)) as Record<string, string>;
         creds.mode = account.mode;
@@ -55,15 +55,31 @@ export async function reconcileOpenPositions(owns: (botId: string) => boolean): 
         console.warn(`[reconcile] could not fetch positions for account ${account.id}:`, e);
         continue;
       }
-      // If the broker reports nothing AND can't (no adapter), skip silently —
-      // an empty list from a broker that does support positions is meaningful,
-      // but we can't distinguish, so only flag DB-open-without-broker-match.
-      if (positions.length === 0) continue;
+      
+      if (positions === null) continue;
+
+      const aggregatedTrades = new Map<string, { instrument: string; direction: string; sizeUnits: number }>();
+      for (const t of trades) {
+        const key = `${t.instrument}-${t.direction}`;
+        const existing = aggregatedTrades.get(key);
+        const size = Number(t.sizeUnits) || 0;
+        if (existing) {
+          existing.sizeUnits += size;
+        } else {
+          aggregatedTrades.set(key, { instrument: t.instrument, direction: t.direction, sizeUnits: size });
+        }
+      }
 
       const mismatches: string[] = [];
-      for (const t of trades) {
+      for (const t of aggregatedTrades.values()) {
         const match = positions.find((p) => sameInstrument(p.instrument, t.instrument) && p.direction === t.direction);
-        if (!match) mismatches.push(`${t.direction} ${t.instrument}`);
+        if (!match) {
+          mismatches.push(`${t.direction} ${t.instrument}`);
+        } else {
+          if (Math.abs(match.sizeUnits - t.sizeUnits) > 0.0001) {
+             mismatches.push(`${t.direction} ${t.instrument} (size mismatch: DB ${t.sizeUnits.toFixed(4)}, Broker ${match.sizeUnits.toFixed(4)})`);
+          }
+        }
       }
 
       if (mismatches.length > 0) {
