@@ -66,13 +66,16 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     category: "Breakout",
     iconKey: "breakout",
     kind: "ORB",
-    buildParams: () => ({ 
+    buildParams: () => ({
       ...DEFAULT_PARAMS,
-      rrTarget: 2.5,
-      minRange: 0.5,
-      stopLossPct: 0.5,
+      // Calibrated: a 0.75% stop survives normal session noise, RR 1.8 is
+      // reachable on most trending days, and a trailing stop locks in the move.
+      rrTarget: 1.8,
+      minRange: 0.3,
+      stopLossPct: 0.75,
+      trailingStopPct: 0.5,
       trendFilter: true,
-      maxTrades: 4
+      maxTrades: 4,
     }),
   },
   {
@@ -86,15 +89,17 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     kind: "ORB",
     buildParams: () => ({
       ...DEFAULT_PARAMS,
+      // Half the per-trade risk, but a stop wide enough (0.6%) to not get
+      // scratched, and RR 1.8 so it clears costs comfortably.
       riskPct: 0.5,
-      rrTarget: 2,
-      stopLossPct: 0.4,
+      rrTarget: 1.8,
+      stopLossPct: 0.6,
       dailyLoss: 2,
       maxTrades: 3,
       trailingStopPct: 0.4,
       trendFilter: true,
       newsPause: true,
-      minRange: 0.6,
+      minRange: 0.5,
     }),
   },
   {
@@ -109,12 +114,14 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     premium: true,
     buildParams: () => ({
       ...DEFAULT_PARAMS,
+      // RR 3.5 was unreachable on most sessions; 2.5 with a 1.0% stop is wide
+      // enough for volatile names and the 0.8% trail rides the runners.
       riskPct: 1.5,
-      rrTarget: 3.5,
-      stopLossPct: 0.6,
+      rrTarget: 2.5,
+      stopLossPct: 1.0,
       maxTrades: 6,
       minRange: 0.4,
-      trailingStopPct: 1,
+      trailingStopPct: 0.8,
       reEntry: true,
       trendFilter: false,
     }),
@@ -124,24 +131,28 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     name: "Trend Pullback",
     tagline: "Buy dips while the trend is still up.",
     description:
-      "Enters long when price holds above the 50-period average but RSI has dipped below 40. A classic buy-the-dip filter that avoids chasing extended moves.",
+      "Enters long when price holds above both the 20- and 50-period averages but RSI has dipped below 35. A classic buy-the-dip filter that only fires while the near-term trend is still intact.",
     category: "Trend",
     iconKey: "trend",
     kind: "CUSTOM",
     buildParams: () =>
       builderParams({
         direction: "BOTH", // Changed to BOTH to improve resilience across market regimes
-        targetRatio: 2.5,
-        stopLossPct: 0.5,
+        targetRatio: 2,
+        stopLossPct: 0.75,
         overrides: {
-          minRange: 0.5,
+          minRange: 0.4,
+          rrTarget: 2,
         },
         groups: [
           {
             join: "ALL",
             conditions: [
+              // Medium-trend gate, plus a short-trend (SMA20) cross-confirmation
+              // so we only buy dips while the near-term structure is still up.
               { left: "price", op: ">", right: { kind: "indicator", key: "sma50" } },
-              { left: "rsi14", op: "<", right: { kind: "value", value: 40 } },
+              { left: "price", op: ">", right: { kind: "indicator", key: "sma20" } },
+              { left: "rsi14", op: "<", right: { kind: "value", value: 35 } },
             ],
           },
         ],
@@ -152,7 +163,7 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     name: "Momentum Breakout",
     tagline: "Enter strength at the top of the range.",
     description:
-      "Goes long when price sits in the top 10 percent of the day's range with positive MACD momentum. Designed to catch trending continuation, not reversals.",
+      "Goes long when price sits in the top 20 percent of the day's range with positive MACD momentum and confirming volume. Designed to catch trending continuation, not reversals.",
     category: "Momentum",
     iconKey: "pulse",
     kind: "CUSTOM",
@@ -160,18 +171,24 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     buildParams: () =>
       builderParams({
         direction: "BOTH",
-        targetRatio: 3,
-        stopLossPct: 0.5,
+        // RR 2.5 is more reachable on a continuation than 3.0; the wider 0.6%
+        // stop keeps us in the move through the first pullback.
+        targetRatio: 2.5,
+        stopLossPct: 0.6,
         overrides: {
-          minRange: 0.5,
+          minRange: 0.4,
           trendFilter: true,
+          rrTarget: 2.5,
         },
         groups: [
           {
             join: "ALL",
             conditions: [
-              { left: "rangePosition", op: ">", right: { kind: "value", value: 90 } },
+              // Top 20% of the range (was top 10%, which fired too rarely),
+              // positive MACD momentum, and live volume to confirm participation.
+              { left: "rangePosition", op: ">", right: { kind: "value", value: 80 } },
               { left: "macd", op: ">", right: { kind: "value", value: 0 } },
+              { left: "volume", op: ">", right: { kind: "value", value: 0 } },
             ],
           },
         ],
@@ -182,7 +199,7 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     name: "Mean Reversion",
     tagline: "Fade extremes inside a longer uptrend.",
     description:
-      "Buys deeply oversold conditions, RSI below 25, but only while price stays above the 200-period average so you are fading dips, not catching a falling knife.",
+      "Buys oversold conditions, RSI below 30, but only while price stays above the 200-period average so you are fading dips, not catching a falling knife. The stop scales with ATR to give the reversion room.",
     category: "Reversion",
     iconKey: "reversion",
     kind: "CUSTOM",
@@ -191,15 +208,21 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
       builderParams({
         direction: "BOTH",
         targetRatio: 2,
-        stopLossPct: 0.75,
+        // Reversions need room: a 1.0% stop with ATR scaling lets the position
+        // breathe instead of getting knifed on the first lower tick.
+        stopLossPct: 1.0,
         overrides: {
-          minRange: 0.6,
+          minRange: 0.5,
+          rrTarget: 2,
+          atrStopMultiple: 2,
         },
         groups: [
           {
             join: "ALL",
             conditions: [
-              { left: "rsi14", op: "<", right: { kind: "value", value: 25 } },
+              // RSI < 25 fired extremely rarely; 30 is still a real oversold read
+              // while keeping the long-trend (SMA200) filter intact.
+              { left: "rsi14", op: "<", right: { kind: "value", value: 30 } },
               { left: "price", op: ">", right: { kind: "indicator", key: "sma200" } },
             ],
           },

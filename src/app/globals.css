@@ -61,6 +61,7 @@
 
   /* Easing */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); /* Emil's UI enter curve */
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -92,6 +93,58 @@
 @utility delay-300 { animation-delay: 300ms; }
 @utility delay-700 { animation-delay: 700ms; }
 @utility delay-1000 { animation-delay: 1000ms; }
+
+/* ── Motion foundations (Emil Kowalski principles, held to DESIGN.md restraint:
+   motivated, under ~200ms, always reduced-motion safe) ───────────────────── */
+
+/* Promote an element to its own compositor layer for jank-free transforms.
+   Use only on things that actually animate (hover-lift cards, draggable tiles). */
+@utility transition-gpu {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Tactile press feedback: a control dips slightly when pressed, like a real
+   button. Pair on buttons/cards that don't already define their own :active. */
+@utility tactile {
+  transition: transform 160ms var(--ease-out-expo), box-shadow 200ms var(--ease-out-expo);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tactile:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Origin-aware entrance for popovers, dropdowns, and command menus: scales up
+   from 97% + fades in from the trigger origin. Set transform-origin inline on
+   the element (e.g. `origin-top-left`). @starting-style runs it on first paint
+   without any JS. Reduced-motion users get the final state instantly. */
+@utility pop-in {
+  transition: opacity 140ms var(--ease-out-expo), transform 160ms var(--ease-out-expo);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (transition-behavior: allow-discrete) {
+    @starting-style {
+      .pop-in {
+        opacity: 0;
+        transform: scale(0.97);
+      }
+    }
+  }
+}
+
+/* Hairline elevation lift on hover for interactive cards. Border XOR shadow per
+   DESIGN.md, so this raises the shadow only; pair with `transition-gpu`. */
+@utility lift {
+  transition: transform 200ms var(--ease-out-expo), box-shadow 200ms var(--ease-out-expo);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
 
 :root, .dark {
   color-scheme: dark;

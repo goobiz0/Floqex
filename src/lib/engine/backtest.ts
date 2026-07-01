@@ -7,6 +7,8 @@
 // the stop (the conservative assumption). The result is an honest estimate over
 // real history, not a fabricated curve.
 
+import { atr as atrOf } from "./indicators";
+
 export type Bar = { date: string; open: number; high: number; low: number; close: number };
 
 export type BacktestParams = {
@@ -15,7 +17,16 @@ export type BacktestParams = {
   stopLossPct?: number; // stop distance as % of entry
   trendFilter?: boolean;
   direction?: "LONG" | "SHORT" | "BOTH";
+  /** Trail the stop by this % of entry as price moves favorably (0 disables).
+   *  On daily bars this models a trail that locks in profit when price pulls
+   *  back from the bar's extreme — an approximation of the intraday engine. */
+  trailingStopPct?: number;
+  /** When > 0, size the stop from realised volatility (stop = ATR × this) over
+   *  a trailing 14-bar window instead of a fixed percentage of price. */
+  atrStopMultiple?: number;
 };
+
+const ATR_PERIOD = 14;
 
 export type BacktestResult = {
   series: { date: string; equity: number }[];
@@ -59,6 +70,8 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
   const rr = clampNum(params.rrTarget ?? 2, 0.5, 10);
   const stopPct = clampNum(params.stopLossPct ?? 0.5, 0.05, 10) / 100;
   const bias = params.direction ?? "BOTH";
+  const trailPct = clampNum(params.trailingStopPct ?? 0, 0, 10) / 100;
+  const atrMult = clampNum(params.atrStopMultiple ?? 0, 0, 5);
 
   const closes = bars.map((b) => b.close);
 
@@ -90,9 +103,10 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
       if (direction === "SHORT" && bar.open > sma) take = false;
     }
 
-    // Skip days that are too flat to break out of.
+    // Skip days that are too flat to break out of (0.15%, was 0.2% — captures
+    // more real, tradeable sessions on lower-volatility instruments).
     const range = (bar.high - bar.low) / bar.open;
-    if (range < 0.002) take = false;
+    if (range < 0.0015) take = false;
 
     if (!take) {
       series.push({ date: bar.date, equity });
@@ -100,9 +114,16 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
     }
 
     const entry = bar.open;
-    const riskDist = entry * stopPct;
+    // Stop distance: ATR-scaled when enabled (and enough history exists),
+    // otherwise a fixed percentage of entry.
+    let riskDist = entry * stopPct;
+    if (atrMult > 0 && i >= ATR_PERIOD + 1) {
+      const atrVal = atrOf(bars.slice(Math.max(0, i - (ATR_PERIOD * 2)), i + 1), ATR_PERIOD);
+      if (atrVal != null && atrVal > 0) riskDist = atrVal * atrMult;
+    }
     const stop = direction === "LONG" ? entry - riskDist : entry + riskDist;
     const target = direction === "LONG" ? entry + riskDist * rr : entry - riskDist * rr;
+    const trailDist = trailPct > 0 ? entry * trailPct : 0;
 
     let pnlPerUnit: number;
     if (direction === "LONG") {
@@ -110,13 +131,30 @@ export function backtestStrategy(bars: Bar[], params: BacktestParams): BacktestR
       const hitTarget = bar.high >= target;
       if (hitStop) pnlPerUnit = -riskDist; // stop assumed first if both touched
       else if (hitTarget) pnlPerUnit = riskDist * rr;
-      else pnlPerUnit = bar.close - entry; // neither: mark out at the close
+      else {
+        // Neither: mark out at the close, but if a trailing stop is set and price
+        // pulled back from the bar's high by more than the trail distance, the
+        // trail would have locked in that higher level.
+        let exit = bar.close;
+        if (trailDist > 0) {
+          const trailExit = bar.high - trailDist;
+          if (trailExit > exit && trailExit > stop) exit = trailExit;
+        }
+        pnlPerUnit = exit - entry;
+      }
     } else {
       const hitStop = bar.high >= stop;
       const hitTarget = bar.low <= target;
       if (hitStop) pnlPerUnit = -riskDist;
       else if (hitTarget) pnlPerUnit = riskDist * rr;
-      else pnlPerUnit = entry - bar.close;
+      else {
+        let exit = bar.close;
+        if (trailDist > 0) {
+          const trailExit = bar.low + trailDist;
+          if (trailExit < exit && trailExit < stop) exit = trailExit;
+        }
+        pnlPerUnit = entry - exit;
+      }
     }
 
     const riskBudget = equity * riskPct;

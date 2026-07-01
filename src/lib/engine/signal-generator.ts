@@ -9,6 +9,9 @@ export type Signal = {
   entryPrice: number;
   stopPrice: number;
   targetPrice: number;
+  /** 0-1 confluence score: how many independent indicators agree with the
+   *  direction (RSI, MACD, trend, range position). Higher = more conviction. */
+  strength?: number;
 } | null;
 
 export type ExitSignal = {
@@ -17,7 +20,67 @@ export type ExitSignal = {
   newStopPrice?: number;
 } | null;
 
-export function evaluateOrbStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null): Signal {
+/** Optional per-bot/instrument context that enables signal de-duplication and a
+ *  post-stop-out cooldown. Pure callers (tests, the validation engine) omit it. */
+export type SignalGuard = { botId: string; instrument: string; now?: number };
+
+// Suppress an identical signal that re-fires within this window (e.g. between a
+// signal and its fill, or right after a same-tick close).
+const DEDUP_MS = 30_000;
+// After a stop-out, wait this long before re-entering the same instrument —
+// prevents the bot from immediately revenge-trading back into a losing setup.
+const COOLDOWN_MS = 5 * 60_000;
+
+const lastSignalAt = new Map<string, number>();
+const lastStopOutAt = new Map<string, number>();
+
+/** Record a stop-out so the cooldown gate suppresses immediate re-entries.
+ *  Called by the worker after a trade closes on its stop. */
+export function recordStopOut(botId: string, instrument: string, now: number = Date.now()): void {
+  lastStopOutAt.set(`${botId}:${instrument}`, now);
+}
+
+/** Returns true if a fresh signal in `direction` is allowed under the dedup and
+ *  cooldown rules, recording it when allowed. A no-op (always true) without a guard. */
+function allowSignal(guard: SignalGuard | undefined, direction: 'LONG' | 'SHORT'): boolean {
+  if (!guard) return true;
+  const now = guard.now ?? Date.now();
+  const cooldownAt = lastStopOutAt.get(`${guard.botId}:${guard.instrument}`);
+  if (cooldownAt != null && now - cooldownAt < COOLDOWN_MS) return false;
+  const key = `${guard.botId}:${guard.instrument}:${direction}`;
+  const last = lastSignalAt.get(key);
+  if (last != null && now - last < DEDUP_MS) return false;
+  lastSignalAt.set(key, now);
+  return true;
+}
+
+/** Score how many independent indicators confirm a direction (0-1). A signal
+ *  with RSI + MACD + trend + range all aligned is far stronger than a bare
+ *  breakout, and the score rides along on the Signal for ranking/telemetry. */
+function scoreStrength(ctx: IndicatorContext, direction: 'LONG' | 'SHORT'): number {
+  const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+  let score = 0;
+  let max = 0;
+  if (ctx.rsi14 != null) {
+    max += 1;
+    score += direction === 'LONG' ? clamp01((ctx.rsi14 - 40) / 30) : clamp01((60 - ctx.rsi14) / 30);
+  }
+  if (ctx.macd != null) {
+    max += 1;
+    if (direction === 'LONG' ? ctx.macd > 0 : ctx.macd < 0) score += 1;
+  }
+  if (ctx.sma50 != null) {
+    max += 1;
+    if (direction === 'LONG' ? ctx.price > ctx.sma50 : ctx.price < ctx.sma50) score += 1;
+  }
+  if (ctx.rangePosition != null) {
+    max += 1;
+    score += direction === 'LONG' ? clamp01(ctx.rangePosition / 100) : clamp01(1 - ctx.rangePosition / 100);
+  }
+  return max > 0 ? Math.round((score / max) * 100) / 100 : 0.5;
+}
+
+export function evaluateOrbStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null, guard?: SignalGuard): Signal {
   if (openTrade) return null;
 
   const { price, dayHigh, dayLow, sma50 } = marketData;
@@ -60,6 +123,7 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
       entryPrice: price,
       stopPrice,
       targetPrice: price + (riskAmt * targetRatio),
+      strength: scoreStrength(ctx, 'LONG'),
     };
   }
 
@@ -71,6 +135,7 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
       entryPrice: price,
       stopPrice,
       targetPrice: price - (riskAmt * targetRatio),
+      strength: scoreStrength(ctx, 'SHORT'),
     };
   }
 
@@ -106,16 +171,19 @@ function contextFromMarketData(marketData: MarketData): IndicatorContext {
   };
 }
 
-/** Construct a stop/target signal for a side from the configured risk settings. */
-function buildSignal(side: 'LONG' | 'SHORT', price: number, stopLossPct: number, targetRatio: number): Signal {
+/** Construct a stop/target signal for a side from the configured risk settings.
+ *  Applies the dedup/cooldown guard and attaches a confluence strength score. */
+function buildSignal(side: 'LONG' | 'SHORT', price: number, stopLossPct: number, targetRatio: number, ctx?: IndicatorContext, guard?: SignalGuard): Signal {
+  if (!allowSignal(guard, side)) return null;
+  const strength = ctx ? scoreStrength(ctx, side) : undefined;
   if (side === 'LONG') {
     const stopPrice = price * (1 - stopLossPct / 100);
     const riskAmt = price - stopPrice;
-    return { direction: 'LONG', entryPrice: price, stopPrice, targetPrice: price + riskAmt * targetRatio };
+    return { direction: 'LONG', entryPrice: price, stopPrice, targetPrice: price + riskAmt * targetRatio, strength };
   }
   const stopPrice = price * (1 + stopLossPct / 100);
   const riskAmt = stopPrice - price;
-  return { direction: 'SHORT', entryPrice: price, stopPrice, targetPrice: price - riskAmt * targetRatio };
+  return { direction: 'SHORT', entryPrice: price, stopPrice, targetPrice: price - riskAmt * targetRatio, strength };
 }
 
 /** Legacy flat-condition evaluation, kept so bots created before the rule-group
@@ -143,7 +211,7 @@ function evaluateLegacyConditions(params: Record<string, unknown>, marketData: M
   return true;
 }
 
-export function evaluateCustomStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null): Signal {
+export function evaluateCustomStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null, guard?: SignalGuard): Signal {
   if (openTrade) return null;
   if (!params) return null;
 
@@ -166,6 +234,8 @@ export function evaluateCustomStrategy(params: Record<string, unknown>, marketDa
       marketData.price,
       decision.stopLossPct ?? stopLossPct,
       decision.targetRatio ?? targetRatio,
+      ctx,
+      guard,
     );
   }
 

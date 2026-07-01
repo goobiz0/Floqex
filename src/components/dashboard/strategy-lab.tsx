@@ -134,6 +134,8 @@ export function StrategyLab({
       stopLossPct: typeof params.stopLossPct === "number" ? params.stopLossPct : undefined,
       trendFilter: params.trendFilter,
       direction: params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH",
+      trailingStopPct: typeof params.trailingStopPct === "number" ? params.trailingStopPct : undefined,
+      atrStopMultiple: typeof params.atrStopMultiple === "number" ? params.atrStopMultiple : undefined,
     });
   }, [bars, params]);
 

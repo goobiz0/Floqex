@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { useEffect } from "react";
+import { motion, useReducedMotion, useMotionValue, useTransform, animate } from "motion/react";
 import { ShieldCheck, Warning, SealCheck } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,19 @@ export function EdgeScorecard({ edge }: { edge: EdgeScore }) {
   const v = VERDICT[edge.verdict];
   const Icon = v.icon;
   const pct = Math.max(0, Math.min(100, edge.score));
+
+  // Count the headline score up from 0 to its final value, in lockstep with the
+  // arc draw-on, so the eye lands on the result as it resolves.
+  const count = useMotionValue(reduce ? pct : 0);
+  const display = useTransform(count, (n) => Math.round(n));
+  useEffect(() => {
+    if (reduce) {
+      count.set(pct);
+      return;
+    }
+    const controls = animate(count, pct, { duration: 0.9, ease: [0.23, 1, 0.32, 1] });
+    return controls.stop;
+  }, [pct, reduce, count]);
 
   return (
     <Card className="p-6">
@@ -42,7 +56,7 @@ export function EdgeScorecard({ edge }: { edge: EdgeScore }) {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="tnum text-2xl font-bold text-fg">{pct.toFixed(0)}</span>
+              <motion.span className="tnum text-2xl font-bold text-fg">{display}</motion.span>
               <span className="text-[10px] font-medium uppercase tracking-wider text-fg-subtle">/ 100</span>
             </div>
           </div>

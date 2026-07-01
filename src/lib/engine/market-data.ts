@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import ccxt from 'ccxt';
 import { getYahooSymbol, getMarketForInstrument, normalizeInstrument, isInstrumentTradeable, type MarketKind } from '@/lib/market';
 import { computeIndicatorContext, type IndicatorContext } from './indicators';
+import { getStreamedPrice } from './live-stream';
 
 // yahoo-finance2 v3 ships the API as a CLASS that must be instantiated — calling
 // the methods statically (the v2 style) throws "Call `new YahooFinance()`
@@ -17,7 +18,60 @@ const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHis
 // the 50-day SMA is cached for an hour.
 const smaCache: Record<string, { value: number; expiresAt: number }> = {};
 const quoteCache: Record<string, { data: MarketData; expiresAt: number }> = {};
-const QUOTE_TTL_MS = 5000;
+// 3s (down from 5s): still fresh for a 2s tick, but combined with the
+// stale-while-revalidate path below the engine never blocks on the network
+// mid-session, so a tighter TTL costs nothing and keeps prices current.
+const QUOTE_TTL_MS = 3000;
+
+// Network timeout applied to every upstream call so a hung Yahoo/CCXT request
+// can never stall the whole tick loop.
+const NETWORK_TIMEOUT_MS = 10_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Reject if `p` doesn't settle within `ms`, so no upstream call hangs the engine. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
+// ── Circuit breaker for the Yahoo quote API ──────────────────────────────────
+// If Yahoo rate-limits or errors repeatedly, hammering it makes things worse and
+// stalls every bot. After 3 failures inside a 30s window we "open" the breaker
+// for 60s: callers serve the last cached value (stale) instead of piling on, and
+// the API gets room to recover.
+const FAIL_WINDOW_MS = 30_000;
+const FAIL_THRESHOLD = 3;
+const BREAKER_COOLDOWN_MS = 60_000;
+const yahooBreaker = { failures: 0, windowStart: 0, openUntil: 0 };
+
+function breakerIsOpen(): boolean {
+  return Date.now() < yahooBreaker.openUntil;
+}
+function recordYahooSuccess(): void {
+  yahooBreaker.failures = 0;
+  yahooBreaker.windowStart = 0;
+}
+function recordYahooFailure(): void {
+  const now = Date.now();
+  if (now - yahooBreaker.windowStart > FAIL_WINDOW_MS) {
+    yahooBreaker.windowStart = now;
+    yahooBreaker.failures = 1;
+  } else {
+    yahooBreaker.failures += 1;
+  }
+  if (yahooBreaker.failures >= FAIL_THRESHOLD) {
+    yahooBreaker.openUntil = now + BREAKER_COOLDOWN_MS;
+    console.warn(`[market-data] Yahoo circuit breaker OPEN for ${BREAKER_COOLDOWN_MS / 1000}s after ${yahooBreaker.failures} failures`);
+  }
+}
 
 export interface MarketData {
   price: number;
@@ -33,91 +87,148 @@ export interface MarketData {
   indicators?: IndicatorContext;
 }
 
+// Exponential backoff with jitter. Jitter spreads retries out so a fleet of
+// bots retrying after the same rate-limit don't thunder back in lockstep.
 async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 500): Promise<T> {
   try {
     return await fn();
   } catch (error) {
     if (retries <= 0) throw error;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const jitter = Math.random() * delayMs * 0.5;
+    await sleep(delayMs + jitter);
     return fetchWithRetry(fn, retries - 1, delayMs * 2);
   }
 }
 
+// Per-symbol in-flight fetch for the engine's market data, so several bots
+// ticking the same instrument in the same moment share one upstream round-trip
+// instead of each firing their own quote + history fan-out.
+const marketDataInflight: Record<string, Promise<MarketData | null>> = {};
+
+/** Stamp a cached MarketData with the current session flags and, for crypto,
+ *  the freshest streamed (WebSocket) price — so the engine acts on a live tick
+ *  between REST refreshes. Cheap, no network. */
+function withLiveFlags(data: MarketData, instrument: string): MarketData {
+  const streamed = getStreamedPrice(instrument);
+  return {
+    ...data,
+    price: streamed ?? data.price,
+    isOpen: isInstrumentTradeable(instrument),
+    isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true),
+  };
+}
+
 export async function getRealMarketData(instrument: string): Promise<MarketData | null> {
   const symbol = getYahooSymbol(instrument);
-  const market = getMarketForInstrument(instrument);
-
   const cached = quoteCache[symbol];
-  if (cached && cached.expiresAt > Date.now()) {
-    // Refresh the open flag (cheap) without re-hitting the network.
-    return { 
-      ...cached.data, 
-      isOpen: isInstrumentTradeable(instrument),
-      isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true)
-    };
+  const now = Date.now();
+
+  // Fresh cache: serve immediately with up-to-date open flags.
+  if (cached && cached.expiresAt > now) {
+    return withLiveFlags(cached.data, instrument);
   }
 
-  try {
-    const quote = (await fetchWithRetry(() => yahooFinance.quote(symbol))) as Record<string, unknown>;
-    
-    // Choose the best price based on extended hours availability
-    const regularPrice = quote.regularMarketPrice as number;
-    const postPrice = quote.postMarketPrice as number;
-    const prePrice = quote.preMarketPrice as number;
-    
-    let currentPrice = regularPrice;
-    if (quote.marketState === 'POST' || quote.marketState === 'POSTPOST') currentPrice = postPrice || regularPrice;
-    if (quote.marketState === 'PRE' || quote.marketState === 'PREPRE') currentPrice = prePrice || regularPrice;
-    
-    if (!quote || !currentPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
-      return null;
+  // Stale-while-revalidate: if we have a previous value, serve it now and
+  // refresh in the background so a live session never blocks on the network.
+  // (When the breaker is open we serve stale and skip the refresh entirely.)
+  if (cached) {
+    if (!breakerIsOpen()) {
+      void refreshMarketData(instrument, symbol).catch(() => {});
     }
+    return withLiveFlags(cached.data, instrument);
+  }
 
-    // Compute the full indicator set from daily history (cached). SMA50 is taken
-    // from the same context so we fetch history once. Guarded so any failure
-    // leaves the core quote intact.
-    const cachedSma = smaCache[symbol];
-    let sma50: number | null = cachedSma && cachedSma.expiresAt > Date.now() ? cachedSma.value : null;
-    let indicators: IndicatorContext | undefined;
+  // Cold cache. If the breaker is open we have nothing to serve.
+  if (breakerIsOpen()) return null;
+  const fresh = await refreshMarketData(instrument, symbol);
+  return fresh ? withLiveFlags(fresh, instrument) : null;
+}
+
+/**
+ * Fetch a fresh quote (+ indicator context) and cache it. Deduplicated per
+ * symbol so concurrent callers share one upstream fetch, every network call is
+ * timeout-guarded, and the circuit breaker is updated on success/failure.
+ */
+function refreshMarketData(instrument: string, symbol: string): Promise<MarketData | null> {
+  const existing = marketDataInflight[symbol];
+  if (existing) return existing;
+
+  const market = getMarketForInstrument(instrument);
+  const promise = (async (): Promise<MarketData | null> => {
     try {
-      const bars = await getHistoryBars(instrument, 220);
-      if (bars.length >= 2) {
-        indicators = computeIndicatorContext(bars, {
-          price: quote.regularMarketPrice as number,
-          dayHigh: quote.regularMarketDayHigh as number,
-          dayLow: quote.regularMarketDayLow as number,
-          prevClose: (quote.regularMarketPreviousClose as number) ?? null,
-          volume: (quote.regularMarketVolume as number) ?? null,
-        });
-        if (indicators.sma50 != null) {
-          sma50 = indicators.sma50;
-          pruneCache(smaCache, 1000);
-          smaCache[symbol] = { value: sma50, expiresAt: Date.now() + 1000 * 60 * 60 };
-        }
+      const quote = (await fetchWithRetry(() =>
+        withTimeout(yahooFinance.quote(symbol), NETWORK_TIMEOUT_MS, `quote(${symbol})`),
+      )) as Record<string, unknown>;
+
+      // Choose the best price based on extended hours availability
+      const regularPrice = quote.regularMarketPrice as number;
+      const postPrice = quote.postMarketPrice as number;
+      const prePrice = quote.preMarketPrice as number;
+
+      let currentPrice = regularPrice;
+      if (quote.marketState === 'POST' || quote.marketState === 'POSTPOST') currentPrice = postPrice || regularPrice;
+      if (quote.marketState === 'PRE' || quote.marketState === 'PREPRE') currentPrice = prePrice || regularPrice;
+
+      if (!quote || !currentPrice || !quote.regularMarketDayHigh || !quote.regularMarketDayLow) {
+        recordYahooSuccess(); // a valid (if empty) response — Yahoo is up
+        return null;
       }
-    } catch (e) {
-      console.warn('Could not compute indicators', e);
+
+      // Compute the full indicator set from daily history (cached). SMA50 is taken
+      // from the same context so we fetch history once. Guarded so any failure
+      // leaves the core quote intact.
+      const cachedSma = smaCache[symbol];
+      let sma50: number | null = cachedSma && cachedSma.expiresAt > Date.now() ? cachedSma.value : null;
+      let indicators: IndicatorContext | undefined;
+      try {
+        const bars = await getHistoryBars(instrument, 220);
+        if (bars.length >= 2) {
+          indicators = computeIndicatorContext(bars, {
+            price: quote.regularMarketPrice as number,
+            dayHigh: quote.regularMarketDayHigh as number,
+            dayLow: quote.regularMarketDayLow as number,
+            prevClose: (quote.regularMarketPreviousClose as number) ?? null,
+            volume: (quote.regularMarketVolume as number) ?? null,
+          });
+          if (indicators.sma50 != null) {
+            sma50 = indicators.sma50;
+            pruneCache(smaCache, 1000);
+            smaCache[symbol] = { value: sma50, expiresAt: Date.now() + 1000 * 60 * 60 };
+          }
+        }
+      } catch (e) {
+        console.warn(`[market-data] indicator compute failed for ${instrument} (${symbol}):`, e);
+      }
+
+      const data: MarketData = {
+        price: currentPrice,
+        dayHigh: quote.regularMarketDayHigh as number,
+        dayLow: quote.regularMarketDayLow as number,
+        sma50,
+        market,
+        isOpen: isInstrumentTradeable(instrument),
+        isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true),
+        timestamp: (quote.regularMarketTime as Date) || new Date(),
+        indicators,
+      };
+
+      pruneCache(quoteCache, 1000);
+      quoteCache[symbol] = { data, expiresAt: Date.now() + QUOTE_TTL_MS };
+      recordYahooSuccess();
+      return data;
+    } catch (error) {
+      recordYahooFailure();
+      console.error(`[market-data] quote fetch error for ${instrument} (${symbol}):`, error);
+      // Serve the last good value if we still have one, rather than a hard null.
+      const stale = quoteCache[symbol];
+      return stale ? withLiveFlags(stale.data, instrument) : null;
+    } finally {
+      delete marketDataInflight[symbol];
     }
+  })();
 
-    const data: MarketData = {
-      price: currentPrice,
-      dayHigh: quote.regularMarketDayHigh as number,
-      dayLow: quote.regularMarketDayLow as number,
-      sma50,
-      market,
-      isOpen: isInstrumentTradeable(instrument),
-      isExtendedOpen: isInstrumentTradeable(instrument, new Date(), true),
-      timestamp: (quote.regularMarketTime as Date) || new Date(),
-      indicators,
-    };
-
-    pruneCache(quoteCache, 1000);
-    quoteCache[symbol] = { data, expiresAt: Date.now() + QUOTE_TTL_MS };
-    return data;
-  } catch (error) {
-    console.error(`Market data fetch error for ${symbol}:`, error);
-    return null;
-  }
+  marketDataInflight[symbol] = promise;
+  return promise;
 }
 
 // Lightweight quote for the stock-search / live-data feature. Returns the
@@ -273,7 +384,10 @@ export interface HistoryBar {
 }
 
 const historyCache: Record<string, { bars: HistoryBar[]; expiresAt: number }> = {};
-const HISTORY_TTL_MS = 1000 * 60 * 30; // 30 minutes
+// 2 hours: daily bars don't change intraday, so caching them longer cuts the
+// per-tick network load dramatically (history was being refetched every 30 min
+// even though the bars are identical until the next session close).
+const HISTORY_TTL_MS = 1000 * 60 * 60 * 2;
 
 export async function getHistoryBars(instrument: string, days = 180): Promise<HistoryBar[]> {
   const symbol = getYahooSymbol(instrument);
@@ -284,10 +398,14 @@ export async function getHistoryBars(instrument: string, days = 180): Promise<Hi
   try {
     const start = new Date();
     start.setDate(start.getDate() - days);
-    const rows = (await yahooFinance.historical(symbol, {
-      period1: start.toISOString().split("T")[0],
-      period2: new Date().toISOString().split("T")[0],
-    })) as unknown as Array<{ date: Date | string; open: number; high: number; low: number; close: number }>;
+    const rows = (await withTimeout(
+      yahooFinance.historical(symbol, {
+        period1: start.toISOString().split("T")[0],
+        period2: new Date().toISOString().split("T")[0],
+      }),
+      NETWORK_TIMEOUT_MS,
+      `historical(${symbol})`,
+    )) as unknown as Array<{ date: Date | string; open: number; high: number; low: number; close: number }>;
 
     const bars: HistoryBar[] = (rows ?? [])
       .filter((r) => r && r.open != null && r.high != null && r.low != null && r.close != null)
