@@ -238,8 +238,8 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
       agentEvents,
       error: false,
     };
-  } catch (err) {
-    console.error("Error in getOverviewData:", err);
+  } catch (err: any) {
+    console.error("OVERVIEW DATA ERROR:", err);
     return { ...EMPTY_OVERVIEW, error: true };
   }
 }

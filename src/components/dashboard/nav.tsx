@@ -31,6 +31,7 @@ import {
   MagnifyingGlass,
   Calculator,
   FlowArrow,
+  Storefront,
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -48,6 +49,7 @@ const NAVIGATE: NavItem[] = [
   { href: "/dashboard/trades", label: "Trades", icon: ChartLineUp },
   { href: "/dashboard/calendar", label: "Calendar", icon: CalendarBlank },
   { href: "/dashboard/strategy", label: "Strategy Lab", icon: Flask },
+  { href: "/dashboard/marketplace", label: "Marketplace", icon: Storefront },
   { href: "/dashboard/calculators", label: "Calculators", icon: Calculator },
 ];
 
