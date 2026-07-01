@@ -10,6 +10,9 @@ export function getStripe(): Stripe {
   if (!client) {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("STRIPE_SECRET_KEY environment variable is required in production");
+      }
       console.warn("STRIPE_SECRET_KEY is not set. Stripe will not work.");
     }
     

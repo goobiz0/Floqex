@@ -56,3 +56,40 @@ export function clientIp(req: Request): string {
     "127.0.0.1"
   );
 }
+
+/**
+ * Rate limit helper specifically designed for Server Actions.
+ * Rates limits by Clerk userId if authenticated, otherwise by client IP address.
+ */
+export async function checkActionRateLimit(
+  actionName: string,
+  limit: number,
+  window: Window
+): Promise<boolean> {
+  let identifier: string = "";
+  try {
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+    if (userId) {
+      identifier = `${actionName}:${userId}`;
+    }
+  } catch {
+    // auth() might fail or throw if outside request context
+  }
+
+  if (!identifier) {
+    try {
+      const { headers } = await import("next/headers");
+      const h = await headers();
+      const ip =
+        h.get("x-forwarded-for")?.split(",")[0].trim() ||
+        h.get("x-real-ip") ||
+        "127.0.0.1";
+      identifier = `${actionName}:${ip}`;
+    } catch {
+      identifier = `${actionName}:unknown`;
+    }
+  }
+
+  return checkRateLimit(identifier, limit, window);
+}

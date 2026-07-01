@@ -5,6 +5,20 @@ import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/user";
 import { connectAccount } from "@/app/dashboard/accounts/actions";
 import type { Broker, AccountMode } from "@prisma/client";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const OnboardingInputSchema = z.object({
+  nickname: z.string().min(1).max(50),
+  timezone: z.string().max(100).optional(),
+  referralSource: z.string().max(200).optional(),
+  experience: z.string().max(200).optional(),
+  goal: z.string().max(200).optional(),
+  asset: z.string().max(100).optional(),
+  apiKey: z.string().max(200).optional(),
+  apiSecret: z.string().max(200).optional(),
+  broker: z.string().max(100).optional(),
+}).strict();
 
 type Result = { ok: boolean; error?: string };
 
@@ -31,6 +45,12 @@ import { Client } from "@notionhq/client";
 
 // ... existing code in completeOnboarding
 export async function completeOnboarding(input: OnboardingInput): Promise<Result> {
+  const parsed = OnboardingInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("completeOnboarding", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId: clerkId } = await auth();
   if (!clerkId) return { ok: false, error: "You are not signed in." };
 

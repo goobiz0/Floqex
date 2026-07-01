@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMochiUsage } from "@/lib/mochi-usage";
 import { type Plan } from "@/lib/plans";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,6 +13,9 @@ export const runtime = "nodejs";
 export async function GET() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const success = await checkRateLimit(`mochi_usage_${clerkId}`, 30, "1 m");
+  if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 
   const user = await prisma.user.findUnique({ where: { clerkId }, select: { id: true, plan: true } });
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,20 +1,43 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/user";
+import { z } from "zod";
+import { checkRateLimit, clientIp } from "@/lib/ratelimit";
+
+const MarketplaceListSchema = z.object({
+  strategyId: z.string().max(100),
+  title: z.string().min(5).max(100),
+  description: z.string().min(20).max(5000),
+  category: z.string().max(100).optional(),
+  priceUsd: z.number().min(0).max(10000),
+}).strict();
 
 export async function POST(req: Request) {
   try {
+    const ip = clientIp(req);
+    const rateLimitSuccess = await checkRateLimit(`marketplace_list_${ip}`, 10, "1 m");
+    if (!rateLimitSuccess) {
+      return new NextResponse("Rate limit exceeded", { status: 429 });
+    }
+
     const user = await getOrCreateUser();
     if (!user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const body = await req.json();
-    const { strategyId, title, description, category, priceUsd } = body;
-
-    if (!strategyId || !title || !description || priceUsd === undefined) {
-      return new NextResponse("Missing required fields", { status: 400 });
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return new NextResponse("Invalid JSON payload", { status: 400 });
     }
+
+    const parsedBody = MarketplaceListSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return new NextResponse(parsedBody.error.message, { status: 400 });
+    }
+
+    const { strategyId, title, description, category, priceUsd } = parsedBody.data;
 
     const price = Number(priceUsd);
 

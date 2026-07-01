@@ -3,19 +3,51 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const NotificationPrefsSchema = z.object({
+  discordWebhookUrl: z.string().max(2000),
+  notifyDiscord: z.boolean(),
+  emailOnError: z.boolean(),
+  inAppOnError: z.boolean(),
+  emailOnRisk: z.boolean(),
+  inAppOnRisk: z.boolean(),
+  emailOnTrade: z.boolean(),
+  inAppOnTrade: z.boolean(),
+  emailOnSummary: z.boolean(),
+  inAppOnSummary: z.boolean(),
+  notifyCustomWebhook: z.boolean(),
+  customWebhookUrl: z.string().max(2000),
+  notifyCustomTrade: z.boolean(),
+  notifyCustomRisk: z.boolean(),
+  notifyCustomError: z.boolean(),
+  dailyLossAlertPct: z.number().min(0).max(100),
+  drawdownAlertPct: z.number().min(0).max(100),
+  globalKillSwitch: z.boolean(),
+  maxGlobalDrawdown: z.number().min(0).max(10000000),
+}).strict();
+
+const ChangePasswordSchema = z.string().min(8).max(100);
+const ApplyStrategyChangesSchema = z.record(z.any());
+const VerifyBrokerConnectionSchema = z.string().max(100);
+const ToggleAsxMarketSchema = z.boolean();
 
 type Result = { ok: boolean; error?: string };
 
 export type NotificationPrefs = {
   discordWebhookUrl: string;
   notifyDiscord: boolean;
-  notifyEmail: boolean;
-  notifyPush: boolean;
-  notifySms: boolean;
-  smsNumber: string;
+  emailOnError: boolean;
+  inAppOnError: boolean;
+  emailOnRisk: boolean;
+  inAppOnRisk: boolean;
+  emailOnTrade: boolean;
+  inAppOnTrade: boolean;
+  emailOnSummary: boolean;
+  inAppOnSummary: boolean;
   notifyCustomWebhook: boolean;
   customWebhookUrl: string;
-  notifyEveryTrade: boolean;
   notifyCustomTrade: boolean;
   notifyCustomRisk: boolean;
   notifyCustomError: boolean;
@@ -23,7 +55,6 @@ export type NotificationPrefs = {
   drawdownAlertPct: number;
   globalKillSwitch: boolean;
   maxGlobalDrawdown: number;
-
 };
 
 const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
@@ -33,6 +64,12 @@ const DISCORD_WEBHOOK = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//;
  * same store onboarding writes to and the engine reads for Discord alerts.
  */
 export async function updateNotificationPreferences(prefs: NotificationPrefs): Promise<Result> {
+  const parsed = NotificationPrefsSchema.safeParse(prefs);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("updateNotificationPreferences", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You are not signed in." };
 
@@ -51,25 +88,45 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
         ...current.privateMetadata,
         discordWebhookUrl: webhook || null,
         notifyDiscord: prefs.notifyDiscord,
-        notifyEmail: prefs.notifyEmail,
-        notifyPush: prefs.notifyPush,
-        notifySms: prefs.notifySms,
-        smsNumber: prefs.smsNumber,
+        notifyEmail: prefs.emailOnError || prefs.emailOnRisk || prefs.emailOnSummary,
+        notifyPush: false,
+        notifySms: false,
+        smsNumber: "",
         notifyCustomWebhook: prefs.notifyCustomWebhook,
         customWebhookUrl: prefs.customWebhookUrl,
         notifyCustomTrade: prefs.notifyCustomTrade,
         notifyCustomRisk: prefs.notifyCustomRisk,
         notifyCustomError: prefs.notifyCustomError,
-        notifyEveryTrade: prefs.notifyEveryTrade,
+        notifyEveryTrade: prefs.emailOnTrade || prefs.inAppOnTrade,
+        emailOnError: prefs.emailOnError,
+        inAppOnError: prefs.inAppOnError,
+        emailOnRisk: prefs.emailOnRisk,
+        inAppOnRisk: prefs.inAppOnRisk,
+        emailOnTrade: prefs.emailOnTrade,
+        inAppOnTrade: prefs.inAppOnTrade,
+        emailOnSummary: prefs.emailOnSummary,
+        inAppOnSummary: prefs.inAppOnSummary,
         dailyLossAlertPct: clampPct(prefs.dailyLossAlertPct, 0, 100),
         drawdownAlertPct: clampPct(prefs.drawdownAlertPct, 0, 100),
         globalKillSwitch: prefs.globalKillSwitch,
         maxGlobalDrawdown: clampPct(prefs.maxGlobalDrawdown, 0, 100),
-
       },
     });
+
+    // Keep DB User record synced for the engine (which reads directly from the Postgres database)
+    await prisma.user.update({
+      where: { clerkId: userId },
+      data: {
+        webhookUrl: webhook || null,
+        alertOnTrade: prefs.emailOnTrade || prefs.inAppOnTrade,
+        alertOnRisk: prefs.emailOnRisk || prefs.inAppOnRisk,
+        alertOnError: prefs.emailOnError || prefs.inAppOnError,
+      },
+    });
+
     return { ok: true };
-  } catch {
+  } catch (error) {
+    console.error("Error saving notification preferences:", error);
     return { ok: false, error: "Could not save preferences. Please try again." };
   }
 }
@@ -82,6 +139,12 @@ export async function updateNotificationPreferences(prefs: NotificationPrefs): P
  * breached password) so the form can show them.
  */
 export async function changePassword(newPassword: string): Promise<Result> {
+  const parsed = ChangePasswordSchema.safeParse(newPassword);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("changePassword", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You are not signed in." };
 
@@ -106,6 +169,9 @@ export async function changePassword(newPassword: string): Promise<Result> {
  * are never touched.
  */
 export async function resetPaperAccount(): Promise<Result> {
+  const rateLimitOk = await checkActionRateLimit("resetPaperAccount", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You are not signed in." };
   try {
@@ -144,6 +210,9 @@ export async function resetPaperAccount(): Promise<Result> {
  * trades, etc. cascade) and their Clerk identity. The caller signs out after.
  */
 export async function deleteUserAccount(): Promise<Result> {
+  const rateLimitOk = await checkActionRateLimit("deleteUserAccount", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You are not signed in." };
   try {
@@ -163,6 +232,12 @@ import { parseStrategyParams, PARAM_LABELS, rawParamValue, formatParamValue, typ
  * Apply strategy changes confirmed by the user via Mochi Chat.
  */
 export async function applyStrategyChanges(changes: Record<string, unknown>): Promise<{ ok: boolean; updated?: Record<string, unknown>[]; message?: string; note?: string }> {
+  const parsedInput = ApplyStrategyChangesSchema.safeParse(changes);
+  if (!parsedInput.success) return { ok: false, message: parsedInput.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("applyStrategyChanges", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, message: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, message: "Unauthorized." };
 
@@ -235,6 +310,12 @@ import { verifyConnection } from "@/lib/engine/live-broker";
  * lastVerifiedAt. Paper accounts always pass (the simulator is always reachable).
  */
 export async function verifyBrokerConnection(accountId: string): Promise<{ ok: boolean; message: string; latencyMs?: number }> {
+  const parsed = VerifyBrokerConnectionSchema.safeParse(accountId);
+  if (!parsed.success) return { ok: false, message: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("verifyBrokerConnection", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, message: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, message: "You are not signed in." };
   const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
@@ -276,6 +357,9 @@ export type SecurityEvent = { id: string; action: string; detail: string; time: 
  * fabricated entries; if there is nothing to show the table renders empty.
  */
 export async function getSecurityActivity(): Promise<SecurityEvent[]> {
+  const rateLimitOk = await checkActionRateLimit("getSecurityActivity", 20, "1 m");
+  if (!rateLimitOk) return [];
+
   const { userId } = await auth();
   if (!userId) return [];
   const user = await prisma.user.findUnique({
@@ -320,6 +404,9 @@ export async function getSecurityActivity(): Promise<SecurityEvent[]> {
  * Generate (once) and return the user's referral code, stored on the Clerk user.
  */
 export async function generateReferralCode(): Promise<Result & { code?: string }> {
+  const rateLimitOk = await checkActionRateLimit("generateReferralCode", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You are not signed in." };
   try {
@@ -342,6 +429,9 @@ export async function generateReferralCode(): Promise<Result & { code?: string }
  * Generate a new MCP authentication key and persist it on the Clerk user.
  */
 export async function generateMcpKey(): Promise<Result & { key?: string }> {
+  const rateLimitOk = await checkActionRateLimit("generateMcpKey", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You are not signed in." };
   
@@ -368,6 +458,12 @@ export async function generateMcpKey(): Promise<Result & { key?: string }> {
 
 
 export async function toggleAsxMarket(enabled: boolean): Promise<{ ok: boolean }> {
+  const parsed = ToggleAsxMarketSchema.safeParse(enabled);
+  if (!parsed.success) return { ok: false };
+
+  const rateLimitOk = await checkActionRateLimit("toggleAsxMarket", 10, "1 m");
+  if (!rateLimitOk) return { ok: false };
+
   const { userId } = await auth();
   if (!userId) return { ok: false };
   try {

@@ -4,9 +4,17 @@ import { getHistoryBars, getQuoteSnapshot } from "@/lib/engine/market-data";
 import { computeIndicatorContext } from "@/lib/engine/indicators";
 import { transpileStrategy } from "@/lib/engine/transpile";
 import { languageMeta, type StrategyLanguage } from "@/lib/custom-strategy";
+import { z } from "zod";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const ValidateCodeSchema = z.object({
+  code: z.string().min(1).max(50000),
+  language: z.string().max(50),
+  symbol: z.string().min(1).max(20).regex(/^[a-zA-Z0-9._-]+$/),
+}).strict();
 
 // Validate and dry-run a user's custom-code strategy. All languages (JavaScript,
 // Python, Pine Script, TradingView) are transpiled and executed against the most
@@ -16,16 +24,24 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { code?: unknown; language?: unknown; symbol?: unknown };
+  const success = await checkRateLimit(`validate_code_${userId}`, 30, "1 m");
+  if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
+  let body;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, compiled: false, error: "Invalid request body." });
+    return NextResponse.json({ ok: false, compiled: false, error: "Invalid request body." }, { status: 400 });
   }
 
-  const code = typeof body.code === "string" ? body.code : "";
-  const language = (languageMeta(String(body.language))?.id ?? "javascript") as StrategyLanguage;
-  const symbol = (typeof body.symbol === "string" && body.symbol.trim()) || "NQ";
+  const parsedBody = ValidateCodeSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ ok: false, compiled: false, error: parsedBody.error.message }, { status: 400 });
+  }
+
+  const { code: rawCode, language: rawLanguage, symbol } = parsedBody.data;
+  const code = rawCode;
+  const language = (languageMeta(String(rawLanguage))?.id ?? "javascript") as StrategyLanguage;
 
   if (!code.trim()) {
     return NextResponse.json({ ok: false, compiled: false, error: "Write some strategy code first." });

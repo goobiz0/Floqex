@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -199,14 +199,59 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
   );
 }
 
-/** Desktop sidebar, fixed 240px at lg+. */
+/** Desktop sidebar, resizable at lg+. */
 export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
   const isActiveRoute = useIsActive();
   const searchParams = useSearchParams();
   const activeAccountId = searchParams?.get("account") || (accounts.length > 0 ? accounts[0].id : undefined);
-  
+
+  const [width, setWidth] = useState(240);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-width");
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed >= 200 && parsed <= 380) {
+        requestAnimationFrame(() => {
+          setWidth(parsed);
+        });
+        document.documentElement.style.setProperty("--sidebar-width", `${parsed}px`);
+      }
+    }
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = width;
+
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.max(200, Math.min(380, startWidth + deltaX));
+      setWidth(newWidth);
+      document.documentElement.style.setProperty("--sidebar-width", `${newWidth}px`);
+      localStorage.setItem("sidebar-width", newWidth.toString());
+    };
+
+    const handleMouseUp = () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
   return (
-    <aside className="fixed bottom-0 left-0 top-16 hidden w-60 flex-col border-r border-line bg-base md:flex">
+    <aside
+      className="fixed bottom-0 left-0 top-16 hidden flex-col border-r border-line bg-base md:flex z-30"
+      style={{ width: "var(--sidebar-width, 240px)" }}
+    >
       <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-6">
         <Section label="Navigate">
           {NAVIGATE.map((item) => {
@@ -272,6 +317,15 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
       
       <div className="p-4">
         <UserProfileBlock />
+      </div>
+
+      {/* Resize Handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group/resize z-50 flex items-center justify-center"
+        style={{ transform: "translateX(50%)" }}
+      >
+        <div className="h-full w-[2px] bg-accent/0 group-hover/resize:bg-accent/40 group-active/resize:bg-accent/80 transition-colors duration-150" />
       </div>
     </aside>
   );

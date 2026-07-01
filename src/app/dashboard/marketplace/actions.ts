@@ -8,8 +8,24 @@ import { computeMarketplaceSplits, canListStrategies } from "@/lib/marketplace";
 import type { ListingCategory } from "@/lib/marketplace";
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const UpdateListingStatusSchema = z.object({
+  listingId: z.string().max(100),
+  status: z.enum(["DRAFT", "ACTIVE", "PAUSED"]),
+}).strict();
+
+const BuyStrategySchema = z.string().max(100);
+
+const RequestWithdrawalSchema = z.object({
+  amountUsd: z.number().min(0.01).max(10000000),
+  payoutEmail: z.string().email().max(200),
+}).strict();
 
 export async function createListing(formData: FormData) {
+  const rateLimitOk = await checkActionRateLimit("createListing", 10, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -70,6 +86,11 @@ export async function createListing(formData: FormData) {
 }
 
 export async function updateListingDetails(listingId: string, formData: FormData) {
+  z.string().max(100).parse(listingId);
+
+  const rateLimitOk = await checkActionRateLimit("updateListingDetails", 20, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -105,6 +126,12 @@ export async function updateListingDetails(listingId: string, formData: FormData
 }
 
 export async function updateListingStatus(listingId: string, status: "DRAFT" | "ACTIVE" | "PAUSED") {
+  const parsed = UpdateListingStatusSchema.safeParse({ listingId, status });
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("updateListingStatus", 20, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -129,6 +156,12 @@ export async function updateListingStatus(listingId: string, status: "DRAFT" | "
 }
 
 export async function buyStrategy(listingId: string) {
+  const parsed = BuyStrategySchema.safeParse(listingId);
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("buyStrategy", 10, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -200,6 +233,12 @@ export async function buyStrategy(listingId: string) {
 }
 
 export async function requestWithdrawal(amountUsd: number, payoutEmail: string) {
+  const parsed = RequestWithdrawalSchema.safeParse({ amountUsd, payoutEmail });
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("requestWithdrawal", 5, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 

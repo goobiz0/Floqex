@@ -3,22 +3,44 @@ import { prisma } from "@/lib/db";
 import { PLANS, type Plan } from "@/lib/plans";
 import { validateRisk } from "@/lib/engine/risk-engine";
 import { executeTrade, closeTrade } from "@/lib/engine/execution-router";
+import { z } from "zod";
+import { checkRateLimit } from "@/lib/ratelimit";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-interface WebhookPayload {
-  action?: string;
-  ticker?: string;
-  price?: number;
-  stop?: number;
-  target?: number;
-  size?: number;
+const TradingViewParamsSchema = z.object({
+  accountId: z.string().max(100).regex(/^[a-zA-Z0-9_-]+$/),
+});
+
+const TradingViewPayloadSchema = z.object({
+  action: z.preprocess((val) => typeof val === "string" ? val.toLowerCase() : val, z.enum(["buy", "sell", "close"])),
+  ticker: z.string().max(50).optional(),
+  price: z.number().positive().max(10000000).optional(),
+  stop: z.number().positive().max(10000000).optional(),
+  target: z.number().positive().max(10000000).optional(),
+  size: z.number().positive().max(1000000).optional(),
+}).strict();
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const aHash = crypto.createHash("sha256").update(a).digest();
+  const bHash = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(aHash, bHash);
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ accountId: string }> }) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+    const rateLimitSuccess = await checkRateLimit(`tradingview_webhook_${ip}`, 60, "1 m");
+    if (!rateLimitSuccess) return new NextResponse("Rate limit exceeded", { status: 429 });
+
     const p = await params;
-    const { accountId } = p;
+    const parsedParams = TradingViewParamsSchema.safeParse(p);
+    if (!parsedParams.success) {
+      return new NextResponse("Invalid account ID format", { status: 400 });
+    }
+    const { accountId } = parsedParams.data;
 
     // Extract secret from ?secret= query param or x-webhook-secret header.
     const url = new URL(req.url);
@@ -54,7 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ account
     const strategyParams = (account.bot.strategy?.params ?? {}) as Record<string, unknown>;
     const storedSecret = typeof strategyParams.tvWebhookSecret === "string" ? strategyParams.tvWebhookSecret : null;
 
-    if (!storedSecret || !providedSecret || providedSecret !== storedSecret) {
+    if (!storedSecret || !providedSecret || !timingSafeEqual(providedSecret, storedSecret)) {
       return new NextResponse("Invalid or missing webhook secret", { status: 401 });
     }
 
@@ -62,17 +84,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ account
       return new NextResponse("Bot is not running", { status: 400 });
     }
 
-    let payload: WebhookPayload;
+    let body;
     try {
-      payload = (await req.json()) as WebhookPayload;
+      body = await req.json();
     } catch {
       return new NextResponse("Invalid JSON payload", { status: 400 });
     }
 
-    const action = (payload.action ?? "").toLowerCase();
-    if (!action) {
-      return new NextResponse("Missing action field (buy | sell | close)", { status: 400 });
+    const parsedPayload = TradingViewPayloadSchema.safeParse(body);
+    if (!parsedPayload.success) {
+      return new NextResponse(parsedPayload.error.message, { status: 400 });
     }
+
+    const payload = parsedPayload.data;
+    const { action } = payload;
 
     const ticker = payload.ticker || (strategyParams.instrument as string) || "CUSTOM";
     const openTrade = account.bot.trades[0] ?? null;

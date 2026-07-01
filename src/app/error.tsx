@@ -14,6 +14,25 @@ export default function GlobalError({
   useEffect(() => {
     // Log the error to an error reporting service
     console.error("Global Error Caught:", error);
+
+    // Automatically reload on chunk load errors (happens when an old client hits a new deploy)
+    const isChunkError = 
+      error.name === "ChunkLoadError" ||
+      error.message?.includes("Failed to fetch dynamically imported module") ||
+      error.message?.includes("Loading chunk") ||
+      error.message?.includes("text/plain");
+
+    if (isChunkError) {
+      const lastReload = sessionStorage.getItem("chunk-error-reload");
+      const now = Date.now();
+      
+      // Only auto-reload if we haven't done so in the last 10 seconds
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem("chunk-error-reload", String(now));
+        window.location.reload();
+        return;
+      }
+    }
   }, [error]);
 
   return (

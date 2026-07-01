@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import posthog from "posthog-js";
 import { useRouter } from "next/navigation";
 import { DownloadSimple, User, At, DiscordLogo, CurrencyDollar, DeviceMobile, Globe } from "@phosphor-icons/react";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -16,16 +17,17 @@ import {
   resetPaperAccount,
   deleteUserAccount,
   updateNotificationPreferences,
-  changePassword,
 } from "@/app/dashboard/settings/actions";
 import { marketingUrl } from "@/lib/urls";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 /** Quote a CSV cell and escape embedded quotes so commas/newlines stay safe. */
 function csvCell(value: unknown): string {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
-function exportCsv(trades: TradeRow[]) {
+function exportCsv(trades: TradeRow[], onExported?: () => void) {
   const header = [
     "id",
     "openedAt",
@@ -62,6 +64,7 @@ function exportCsv(trades: TradeRow[]) {
   a.download = "floqex-trades.csv";
   a.click();
   URL.revokeObjectURL(url);
+  onExported?.();
 }
 
 type SettingsAccount = {
@@ -74,13 +77,16 @@ type SettingsAccount = {
 type NotificationSettings = {
   discordWebhookUrl: string;
   notifyDiscord: boolean;
-  notifyEmail: boolean;
-  notifyPush: boolean;
-  notifySms: boolean;
-  smsNumber: string;
+  emailOnError: boolean;
+  inAppOnError: boolean;
+  emailOnRisk: boolean;
+  inAppOnRisk: boolean;
+  emailOnTrade: boolean;
+  inAppOnTrade: boolean;
+  emailOnSummary: boolean;
+  inAppOnSummary: boolean;
   notifyCustomWebhook: boolean;
   customWebhookUrl: string;
-  notifyEveryTrade: boolean;
   notifyCustomTrade: boolean;
   notifyCustomRisk: boolean;
   notifyCustomError: boolean;
@@ -95,9 +101,10 @@ import { generateMcpKey, toggleAsxMarket, verifyBrokerConnection, getSecurityAct
 import { usePrivacy } from "@/components/privacy-provider";
 import { useDisplayMode } from "@/components/display-provider";
 import { TerminalWindow, Copy, Check, Eye, EyeSlash, CaretDown, Question, LockKey } from "@phosphor-icons/react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Dropdown } from "@/components/ui/dropdown";
 import { DangerActionDialog } from "@/components/dashboard/danger-action-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function InfoTooltip({ text }: { text: React.ReactNode }) {
   if (!text) return null;
@@ -127,13 +134,16 @@ export function SettingsView({
   const { isPrivacyMode, togglePrivacyMode } = usePrivacy();
   const { displayMode, setDisplayMode } = useDisplayMode();
   const [notifyDiscord, setNotifyDiscord] = useState(settings.notifyDiscord);
-  const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
-  const [notifyPush, setNotifyPush] = useState(settings.notifyPush);
-  const [notifySms, setNotifySms] = useState(settings.notifySms);
-  const [smsNumber, setSmsNumber] = useState(settings.smsNumber);
+  const [emailOnError, setEmailOnError] = useState(settings.emailOnError);
+  const [inAppOnError, setInAppOnError] = useState(settings.inAppOnError);
+  const [emailOnRisk, setEmailOnRisk] = useState(settings.emailOnRisk);
+  const [inAppOnRisk, setInAppOnRisk] = useState(settings.inAppOnRisk);
+  const [emailOnTrade, setEmailOnTrade] = useState(settings.emailOnTrade);
+  const [inAppOnTrade, setInAppOnTrade] = useState(settings.inAppOnTrade);
+  const [emailOnSummary, setEmailOnSummary] = useState(settings.emailOnSummary);
+  const [inAppOnSummary, setInAppOnSummary] = useState(settings.inAppOnSummary);
   const [notifyCustomWebhook, setNotifyCustomWebhook] = useState(settings.notifyCustomWebhook);
   const [customWebhookUrl, setCustomWebhookUrl] = useState(settings.customWebhookUrl);
-  const [notifyEveryTrade, setNotifyEveryTrade] = useState(settings.notifyEveryTrade);
   const [notifyCustomTrade, setNotifyCustomTrade] = useState(settings.notifyCustomTrade);
   const [notifyCustomRisk, setNotifyCustomRisk] = useState(settings.notifyCustomRisk);
   const [notifyCustomError, setNotifyCustomError] = useState(settings.notifyCustomError);
@@ -157,22 +167,26 @@ export function SettingsView({
       const res = await updateNotificationPreferences({
         discordWebhookUrl: webhookUrl,
         notifyDiscord,
-        notifyEmail,
-        notifyPush,
-        notifySms,
-        smsNumber,
+        emailOnError,
+        inAppOnError,
+        emailOnRisk,
+        inAppOnRisk,
+        emailOnTrade,
+        inAppOnTrade,
+        emailOnSummary,
+        inAppOnSummary,
         notifyCustomWebhook,
         customWebhookUrl,
         notifyCustomTrade,
         notifyCustomRisk,
         notifyCustomError,
-        notifyEveryTrade,
         dailyLossAlertPct: Number(dailyLoss),
         drawdownAlertPct: Number(drawdown),
         globalKillSwitch,
         maxGlobalDrawdown: Number(maxGlobalDrawdown),
       });
       if (res.ok) {
+        posthog.capture("settings_saved");
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
@@ -238,7 +252,7 @@ export function SettingsView({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => exportCsv(trades)}
+                onClick={() => exportCsv(trades, () => posthog.capture("trades_exported", { trade_count: trades.length }))}
                 disabled={trades.length === 0}
               >
                 <DownloadSimple size={16} />
@@ -379,10 +393,10 @@ export function SettingsView({
 
           <Card className="p-5">
             <CardTitle>Notifications</CardTitle>
-            <div className="mt-4 divide-y divide-line">
+            <div className="mt-4 space-y-4">
               <Channel label="Discord" desc="Decision feed and milestone alerts" checked={notifyDiscord} onChange={setNotifyDiscord} />
               {notifyDiscord && (
-                <div className="space-y-1.5 py-3">
+                <div className="space-y-1.5 py-3 border-b border-line">
                   <Label htmlFor="discord-webhook">Webhook URL</Label>
                   <Input
                     id="discord-webhook"
@@ -394,65 +408,176 @@ export function SettingsView({
                   />
                 </div>
               )}
-              <Channel label="Email" desc="Daily summary and important alerts" checked={notifyEmail} onChange={setNotifyEmail} />
-              <Channel label="Push" desc="Browser push notifications" checked={notifyPush} onChange={setNotifyPush} />
-              <Channel label="SMS" desc="Critical alerts via text message" checked={notifySms} onChange={setNotifySms} />
-              {notifySms && (
-                <div className="space-y-1.5 py-3">
-                  <Label htmlFor="sms-number">Phone Number</Label>
-                  <Input
-                    id="sms-number"
-                    type="tel"
-                    icon={<DeviceMobile weight="fill" />}
-                    placeholder="+1 (555) 000-0000"
-                    value={smsNumber}
-                    onChange={(e) => setSmsNumber(e.target.value)}
-                  />
+
+              <div className="py-2">
+                <p className="text-sm font-semibold text-fg mb-1">Notification Matrix</p>
+                <p className="text-xs text-fg-subtle mb-3">Choose how you want to receive different alerts.</p>
+                
+                <div className="border border-line rounded-[var(--radius-control)] overflow-hidden bg-surface/5">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-surface/30 text-fg-subtle border-b border-line">
+                      <tr>
+                        <th className="px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-fg-subtle">Alert Category</th>
+                        <th className="px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-center w-24 text-fg-subtle">Email</th>
+                        <th className="px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-center w-24 text-fg-subtle">In-App</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      <tr className="hover:bg-surface/20 transition-colors duration-150">
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-fg text-sm flex items-center">
+                            Bot failing & errors
+                          </span>
+                          <span className="block text-xs text-fg-subtle mt-0.5">
+                            Alerts when a bot halts, API connection fails, or a critical error occurs.
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={emailOnError}
+                              onChange={setEmailOnError}
+                              label="Email alerts for Bot failing & errors"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={inAppOnError}
+                              onChange={setInAppOnError}
+                              label="In-App alerts for Bot failing & errors"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-surface/20 transition-colors duration-150">
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-fg text-sm flex items-center">
+                            Risk & circuit breakers
+                          </span>
+                          <span className="block text-xs text-fg-subtle mt-0.5">
+                            Alerts when drawdown thresholds are breached or global kill switches trigger.
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={emailOnRisk}
+                              onChange={setEmailOnRisk}
+                              label="Email alerts for Risk & circuit breakers"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={inAppOnRisk}
+                              onChange={setInAppOnRisk}
+                              label="In-App alerts for Risk & circuit breakers"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-surface/20 transition-colors duration-150">
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-fg text-sm flex items-center">
+                            Trade executions
+                          </span>
+                          <span className="block text-xs text-fg-subtle mt-0.5">
+                            Alerts on every trade entry, exit, or parameter adjustment.
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={emailOnTrade}
+                              onChange={setEmailOnTrade}
+                              label="Email alerts for Trade executions"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={inAppOnTrade}
+                              onChange={setInAppOnTrade}
+                              label="In-App alerts for Trade executions"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-surface/20 transition-colors duration-150">
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-fg text-sm flex items-center">
+                            Daily summaries
+                          </span>
+                          <span className="block text-xs text-fg-subtle mt-0.5">
+                            End of day performance reports and summaries.
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={emailOnSummary}
+                              onChange={setEmailOnSummary}
+                              label="Email alerts for Daily summaries"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center align-middle">
+                          <div className="inline-flex items-center justify-center">
+                            <Checkbox
+                              checked={inAppOnSummary}
+                              onChange={setInAppOnSummary}
+                              label="In-App alerts for Daily summaries"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-              )}
-              <Channel label="Custom Webhook" desc="Forward events to your own server" checked={notifyCustomWebhook} onChange={setNotifyCustomWebhook} />
-              {notifyCustomWebhook && (
-                <div className="space-y-4 py-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="custom-webhook">Webhook URL</Label>
-                    <Input
-                      id="custom-webhook"
-                      type="url"
-                      icon={<Globe weight="fill" />}
-                      placeholder="https://api.yourdomain.com/webhook"
-                      value={customWebhookUrl}
-                      onChange={(e) => setCustomWebhookUrl(e.target.value)}
-                    />
+              </div>
+
+              <div className="border-t border-line pt-2">
+                <Channel label="Custom Webhook" desc="Forward events to your own server" checked={notifyCustomWebhook} onChange={setNotifyCustomWebhook} />
+                {notifyCustomWebhook && (
+                  <div className="space-y-4 py-3 border-b border-line">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="custom-webhook">Webhook URL</Label>
+                      <Input
+                        id="custom-webhook"
+                        type="url"
+                        icon={<Globe weight="fill" />}
+                        placeholder="https://api.yourdomain.com/webhook"
+                        value={customWebhookUrl}
+                        onChange={(e) => setCustomWebhookUrl(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-3 rounded-md bg-surface/50 p-4 border border-line">
+                      <p className="text-sm font-medium text-fg mb-2">Events to send</p>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-normal text-fg-subtle">Risk & Circuit Breakers</Label>
+                        <Switch checked={notifyCustomRisk} onChange={setNotifyCustomRisk} label="Risk" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-normal text-fg-subtle">System Errors</Label>
+                        <Switch checked={notifyCustomError} onChange={setNotifyCustomError} label="Errors" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-normal text-fg-subtle">Trade Executions</Label>
+                        <Switch checked={notifyCustomTrade} onChange={setNotifyCustomTrade} label="Trades" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-3 rounded-md bg-surface/50 p-4 border border-line">
-                    <p className="text-sm font-medium text-fg mb-2">Events to send</p>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-normal text-fg-subtle">Risk & Circuit Breakers</Label>
-                      <Switch checked={notifyCustomRisk} onChange={setNotifyCustomRisk} label="Risk" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-normal text-fg-subtle">System Errors</Label>
-                      <Switch checked={notifyCustomError} onChange={setNotifyCustomError} label="Errors" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-normal text-fg-subtle">Trade Executions</Label>
-                      <Switch checked={notifyCustomTrade} onChange={setNotifyCustomTrade} label="Trades" />
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div className="mt-5 space-y-5 border-t border-line pt-5">
               <Threshold id="daily-loss-alert" label="Daily loss alert" help="Notify when the day's loss reaches this percent." suffix="%" value={dailyLoss} onChange={setDailyLoss} />
               <Threshold id="drawdown-alert" label="Drawdown alert" help="Notify when drawdown from peak reaches this percent." suffix="%" value={drawdown} onChange={setDrawdown} />
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center">
-                  <p className="text-sm font-medium text-fg">Notify on every trade</p>
-                  <InfoTooltip text="Off by default to avoid noise." />
-                </div>
-                <Switch checked={notifyEveryTrade} onChange={setNotifyEveryTrade} label="Notify on every trade" />
-              </div>
             </div>
 
             <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
@@ -757,8 +882,19 @@ function PasswordSettings() {
 function ConnectedAccounts() {
   const { user, isLoaded } = useUser();
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [confirmDisconnectId, setConfirmDisconnectId] = useState<string | null>(null);
 
-  if (!isLoaded || !user) return null;
+  if (!isLoaded || !user) {
+    return (
+      <Card className="p-5">
+        <CardTitle>Connected Accounts</CardTitle>
+        <div className="mt-4 space-y-3">
+          <div className="h-16 w-full animate-pulse rounded-[var(--radius-control)] bg-surface/40" />
+          <div className="h-16 w-full animate-pulse rounded-[var(--radius-control)] bg-surface/40" />
+        </div>
+      </Card>
+    );
+  }
 
   const connectedGoogle = user.externalAccounts.find(a => a.provider === "google");
   const connectedGithub = user.externalAccounts.find(a => a.provider === "github");
@@ -768,30 +904,35 @@ function ConnectedAccounts() {
     try {
       const externalAccount = await user!.createExternalAccount({
         strategy,
-        redirectUrl: "/dashboard/settings",
+        redirectUrl: window.location.origin + "/dashboard/settings",
       });
       if (externalAccount.verification?.status === "unverified" && externalAccount.verification.externalVerificationRedirectURL) {
         window.location.href = externalAccount.verification.externalVerificationRedirectURL.href;
       } else {
         await user!.reload();
+        toast.success("Account connected successfully.");
       }
     } catch (err) {
-      alert("Could not connect account.");
+      const error = err as Error;
+      console.error(error);
+      toast.error(error.message || "Could not connect account.");
     } finally {
       setConnecting(null);
     }
   }
 
   async function disconnect(id: string) {
-    if (!confirm("Are you sure you want to disconnect this account?")) return;
     try {
       const ext = user!.externalAccounts.find(a => a.id === id);
       if (ext) {
         await ext.destroy();
         await user!.reload();
+        toast.success("Account disconnected successfully.");
       }
     } catch (err) {
-      alert("Could not disconnect account.");
+      const error = err as Error;
+      console.error(error);
+      toast.error(error.message || "Could not disconnect account.");
     }
   }
 
@@ -802,8 +943,9 @@ function ConnectedAccounts() {
         Link Google or GitHub to sign in to your Floqex account without a password.
       </p>
 
-      <div className="space-y-3 divide-y divide-line border-t border-line">
-        <div className="flex items-center justify-between pt-3">
+      <div className="space-y-3">
+        {/* Google Row */}
+        <div className="flex items-center justify-between p-4 rounded-[var(--radius-control)] border border-line bg-surface/20 hover:bg-surface/30 transition-colors duration-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-surface border border-line">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -814,24 +956,78 @@ function ConnectedAccounts() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-fg">Google</p>
-              <p className="text-xs text-fg-subtle">
-                {connectedGoogle ? connectedGoogle.emailAddress : "Not connected"}
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-fg">Google</p>
+                {connectedGoogle ? (
+                  <Badge tone="positive">Connected</Badge>
+                ) : (
+                  <Badge tone="neutral">Not connected</Badge>
+                )}
+              </div>
+              <p className="text-xs text-fg-subtle mt-0.5">
+                {connectedGoogle ? connectedGoogle.emailAddress : "Link your Google account"}
               </p>
             </div>
           </div>
-          {connectedGoogle ? (
-            <Button size="sm" variant="secondary" onClick={() => disconnect(connectedGoogle.id)}>
-              Disconnect
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => connect("oauth_google")} disabled={connecting === "oauth_google"}>
-              {connecting === "oauth_google" ? "Connecting..." : "Connect"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <AnimatePresence mode="wait">
+              {connectedGoogle ? (
+                confirmDisconnectId === connectedGoogle.id ? (
+                  <motion.div
+                    key="confirm-google"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="text-xs text-fg-subtle">Are you sure?</span>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmDisconnectId(null)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-negative text-white hover:bg-negative-hover ring-0 shadow-none hover:shadow-none active:scale-[0.97]"
+                      onClick={() => {
+                        disconnect(connectedGoogle.id);
+                        setConfirmDisconnectId(null);
+                      }}
+                    >
+                      Disconnect
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="action-google-connected"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                  >
+                    <Button size="sm" variant="secondary" onClick={() => setConfirmDisconnectId(connectedGoogle.id)}>
+                      Disconnect
+                    </Button>
+                  </motion.div>
+                )
+              ) : (
+                <motion.div
+                  key="action-google-connect"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                >
+                  <Button size="sm" onClick={() => connect("oauth_google")} disabled={connecting === "oauth_google"}>
+                    {connecting === "oauth_google" ? "Connecting..." : "Connect"}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between pt-3">
+        {/* GitHub Row */}
+        <div className="flex items-center justify-between p-4 rounded-[var(--radius-control)] border border-line bg-surface/20 hover:bg-surface/30 transition-colors duration-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-surface border border-line">
               <svg viewBox="0 0 24 24" className="h-5 w-5 text-fg" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -839,21 +1035,74 @@ function ConnectedAccounts() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-fg">GitHub</p>
-              <p className="text-xs text-fg-subtle">
-                {connectedGithub ? connectedGithub.emailAddress || connectedGithub.username || "Connected" : "Not connected"}
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-fg">GitHub</p>
+                {connectedGithub ? (
+                  <Badge tone="positive">Connected</Badge>
+                ) : (
+                  <Badge tone="neutral">Not connected</Badge>
+                )}
+              </div>
+              <p className="text-xs text-fg-subtle mt-0.5">
+                {connectedGithub ? connectedGithub.emailAddress || connectedGithub.username || "Connected" : "Link your GitHub account"}
               </p>
             </div>
           </div>
-          {connectedGithub ? (
-            <Button size="sm" variant="secondary" onClick={() => disconnect(connectedGithub.id)}>
-              Disconnect
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => connect("oauth_github")} disabled={connecting === "oauth_github"}>
-              {connecting === "oauth_github" ? "Connecting..." : "Connect"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <AnimatePresence mode="wait">
+              {connectedGithub ? (
+                confirmDisconnectId === connectedGithub.id ? (
+                  <motion.div
+                    key="confirm-github"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="text-xs text-fg-subtle">Are you sure?</span>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmDisconnectId(null)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-negative text-white hover:bg-negative-hover ring-0 shadow-none hover:shadow-none active:scale-[0.97]"
+                      onClick={() => {
+                        disconnect(connectedGithub.id);
+                        setConfirmDisconnectId(null);
+                      }}
+                    >
+                      Disconnect
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="action-github-connected"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                  >
+                    <Button size="sm" variant="secondary" onClick={() => setConfirmDisconnectId(connectedGithub.id)}>
+                      Disconnect
+                    </Button>
+                  </motion.div>
+                )
+              ) : (
+                <motion.div
+                  key="action-github-connect"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                >
+                  <Button size="sm" onClick={() => connect("oauth_github")} disabled={connecting === "oauth_github"}>
+                    {connecting === "oauth_github" ? "Connecting..." : "Connect"}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </Card>
@@ -1046,7 +1295,10 @@ function AffiliatePanel() {
     setLoading(true);
     const res = await generateReferralCode();
     setLoading(false);
-    if (res.ok && res.code) setCode(res.code);
+    if (res.ok && res.code) {
+      setCode(res.code);
+      posthog.capture("referral_link_generated");
+    }
   }
 
   async function copyLink() {

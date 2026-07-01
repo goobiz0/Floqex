@@ -8,6 +8,16 @@ import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { PLANS, planFromPriceId, isPaidPriceId, type Plan } from "@/lib/plans";
 import { dashboardUrl } from "@/lib/urls";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const StartCheckoutSchema = z.object({
+  plan: z.enum(["FREE", "TRADER", "PRO", "ELITE"]),
+  returnUrls: z.object({
+    success: z.string().max(2000),
+    cancel: z.string().max(2000),
+  }).optional(),
+}).strict();
 
 type Result = { ok: boolean; url?: string; error?: string };
 
@@ -58,6 +68,11 @@ async function ensureCustomer(): Promise<{ id: string; customerId: string } | nu
 
 /** Start a Stripe Checkout session for a paid plan; returns the redirect URL. */
 export async function startCheckout(plan: Plan, returnUrls?: { success: string; cancel: string }): Promise<Result> {
+  const parsed = StartCheckoutSchema.safeParse({ plan, returnUrls });
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("startCheckout", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
   // Server actions receive arbitrary client input; guard before indexing PLANS.
   const cfg = PLANS[plan];
   if (!cfg) return { ok: false, error: "Invalid plan." };
@@ -129,6 +144,8 @@ export async function startCheckout(plan: Plan, returnUrls?: { success: string; 
 
 /** Open the Stripe Billing Portal so the user can manage/cancel their plan. */
 export async function openBillingPortal(): Promise<Result> {
+  const rateLimitOk = await checkActionRateLimit("openBillingPortal", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
   const billing = absolute(dashboardUrl("/billing"), await requestOrigin());
   try {
     const customer = await ensureCustomer();
@@ -162,6 +179,8 @@ function planForSubscription(sub: Stripe.Subscription): Plan {
  * can be delayed or unconfigured. Safe to call repeatedly; it is idempotent.
  */
 export async function reconcileSubscription(): Promise<{ ok: boolean; plan?: Plan; error?: string }> {
+  const rateLimitOk = await checkActionRateLimit("reconcileSubscription", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
   const { userId: clerkId } = await auth();
   if (!clerkId) return { ok: false, error: "You are not signed in." };
 

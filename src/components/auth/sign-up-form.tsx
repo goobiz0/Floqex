@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Envelope, Lock, User } from "@phosphor-icons/react";
 import { useSignUp, useAuth, useClerk } from "@clerk/nextjs";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -148,6 +149,8 @@ export function SignUpForm() {
       }
       
       if (signUp.status === "complete") {
+        posthog.identify(email, { email, first_name: firstName, last_name: lastName });
+        posthog.capture("user_signed_up", { method: "email" });
         await signUp.finalize({
           navigate: ({ decorateUrl }) => {
             const url = decorateUrl(onboardingUrl());
@@ -160,11 +163,12 @@ export function SignUpForm() {
         });
         return;
       }
-      
+
       console.warn("Unhandled Clerk signUp status:", signUp.status, signUp);
       setError(`Verification completed but account is incomplete. Missing fields: ${signUp.missingFields?.join(", ")}`);
       setSubmitting(false);
     } catch (err) {
+      posthog.captureException(err);
       setError(clerkErrorMessage(err));
       setSubmitting(false);
     }

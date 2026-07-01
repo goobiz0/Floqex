@@ -11,20 +11,46 @@ import { getMarketForInstrument, marketLabel, isInstrumentTradeable } from "@/li
 import { hasLiveAdapter } from "@/lib/engine/live-broker";
 import { isBrokerLive } from "@/lib/brokers";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
 
-export async function connectAccount({
-  nickname,
-  broker,
-  mode,
-  apiKey,
-  apiSecret,
-}: {
+const ConnectAccountSchema = z.object({
+  nickname: z.string().min(1).max(50),
+  broker: z.enum(["PAPER", "ALPACA", "TRADESTATION", "INTERACTIVE_BROKERS", "BINANCE"]),
+  mode: z.enum(["PAPER", "LIVE"]),
+  apiKey: z.string().max(200).optional(),
+  apiSecret: z.string().max(200).optional(),
+}).strict();
+
+const ToggleBotStatusSchema = z.string().max(100);
+
+const UpdateCircuitBreakerSchema = z.object({
+  accountId: z.string().max(100),
+  amount: z.number().min(0).max(10000000).nullable(),
+}).strict();
+
+const UpdatePropFirmSettingsSchema = z.object({
+  accountId: z.string().max(100),
+  isPropFirmMode: z.boolean(),
+  propFirmMaxTrailingDrawdown: z.number().min(0).max(10000000).nullable(),
+}).strict();
+
+const DisconnectAccountSchema = z.string().max(100);
+
+export async function connectAccount(rawInput: {
   nickname: string;
   broker: Broker;
   mode: AccountMode;
   apiKey?: string;
   apiSecret?: string;
 }) {
+  const parsed = ConnectAccountSchema.safeParse(rawInput);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+  const { nickname, broker, mode, apiKey, apiSecret } = parsed.data;
+
+  const rateLimitOk = await checkActionRateLimit("connectAccount", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   try {
     // getOrCreateUser tolerates the Clerk webhook lagging right after sign-up,
     // so onboarding never fails with a "not synced yet" error.
@@ -126,6 +152,12 @@ export async function connectAccount({
 }
 
 export async function toggleBotStatus(accountId: string) {
+  const parsed = ToggleBotStatusSchema.safeParse(accountId);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("toggleBotStatus", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not signed in" };
 
@@ -243,6 +275,9 @@ export async function toggleBotStatus(accountId: string) {
 }
 
 export async function emergencyStop() {
+  const rateLimitOk = await checkActionRateLimit("emergencyStop", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not signed in" };
 
@@ -268,6 +303,12 @@ export async function emergencyStop() {
 }
 
 export async function updateCircuitBreaker(accountId: string, amount: number | null) {
+  const parsed = UpdateCircuitBreakerSchema.safeParse({ accountId, amount });
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("updateCircuitBreaker", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not signed in" };
 
@@ -294,6 +335,12 @@ export async function updateCircuitBreaker(accountId: string, amount: number | n
 }
 
 export async function updatePropFirmSettings(accountId: string, isPropFirmMode: boolean, propFirmMaxTrailingDrawdown: number | null) {
+  const parsed = UpdatePropFirmSettingsSchema.safeParse({ accountId, isPropFirmMode, propFirmMaxTrailingDrawdown });
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("updatePropFirmSettings", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   if (propFirmMaxTrailingDrawdown !== null) {
     if (Number.isNaN(propFirmMaxTrailingDrawdown) || !Number.isFinite(propFirmMaxTrailingDrawdown) || propFirmMaxTrailingDrawdown < 0) {
       return { ok: false, error: "Invalid drawdown amount" };
@@ -327,6 +374,12 @@ export async function updatePropFirmSettings(accountId: string, isPropFirmMode: 
 }
 
 export async function disconnectAccount(accountId: string) {
+  const parsed = DisconnectAccountSchema.safeParse(accountId);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("disconnectAccount", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not signed in" };
 

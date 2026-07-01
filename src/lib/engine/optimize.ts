@@ -5,6 +5,8 @@
 
 import { backtestStrategy, type Bar, type BacktestResult } from "./backtest";
 
+const clampNum = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
 export type Objective =
   | "return"
   | "profitFactor"
@@ -36,6 +38,7 @@ export type SweepRow = {
   consistency: number;
   /** 0-100 composite quality, sample-size discounted. Powers the recommendation. */
   score: number;
+  stabilityScore?: number;
 };
 
 // Bounded grids that stay inside the schema's safe ranges (rr 1-5, stop derived
@@ -112,63 +115,70 @@ function scoreFor(row: SweepRow, objective: Objective): number {
  */
 export function optimizeStrategy(
   bars: Bar[],
-  base: { riskPct?: number; direction?: "LONG" | "SHORT" | "BOTH"; trailingStopPct?: number; atrStopMultiple?: number },
+  base: { riskPct?: number; direction?: SweepDirection; trailingStopPct?: number; atrStopMultiple?: number },
   objective: Objective,
   topN = 6,
 ): SweepRow[] {
   // First pass: full grid of returns, keyed by index so we can look up neighbours.
-  const grid: (number | null)[][][] = RR_GRID.map(() =>
-    STOP_GRID.map(() => TREND_GRID.map(() => null)),
+  const grid: (number | null)[][][][] = RR_GRID.map(() =>
+    STOP_GRID.map(() => TREND_GRID.map(() => DIRECTION_GRID.map(() => null))),
   );
-  type Raw = { ri: number; si: number; ti: number; r: BacktestResult };
+  type Raw = { ri: number; si: number; ti: number; di: number; r: BacktestResult };
   const raws: Raw[] = [];
   for (let ri = 0; ri < RR_GRID.length; ri++) {
     for (let si = 0; si < STOP_GRID.length; si++) {
       for (let ti = 0; ti < TREND_GRID.length; ti++) {
-        const r = backtestStrategy(bars, {
-          riskPct: base.riskPct,
-          rrTarget: RR_GRID[ri],
-          stopLossPct: STOP_GRID[si],
-          trendFilter: TREND_GRID[ti],
-          direction: base.direction,
-          trailingStopPct: base.trailingStopPct,
-          atrStopMultiple: base.atrStopMultiple,
-        });
-        grid[ri][si][ti] = r.trades >= MIN_TRADES ? r.totalReturnPct : null;
-        if (r.trades >= MIN_TRADES) raws.push({ ri, si, ti, r });
+        for (let di = 0; di < DIRECTION_GRID.length; di++) {
+          if (base.direction && base.direction !== DIRECTION_GRID[di]) continue;
+          const r = backtestStrategy(bars, {
+            riskPct: base.riskPct,
+            rrTarget: RR_GRID[ri],
+            stopLossPct: STOP_GRID[si],
+            trendFilter: TREND_GRID[ti],
+            direction: DIRECTION_GRID[di],
+            trailingStopPct: base.trailingStopPct,
+            atrStopMultiple: base.atrStopMultiple,
+          });
+          grid[ri][si][ti][di] = r.trades >= MIN_TRADES ? r.totalReturnPct : null;
+          if (r.trades >= MIN_TRADES) raws.push({ ri, si, ti, di, r });
+        }
       }
     }
   }
 
   // Second pass: stability = inverse of how far a cell's return is from its
-  // immediate rr/stop neighbours (same trend setting). Normalised against the
+  // immediate rr/stop neighbours (same trend/direction setting). Normalised against the
   // grid's overall spread so it is comparable across instruments.
   const allReturns = raws.map((x) => x.r.totalReturnPct);
   const spread = allReturns.length ? Math.max(1, Math.max(...allReturns) - Math.min(...allReturns)) : 1;
 
-  const rows: SweepRow[] = raws.map(({ ri, si, ti, r }) => {
+  const rows: SweepRow[] = raws.map(({ ri, si, ti, di, r }) => {
     const neighbours: number[] = [];
     for (const [dr, ds] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
       const nr = ri + dr;
       const ns = si + ds;
-      const v = grid[nr]?.[ns]?.[ti];
+      const v = grid[nr]?.[ns]?.[ti]?.[di];
       if (typeof v === "number") neighbours.push(v);
     }
     let stabilityScore = 0; // default to 0 for isolated cells
     if (neighbours.length) {
       const avgGap =
         neighbours.reduce((acc, v) => acc + Math.abs(v - r.totalReturnPct), 0) / neighbours.length;
-      stabilityScore = clampNum(1 - avgGap / spread, 0, 1);
+      stabilityScore = clamp(1 - avgGap / spread, 0, 1);
     }
-    return {
-      params: { rrTarget: RR_GRID[ri], stopLossPct: STOP_GRID[si], trendFilter: TREND_GRID[ti] },
+    const { expectancy, consistency } = expectancyAndConsistency(r.tradeReturns);
+    const partial: Omit<SweepRow, "score"> = {
+      params: { rrTarget: RR_GRID[ri], stopLossPct: STOP_GRID[si], trendFilter: TREND_GRID[ti], direction: DIRECTION_GRID[di] },
       totalReturnPct: r.totalReturnPct,
       winRate: r.winRate,
       maxDrawdownPct: r.maxDrawdownPct,
       profitFactor: r.profitFactor,
       trades: r.trades,
+      expectancy,
+      consistency,
       stabilityScore: Math.round(stabilityScore * 100) / 100,
     };
+    return { ...partial, score: qualityScore(partial) };
   });
 
   return rows.sort((a, b) => scoreFor(b, objective) - scoreFor(a, objective)).slice(0, topN);

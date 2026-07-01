@@ -3,8 +3,28 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const ReportListingSchema = z.object({
+  listingId: z.string().max(100),
+  reason: z.string().min(5).max(1000),
+}).strict();
+
+const SubmitReviewSchema = z.object({
+  listingId: z.string().max(100),
+  rating: z.number().int().min(1).max(5),
+  title: z.string().min(1).max(100),
+  body: z.string().min(1).max(2000),
+}).strict();
 
 export async function reportListing(listingId: string, reason: string) {
+  const parsed = ReportListingSchema.safeParse({ listingId, reason });
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("reportListing", 5, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId: clerkId } = await auth();
   
   const listing = await prisma.marketplaceListing.findUnique({
@@ -31,6 +51,12 @@ export async function reportListing(listingId: string, reason: string) {
 }
 
 export async function submitReview(listingId: string, rating: number, title: string, body: string) {
+  const parsed = SubmitReviewSchema.safeParse({ listingId, rating, title, body });
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("submitReview", 5, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId: clerkId } = await auth();
   if (!clerkId) throw new Error("Unauthorized");
 

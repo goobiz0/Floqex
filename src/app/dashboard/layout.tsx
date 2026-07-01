@@ -17,13 +17,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] bg-base">
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            try {
+              const width = localStorage.getItem('sidebar-width');
+              if (width) {
+                document.documentElement.style.setProperty('--sidebar-width', width + 'px');
+              }
+            } catch (e) {}
+          `
+        }}
+      />
       <IdleTimeout />
       <div aria-hidden className="aurora pointer-events-none fixed inset-0 -z-10 opacity-70" />
       <Topbar />
       <Suspense fallback={null}>
         <SidebarWrapper />
       </Suspense>
-      <div className="pt-16 md:pl-60">
+      <div className="pt-16 pl-sidebar">
         <main className="mx-auto max-w-[1400px] px-4 pb-32 pt-6 lg:px-8 lg:pb-32">
           <div className="mx-auto max-w-[1100px]">{children}</div>
         </main>

@@ -5,27 +5,35 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { parseStrategyParams } from "@/lib/strategy-schema";
 import { parseCustomConfig } from "@/lib/custom-strategy";
+import { z } from "zod";
+import { checkRateLimit } from "@/lib/ratelimit";
+
+const DeployCustomSchema = z.object({
+  name: z.string().min(1).max(60),
+  params: z.record(z.any()),
+}).strict();
 
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    const success = await checkRateLimit(`deploy_custom_${userId}`, 10, "1 m");
+    if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (name.length > 60) {
-      return NextResponse.json(
-        { error: "Keep the name under 60 characters." },
-        { status: 400 }
-      );
+    const parsedBody = DeployCustomSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: parsedBody.error.message }, { status: 400 });
     }
 
-    const rawParams =
-      body.params && typeof body.params === "object" ? body.params : {};
+    const { name, params: rawParams } = parsedBody.data;
 
     // Defense in depth: validate the same way the dashboard server action does
     // (see createStrategyAdvanced in dashboard/strategy/actions.ts). Risk bounds

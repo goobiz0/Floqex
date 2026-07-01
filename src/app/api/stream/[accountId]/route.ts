@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getOwnedAccountId } from "@/lib/user";
+import { checkRateLimit, clientIp } from "@/lib/ratelimit";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,7 +24,22 @@ function engineStatusFrom(status: string | null, lastHeartbeat: Date | null): "O
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ accountId: string }> }) {
-  const { accountId: requested } = await params;
+  const ip = clientIp(req);
+  const rateLimitSuccess = await checkRateLimit(`stream_${ip}`, 30, "1 m");
+  if (!rateLimitSuccess) {
+    return new Response("Rate limit exceeded", { status: 429 });
+  }
+
+  const p = await params;
+  const parsedParams = z.object({
+    accountId: z.string().max(100).regex(/^[a-zA-Z0-9_-]+$/),
+  }).safeParse(p);
+
+  if (!parsedParams.success) {
+    return new Response("Invalid account ID format", { status: 400 });
+  }
+
+  const { accountId: requested } = parsedParams.data;
   const accountId = await getOwnedAccountId(requested);
   if (!accountId) {
     return new Response("Unauthorized", { status: 401 });

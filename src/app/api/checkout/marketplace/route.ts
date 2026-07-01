@@ -2,18 +2,39 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { getOrCreateUser } from "@/lib/user";
+import { z } from "zod";
+import { checkRateLimit, clientIp } from "@/lib/ratelimit";
+
+const CheckoutMarketplaceSchema = z.object({
+  listingId: z.string().max(100),
+}).strict();
 
 export async function POST(req: Request) {
   try {
+    const ip = clientIp(req);
+    const rateLimitSuccess = await checkRateLimit(`checkout_marketplace_${ip}`, 10, "1 m");
+    if (!rateLimitSuccess) {
+      return new NextResponse("Rate limit exceeded", { status: 429 });
+    }
+
     const user = await getOrCreateUser();
     if (!user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { listingId } = await req.json();
-    if (!listingId) {
-      return new NextResponse("Listing ID is required", { status: 400 });
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return new NextResponse("Invalid JSON payload", { status: 400 });
     }
+
+    const parsedBody = CheckoutMarketplaceSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return new NextResponse(parsedBody.error.message, { status: 400 });
+    }
+
+    const { listingId } = parsedBody.data;
 
     const listing = await prisma.marketplaceListing.findUnique({
       where: { id: listingId },

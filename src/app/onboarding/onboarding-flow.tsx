@@ -23,6 +23,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import posthog from "posthog-js";
 import { completeOnboarding } from "./actions";
 import { startCheckout } from "@/app/dashboard/billing/actions";
 import { PLANS, PLAN_ORDER, type Plan } from "@/lib/plans";
@@ -150,6 +151,7 @@ function OnboardingFlow() {
   function advance() {
     setError(null);
     if (step === 4 && isPaid) {
+      posthog.capture("onboarding_plan_selected", { plan: planSelection });
       // Go to Stripe
       startTransition(async () => {
         const res = await startCheckout(planSelection, {
@@ -184,6 +186,13 @@ function OnboardingFlow() {
         setError(res.error ?? "Could not finish setup. Please try again.");
         return;
       }
+      posthog.capture("onboarding_completed", {
+        plan: planSelection,
+        referral_source: effectiveReferral,
+        experience,
+        goal,
+        asset,
+      });
       localStorage.removeItem("ob_state");
       router.push("/dashboard");
       router.refresh();

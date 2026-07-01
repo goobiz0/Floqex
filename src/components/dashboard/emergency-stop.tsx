@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { HandPalm } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import posthog from "posthog-js";
 import { emergencyStop } from "@/app/dashboard/accounts/actions";
 
 export function EmergencyStop() {
@@ -13,6 +14,7 @@ export function EmergencyStop() {
     startTransition(async () => {
       const res = await emergencyStop();
       if (res.ok) {
+        posthog.capture("emergency_stop_triggered");
         setStopped(true);
         setTimeout(() => setStopped(false), 5000); // Revert UI after a few seconds
       } else {

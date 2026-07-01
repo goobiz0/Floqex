@@ -83,6 +83,7 @@ function scoreStrength(ctx: IndicatorContext, direction: 'LONG' | 'SHORT'): numb
 export function evaluateOrbStrategy(params: Record<string, unknown>, marketData: MarketData, openTrade: Trade | null, guard?: SignalGuard): Signal {
   if (openTrade) return null;
 
+  const ctx = contextFromMarketData(marketData);
   const { price, dayHigh, dayLow, sma50 } = marketData;
   const range = dayHigh - dayLow;
 

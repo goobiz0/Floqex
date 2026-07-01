@@ -1,6 +1,7 @@
 import { streamText, tool, convertToModelMessages, type UIMessage } from "ai";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
+import { checkRateLimit } from "@/lib/ratelimit";
 import { prisma } from "@/lib/db";
 import { PARAM_BOUNDS } from "@/lib/strategy-schema";
 import { type Plan } from "@/lib/plans";
@@ -112,15 +113,53 @@ const TRADE_SELECT = {
   openedAt: true, closedAt: true, narrative: true, screenshotUrl: true,
 } as const;
 
+const UIMessageSchema = z.object({
+  id: z.string().max(100).optional(),
+  role: z.enum(["user", "assistant", "system", "data"]),
+  content: z.string().max(5000),
+  createdAt: z.union([z.string(), z.number()]).optional(),
+});
+
+const ChatBodySchema = z.object({
+  messages: z.array(UIMessageSchema),
+}).strict();
+
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
   const { userId } = await auth();
 
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
+  const rateLimitSuccess = await checkRateLimit(`chat_${userId}`, 20, "1 m");
+  if (!rateLimitSuccess) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const parsedBody = ChatBodySchema.safeParse(body);
+  if (!parsedBody.success) {
+    return new Response(JSON.stringify({ error: parsedBody.error.message }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { messages } = parsedBody.data;
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true, email: true } });
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const usage = await getMochiUsage(user.id, user.plan as Plan);
@@ -158,6 +197,13 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
     model: mochiModel(),
     messages: modelMessages,
     system: systemPrompt,
+    experimental_telemetry: {
+      isEnabled: true,
+      functionId: "mochi-chat",
+      metadata: {
+        posthog_distinct_id: user.email ?? userId,
+      },
+    },
     onFinish: ({ usage: u }) => {
       void recordMochiUsage(user.id, normalizeTokenUsage(u));
     },

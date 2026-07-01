@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { mcpServer } from "@/lib/mcp";
 
+import { checkRateLimit } from "@/lib/ratelimit";
+
 // Global map to hold active transports by sessionId
 declare global {
   var mcpTransports: Map<string, SSEServerTransport> | undefined;
@@ -37,6 +39,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "127.0.0.1";
+  const rateLimitSuccess = await checkRateLimit(`mcp_sse_${ip}`, 30, "1 m");
+  if (!rateLimitSuccess) return res.status(429).json({ error: "Rate limit exceeded" });
 
   const clerkId = await authenticate(req);
   if (!clerkId) {

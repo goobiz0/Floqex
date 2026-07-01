@@ -8,20 +8,51 @@ import { BrokerNotConfiguredError } from "@/lib/engine/live-broker";
 import { recordBotStatus, RISK_REASON_TEXT } from "@/lib/engine/feedback";
 import { isInstrumentTradeable, getMarketForInstrument, marketLabel } from "@/lib/market";
 import { instrumentsFromParams } from "@/lib/custom-strategy";
+import crypto from "crypto";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  try {
+    const aHash = crypto.createHash("sha256").update(a).digest();
+    const bHash = crypto.createHash("sha256").update(b).digest();
+    return crypto.timingSafeEqual(aHash, bHash);
+  } catch {
+    return false;
+  }
+}
 
 // Stateless engine tick for serverless cron. Mirrors src/worker/engine.ts so
 // either entry point (long-running worker OR Vercel/external cron) behaves the
 // same: real market data, risk validation, market-hours gating, and honest
 // handling when a live broker cannot be reached.
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  const url = new URL(req.url);
-  const secretKey = url.searchParams.get("secret") || req.headers.get("x-api-secret");
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+  const rateLimitSuccess = await checkRateLimit(`cron_engine_${ip}`, 60, "1 m");
+  if (!rateLimitSuccess) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 
-  const isValidVercel = process.env.NODE_ENV === "development" || authHeader === `Bearer ${process.env.CRON_SECRET}`;
-  const isValidCustom = secretKey === process.env.API_SECRET;
+  const authHeader = req.headers.get("authorization") || "";
+  const url = new URL(req.url);
+  const secretKey = url.searchParams.get("secret") || req.headers.get("x-api-secret") || "";
+
+  const cronSecret = process.env.CRON_SECRET;
+  const apiSecret = process.env.API_SECRET;
+
+  if (process.env.NODE_ENV === "production") {
+    if (!cronSecret && !apiSecret) {
+      throw new Error("Both CRON_SECRET and API_SECRET are missing in production");
+    }
+  }
+
+  const isValidVercel =
+    process.env.NODE_ENV === "development" ||
+    (cronSecret ? timingSafeEqual(authHeader, `Bearer ${cronSecret}`) : false);
+
+  const isValidCustom =
+    apiSecret ? timingSafeEqual(secretKey, apiSecret) : false;
+
   if (!isValidVercel && !isValidCustom) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

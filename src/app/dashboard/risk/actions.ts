@@ -3,6 +3,18 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const WeightSchema = z.object({
+  botId: z.string().max(100),
+  weight: z.number().min(0).max(100).nullable(),
+});
+
+const SetRiskPolicySchema = z.object({
+  maxPortfolioDrawdown: z.number().min(0).max(10000000).nullable().optional(),
+  weights: z.array(WeightSchema).optional(),
+}).strict();
 
 async function currentUser() {
   const { userId } = await auth();
@@ -16,6 +28,9 @@ async function currentUser() {
  * account's agent feed so the audit trail is complete.
  */
 export async function haltAllBots() {
+  const rateLimitOk = await checkActionRateLimit("haltAllBots", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const user = await currentUser();
   if (!user) return { ok: false, error: "Unauthorized" };
 
@@ -50,6 +65,9 @@ export async function haltAllBots() {
  * deliberately rather than having the whole book spring back to life at once.
  */
 export async function resumeTrading() {
+  const rateLimitOk = await checkActionRateLimit("resumeTrading", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const user = await currentUser();
   if (!user) return { ok: false, error: "Unauthorized" };
 
@@ -63,6 +81,12 @@ export async function setRiskPolicy(input: {
   maxPortfolioDrawdown?: number | null;
   weights?: { botId: string; weight: number | null }[];
 }) {
+  const parsed = SetRiskPolicySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("setRiskPolicy", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const user = await currentUser();
   if (!user) return { ok: false, error: "Unauthorized" };
 

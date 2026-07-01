@@ -1,23 +1,40 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/user";
+import { z } from "zod";
+import { checkRateLimit, clientIp } from "@/lib/ratelimit";
+
+const MarketplaceWithdrawSchema = z.object({
+  amountUsd: z.number().min(0.01).max(10000000),
+  payoutEmail: z.string().email().max(200),
+}).strict();
 
 export async function POST(req: Request) {
   try {
+    const ip = clientIp(req);
+    const rateLimitSuccess = await checkRateLimit(`marketplace_withdraw_${ip}`, 5, "1 m");
+    if (!rateLimitSuccess) {
+      return new NextResponse("Rate limit exceeded", { status: 429 });
+    }
+
     const user = await getOrCreateUser();
     if (!user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { amountUsd, payoutEmail } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return new NextResponse("Invalid JSON payload", { status: 400 });
+    }
 
-    if (!amountUsd || amountUsd <= 0) {
-      return new NextResponse("Invalid amount", { status: 400 });
+    const parsedBody = MarketplaceWithdrawSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return new NextResponse(parsedBody.error.message, { status: 400 });
     }
-    
-    if (!payoutEmail) {
-      return new NextResponse("Payout email is required", { status: 400 });
-    }
+
+    const { amountUsd, payoutEmail } = parsedBody.data;
 
     // Wrap in a transaction to ensure atomic balance deduction
     const withdrawalRequest = await prisma.$transaction(async (tx) => {

@@ -24,6 +24,50 @@ const INTERVAL_MINUTES: Record<Interval, number> = { "1m": 1, "5m": 5, "15m": 15
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const RunStrategyValidationSchema = z.object({
+  strategyId: z.string().max(100).optional(),
+  instrument: z.string().max(20).optional(),
+  interval: z.enum(["1m", "5m", "15m", "1h"]).optional(),
+  riskPct: z.number().optional(),
+  rrTarget: z.number().optional(),
+  stopLossPct: z.number().optional(),
+  trendFilter: z.boolean().optional(),
+  direction: z.enum(["LONG", "SHORT", "BOTH"]).optional(),
+  minRange: z.number().optional(),
+  maxRange: z.number().optional(),
+  trailingStopPct: z.number().optional(),
+}).strict();
+
+const GetLiveSignalsSchema = z.object({
+  strategyId: z.string().max(100),
+}).strict();
+
+const GetLiveDebuggerSchema = z.object({
+  strategyId: z.string().max(100),
+}).strict();
+
+const RunAiOptimizationSchema = z.string().max(100);
+
+const CreateStrategySchema = z.string().min(1).max(60);
+
+const CreateStrategyAdvancedSchema = z.object({
+  name: z.string().min(1).max(60),
+  kind: z.enum(["ORB", "CUSTOM"]),
+  params: z.record(z.any()),
+}).strict();
+
+const SaveStrategySchema = z.object({
+  params: z.any(),
+  accountId: z.string().max(100).optional(),
+  strategyId: z.string().max(100).optional(),
+}).strict();
+
+const ApproveSuggestionSchema = z.string().max(100);
+const RejectSuggestionSchema = z.string().max(100);
+const DeleteStrategySchema = z.string().max(100);
+
 export type ValidationResponse =
   | {
       ok: true;
@@ -73,6 +117,12 @@ export async function runStrategyValidation(input: {
   maxRange?: number;
   trailingStopPct?: number;
 }): Promise<ValidationResponse> {
+  const parsed = RunStrategyValidationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("runStrategyValidation", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -193,6 +243,12 @@ export type LiveSignalsResponse =
   | { ok: false; error: string };
 
 export async function getLiveSignals(input: { strategyId: string }): Promise<LiveSignalsResponse> {
+  const parsed = GetLiveSignalsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("getLiveSignals", 60, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -240,6 +296,12 @@ export type LiveDebuggerResponse =
   | { ok: false; error: string };
 
 export async function getLiveDebugger(input: { strategyId: string }): Promise<LiveDebuggerResponse> {
+  const parsed = GetLiveDebuggerSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("getLiveDebugger", 60, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -265,6 +327,9 @@ export async function getLiveDebugger(input: { strategyId: string }): Promise<Li
 export type EngineHealth = { status: "live" | "stale" | "idle"; lastBeatMs: number | null; runningBots: number };
 
 export async function getEngineHealth(): Promise<EngineHealth> {
+  const rateLimitOk = await checkActionRateLimit("getEngineHealth", 60, "1 m");
+  if (!rateLimitOk) return { status: "idle", lastBeatMs: null, runningBots: 0 };
+
   const { userId } = await auth();
   if (!userId) return { status: "idle", lastBeatMs: null, runningBots: 0 };
   const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
@@ -367,12 +432,15 @@ function aiToRow(t: AiTrade): TradeRow {
 }
 
 export async function runAiOptimization(accountId: string): Promise<AiAnalysisResult> {
+  const parsed = RunAiOptimizationSchema.safeParse(accountId);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { id: true, plan: true },
+    select: { id: true, plan: true, email: true },
   });
   if (!user) return { ok: false, error: "User not found" };
   const plan = (user.plan as Plan) || "FREE";
@@ -520,6 +588,13 @@ Be precise and do not invent numbers that aren't supported by the data.`;
       model: mochiModel(),
       system,
       prompt: JSON.stringify(context),
+      experimental_telemetry: {
+        isEnabled: true,
+        functionId: "mochi-ai-analysis",
+        metadata: {
+          posthog_distinct_id: user.email ?? userId,
+        },
+      },
       schema: z.object({
         parameterLabel: z.string().describe("Human readable parameter name"),
         paramKey: z.enum(AI_ALLOWED_KEYS).describe("The exact schema key to change"),
@@ -632,6 +707,12 @@ Be precise and do not invent numbers that aren't supported by the data.`;
  * tuning view. This is what the "New Strategy" button on the hub builds.
  */
 export async function createStrategy(name: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const parsed = CreateStrategySchema.safeParse(name);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("createStrategy", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -676,6 +757,12 @@ export async function createStrategyAdvanced(input: {
   kind: "ORB" | "CUSTOM";
   params: Record<string, unknown>;
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const parsed = CreateStrategyAdvancedSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("createStrategyAdvanced", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -744,6 +831,12 @@ export async function createStrategyAdvanced(input: {
 }
 
 export async function saveStrategy(params: StrategyParams, accountId?: string, strategyId?: string) {
+  const parsedInput = SaveStrategySchema.safeParse({ params, accountId, strategyId });
+  if (!parsedInput.success) return { ok: false, error: parsedInput.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("saveStrategy", 30, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -800,6 +893,12 @@ export async function saveStrategy(params: StrategyParams, accountId?: string, s
 }
 
 export async function approveSuggestion(id: string) {
+  const parsed = ApproveSuggestionSchema.safeParse(id);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("approveSuggestion", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -835,6 +934,12 @@ export async function approveSuggestion(id: string) {
 }
 
 export async function rejectSuggestion(id: string) {
+  const parsed = RejectSuggestionSchema.safeParse(id);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("rejectSuggestion", 20, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -853,6 +958,12 @@ export async function rejectSuggestion(id: string) {
 }
 
 export async function deleteStrategy(strategyId: string) {
+  const parsed = DeleteStrategySchema.safeParse(strategyId);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const rateLimitOk = await checkActionRateLimit("deleteStrategy", 10, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
@@ -907,6 +1018,13 @@ export async function runDualValidation(
   baseInput: Parameters<typeof runStrategyValidation>[0],
   compareInput: Parameters<typeof runStrategyValidation>[0]
 ): Promise<{ base: ValidationResponse; compare: ValidationResponse }> {
+  const rateLimitOk = await checkActionRateLimit("runDualValidation", 10, "1 m");
+  if (!rateLimitOk) {
+    return {
+      base: { ok: false, error: "Rate limit exceeded" },
+      compare: { ok: false, error: "Rate limit exceeded" },
+    };
+  }
   // Run both validations in parallel. We strip strategyId to prevent DB updates
   // during a hypothetical compare so it doesn't overwrite the single canonical score.
   const [base, compare] = await Promise.all([

@@ -34,6 +34,16 @@ function clampString(v: unknown): string {
   return typeof v === "string" ? v.slice(0, MAX_FIELD) : "";
 }
 
+import { z } from "zod";
+
+const BotWebhookPayloadSchema = z.object({
+  event: z.string().max(MAX_FIELD),
+  message: z.string().max(MAX_FIELD),
+  discordWebhookUrl: z.string().max(MAX_FIELD).optional().or(z.literal("")),
+  telegramBotToken: z.string().max(MAX_FIELD).optional().or(z.literal("")),
+  telegramChatId: z.string().max(MAX_FIELD).optional().or(z.literal("")),
+}).strict();
+
 export async function POST(req: Request) {
   try {
     const ip = clientIp(req);
@@ -42,18 +52,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
-    const payload = await req.json().catch(() => null);
-    if (!payload || typeof payload !== "object") {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    const event = clampString(payload.event);
-    const message = clampString(payload.message);
-    const discordWebhookUrl =
-      typeof payload.discordWebhookUrl === "string" ? payload.discordWebhookUrl : "";
-    const telegramBotToken =
-      typeof payload.telegramBotToken === "string" ? payload.telegramBotToken : "";
-    const telegramChatId = clampString(payload.telegramChatId);
+    const parsedBody = BotWebhookPayloadSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: parsedBody.error.message }, { status: 400 });
+    }
+
+    const { event, message, discordWebhookUrl = "", telegramBotToken = "", telegramChatId = "" } = parsedBody.data;
 
     let delivered = false;
 

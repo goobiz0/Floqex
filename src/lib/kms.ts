@@ -3,7 +3,11 @@ import crypto from "crypto";
 // This is a mock KMS implementation for encrypting/decrypting broker API keys.
 // In a real production environment, this would integrate with AWS KMS, Google Cloud KMS, or HashiCorp Vault.
 
-const MOCK_KMS_KEY = process.env.KMS_SECRET_KEY || "0123456789abcdef0123456789abcdef"; // 32 byte key
+const KMS_SECRET_KEY = process.env.KMS_SECRET_KEY;
+if (!KMS_SECRET_KEY && process.env.NODE_ENV === "production") {
+  throw new Error("KMS_SECRET_KEY environment variable is required in production");
+}
+const MOCK_KMS_KEY = KMS_SECRET_KEY || "0123456789abcdef0123456789abcdef"; // 32 byte key
 const ALGORITHM = "aes-256-gcm";
 
 /**

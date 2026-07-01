@@ -2,12 +2,29 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import { getPostHogClient } from "@/lib/posthog-server";
 import type Stripe from "stripe";
 
-const stripe = getStripe();
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+import { checkRateLimit } from "@/lib/ratelimit";
+
+const getEndpointSecret = () => {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("STRIPE_WEBHOOK_SECRET environment variable is required in production");
+  }
+  return secret;
+};
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+  const rateLimitSuccess = await checkRateLimit(`stripe_webhook_${ip}`, 100, "1 m");
+  if (!rateLimitSuccess) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
+  const endpointSecret = getEndpointSecret();
+  if (!endpointSecret) {
+    return NextResponse.json({ error: "Webhook secret is not configured" }, { status: 500 });
+  }
+
   const body = await req.text();
   const signature = (await headers()).get("stripe-signature");
 
@@ -18,7 +35,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, endpointSecret);
   } catch (err: any) {
     console.error(`Webhook Error: ${err.message}`);
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
@@ -39,7 +56,7 @@ export async function POST(req: Request) {
       }
 
       try {
-        await handleMarketplacePurchase(purchaseId, buyerId, listingId);
+        await handleMarketplacePurchase(purchaseId, buyerId, listingId, session);
       } catch (err) {
         console.error("Failed to process marketplace purchase:", err);
       }
@@ -49,7 +66,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ received: true });
 }
 
-async function handleMarketplacePurchase(purchaseId: string, buyerId: string, listingId: string) {
+async function handleMarketplacePurchase(purchaseId: string, buyerId: string, listingId: string, session: Stripe.Checkout.Session) {
   // Use a transaction to ensure atomic execution
   await prisma.$transaction(async (tx) => {
     const existingPurchase = await tx.marketplacePurchase.findUnique({
@@ -101,6 +118,18 @@ async function handleMarketplacePurchase(purchaseId: string, buyerId: string, li
     await tx.user.update({
       where: { id: listing.sellerId },
       data: { sellerBalance: { increment: purchase.sellerEarningUsd } },
+    });
+
+    const buyerEmail = session.customer_email ?? buyerId;
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: buyerEmail,
+      event: "marketplace_purchase_completed",
+      properties: {
+        listing_id: listingId,
+        strategy_name: listing.strategy.name,
+        price_usd: Number(purchase.priceUsd),
+      },
     });
   });
 }

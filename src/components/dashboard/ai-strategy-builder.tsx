@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 
 type StrategyAst = {
   name: string;
@@ -31,7 +32,12 @@ export default function StrategyBuilderPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to generate");
       setAst(data.ast as StrategyAst);
+      posthog.capture("strategy_generated", {
+        strategy_name: (data.ast as StrategyAst).name,
+        direction: (data.ast as StrategyAst).direction,
+      });
     } catch (e: unknown) {
+      posthog.captureException(e);
       setError((e as Error).message);
     } finally {
       setLoading(false);
@@ -51,8 +57,13 @@ export default function StrategyBuilderPage() {
         })
       });
       if (!res.ok) throw new Error("Failed to deploy");
+      posthog.capture("strategy_deployed", {
+        strategy_name: ast.name,
+        direction: ast.direction,
+      });
       router.push("/dashboard/strategy");
     } catch(e: unknown) {
+      posthog.captureException(e);
       setError((e as Error).message);
       setLoading(false);
     }

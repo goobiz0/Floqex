@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://clerk.floqex.com https://floqex.com https://app.floqex.com https://users.floqex.com https://challenges.cloudflare.com https://js.stripe.com https://static.cloudflareinsights.com https://floqex1.statuspage.io; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://img.clerk.com https://github.com https://avatars.githubusercontent.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; frame-src https://challenges.cloudflare.com https://js.stripe.com https://ny8q3qqhsy7j.statuspage.io/; connect-src 'self' https://clerk.floqex.com https://floqex.com https://app.floqex.com https://users.floqex.com wss://ws.pusherapp.com https://api.stripe.com https://cloudflareinsights.com https://floqex1.statuspage.io; worker-src 'self' blob:; upgrade-insecure-requests;`;
 
 const nextConfig: NextConfig = {
+  skipTrailingSlashRedirect: true,
   env: {
     NEXT_PUBLIC_CLERK_PROXY_URL: "", // Force disable proxy to prevent Cloudflare blocks
   },
@@ -33,6 +34,22 @@ const nextConfig: NextConfig = {
     // Tree-shake the large icon/animation packages so each route ships only the
     // icons it actually uses, cutting bundle size and time-to-interactive.
     optimizePackageImports: ["@phosphor-icons/react", "motion", "recharts"],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/array/:path*",
+        destination: "https://us-assets.i.posthog.com/array/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
+      },
+    ];
   },
   async headers() {
     return [

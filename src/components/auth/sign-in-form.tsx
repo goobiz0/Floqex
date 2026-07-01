@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Envelope, Lock } from "@phosphor-icons/react";
 import { useSignIn, useAuth } from "@clerk/nextjs";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -109,6 +110,8 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
+        posthog.identify(email, { email });
+        posthog.capture("user_signed_in", { method: "email" });
         await signIn.finalize({
           navigate: ({ decorateUrl }) => {
             const url = decorateUrl(dashboardUrl("/dashboard"));
@@ -121,11 +124,12 @@ export function SignInForm() {
         });
         return;
       }
-      
+
       console.warn("Unhandled Clerk signIn status:", signIn.status, signIn);
       setError(`Additional verification is required. (Status: ${signIn.status})`);
       setSubmitting(false);
     } catch (err) {
+      posthog.captureException(err);
       setError(clerkErrorMessage(err));
       setSubmitting(false);
     }
@@ -145,6 +149,8 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
+        posthog.identify(email, { email });
+        posthog.capture("user_signed_in", { method: "mfa_totp" });
         await signIn.finalize({
           navigate: ({ decorateUrl }) => {
             const url = decorateUrl(dashboardUrl("/dashboard"));
@@ -157,7 +163,7 @@ export function SignInForm() {
         });
         return;
       }
-      
+
       setError("Additional verification is required.");
       setSubmitting(false);
     } catch (err) {
@@ -180,6 +186,8 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
+        posthog.identify(email, { email });
+        posthog.capture("user_signed_in", { method: "mfa_backup_code" });
         await signIn.finalize({
           navigate: ({ decorateUrl }) => {
             const url = decorateUrl(dashboardUrl("/dashboard"));
@@ -192,7 +200,7 @@ export function SignInForm() {
         });
         return;
       }
-      
+
       setError("Additional verification is required.");
       setSubmitting(false);
     } catch (err) {
@@ -215,6 +223,8 @@ export function SignInForm() {
       }
 
       if (signIn.status === "complete") {
+        posthog.identify(email, { email });
+        posthog.capture("user_signed_in", { method: "email_code" });
         await signIn.finalize({
           navigate: ({ decorateUrl }) => {
             const url = decorateUrl(dashboardUrl("/dashboard"));
@@ -227,7 +237,7 @@ export function SignInForm() {
         });
         return;
       }
-      
+
       setError(`Additional verification is required. (Status: ${signIn.status})`);
       setSubmitting(false);
     } catch (err) {

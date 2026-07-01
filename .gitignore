@@ -51,3 +51,4 @@ engine/.venv/
 
 # Installed agent skills (tooling, not product code)
 .agents/
+.env.local

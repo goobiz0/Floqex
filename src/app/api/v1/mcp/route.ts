@@ -34,6 +34,34 @@ async function getMcpUser(request: NextRequest) {
   return user;
 }
 
+import { z } from "zod";
+
+const GetQuerySchema = z.object({
+  action: z.enum(["overview", "trades", "performance", "logs"]),
+  accountId: z.string().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional().default(50),
+});
+
+const PostQuerySchema = z.object({
+  action: z.enum(["adjust", "bot_toggle", "emergency_stop", "update_risk"]),
+});
+
+const AdjustBodySchema = z.object({
+  strategyId: z.string().max(100),
+  paramKey: z.string().max(100),
+  newValue: z.union([z.string().max(50), z.number(), z.boolean()]),
+}).strict();
+
+const BotToggleBodySchema = z.object({
+  accountId: z.string().max(100),
+  status: z.enum(["RUNNING", "STOPPED"]),
+}).strict();
+
+const UpdateRiskBodySchema = z.object({
+  accountId: z.string().max(100),
+  maxDailyDrawdown: z.number().min(0).max(10000000).nullable(),
+}).strict();
+
 export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
   const success = await checkRateLimit(`mcp_get_${ip}`, 20, "1 m");
@@ -42,7 +70,13 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(request.url);
-  const action = url.searchParams.get("action");
+  const searchParamsObject = Object.fromEntries(url.searchParams.entries());
+  const parsedQuery = GetQuerySchema.safeParse(searchParamsObject);
+  if (!parsedQuery.success) {
+    return NextResponse.json({ error: parsedQuery.error.message }, { status: 400 });
+  }
+
+  const { action, accountId, limit } = parsedQuery.data;
 
   if (action === "overview") {
     const data = await Promise.all(
@@ -71,8 +105,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (action === "trades") {
-    const accountId = url.searchParams.get("accountId");
-    const limit = Number(url.searchParams.get("limit") || 50);
+    if (accountId && !user.accounts.some((a) => a.id === accountId)) {
+      return NextResponse.json({ error: "Unauthorized access to account" }, { status: 403 });
+    }
+
     const trades = await prisma.trade.findMany({
       where: {
         accountId: accountId ? accountId : { in: user.accounts.map(a => a.id) }
@@ -129,11 +165,29 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(request.url);
-  const action = url.searchParams.get("action");
+  const searchParamsObject = Object.fromEntries(url.searchParams.entries());
+  const parsedQuery = PostQuerySchema.safeParse(searchParamsObject);
+  if (!parsedQuery.success) {
+    return NextResponse.json({ error: parsedQuery.error.message }, { status: 400 });
+  }
+
+  const { action } = parsedQuery.data;
+
+  let body: any;
+  if (action !== "emergency_stop") {
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
+  }
 
   if (action === "adjust") {
-    const body = await request.json();
-    const { strategyId, paramKey, newValue } = body;
+    const parsedBody = AdjustBodySchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: parsedBody.error.message }, { status: 400 });
+    }
+    const { strategyId, paramKey, newValue } = parsedBody.data;
 
     const strategy = await prisma.strategy.findUnique({ where: { id: strategyId } });
     if (!strategy || strategy.userId !== user.id) {
@@ -156,8 +210,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "bot_toggle") {
-    const body = await request.json();
-    const { accountId, status } = body; // status: "RUNNING" | "STOPPED"
+    const parsedBody = BotToggleBodySchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: parsedBody.error.message }, { status: 400 });
+    }
+    const { accountId, status } = parsedBody.data;
     
     const account = user.accounts.find(a => a.id === accountId);
     if (!account || !account.bot) return NextResponse.json({ error: "Bot not found" }, { status: 404 });
@@ -180,8 +237,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "update_risk") {
-    const body = await request.json();
-    const { accountId, maxDailyDrawdown } = body;
+    const parsedBody = UpdateRiskBodySchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: parsedBody.error.message }, { status: 400 });
+    }
+    const { accountId, maxDailyDrawdown } = parsedBody.data;
     
     const account = user.accounts.find(a => a.id === accountId);
     if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });

@@ -3,8 +3,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { checkActionRateLimit } from "@/lib/ratelimit";
 
 export async function generateMcpKey() {
+  const rateLimitOk = await checkActionRateLimit("generateMcpKey_profile", 5, "1 m");
+  if (!rateLimitOk) return { ok: false, error: "Rate limit exceeded" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 

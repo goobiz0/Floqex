@@ -3,6 +3,31 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { checkActionRateLimit } from "@/lib/ratelimit";
+
+const WidgetLayoutSchema = z.object({
+  i: z.string().max(100),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(10000),
+  w: z.number().min(1).max(100),
+  h: z.number().min(1).max(100),
+  type: z.string().max(100),
+  config: z.record(z.any()),
+});
+
+const CreateDashboardTemplateSchema = z.object({
+  name: z.string().min(1).max(100),
+  layout: z.array(WidgetLayoutSchema),
+}).strict();
+
+const UpdateDashboardTemplateSchema = z.object({
+  id: z.string().max(100),
+  layout: z.array(WidgetLayoutSchema),
+}).strict();
+
+const DeleteDashboardTemplateSchema = z.string().max(100);
+const SetDefaultTemplateSchema = z.string().max(100);
 
 const PLAN_LIMITS = {
   FREE: 2,
@@ -23,6 +48,9 @@ export type WidgetLayout = {
 };
 
 export async function getDashboardTemplates() {
+  const rateLimitOk = await checkActionRateLimit("getDashboardTemplates", 30, "1 m");
+  if (!rateLimitOk) return [];
+
   try {
     const { userId } = await auth();
     if (!userId) return [];
@@ -44,6 +72,12 @@ export async function getDashboardTemplates() {
 }
 
 export async function createDashboardTemplate(name: string, layout: WidgetLayout[]) {
+  const parsed = CreateDashboardTemplateSchema.safeParse({ name, layout });
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("createDashboardTemplate", 10, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -80,6 +114,12 @@ export async function createDashboardTemplate(name: string, layout: WidgetLayout
 }
 
 export async function updateDashboardTemplate(id: string, layout: WidgetLayout[]) {
+  const parsed = UpdateDashboardTemplateSchema.safeParse({ id, layout });
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("updateDashboardTemplate", 20, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -104,6 +144,12 @@ export async function updateDashboardTemplate(id: string, layout: WidgetLayout[]
 }
 
 export async function deleteDashboardTemplate(id: string) {
+  const parsed = DeleteDashboardTemplateSchema.safeParse(id);
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("deleteDashboardTemplate", 10, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -119,6 +165,12 @@ export async function deleteDashboardTemplate(id: string) {
 }
 
 export async function setDefaultTemplate(id: string) {
+  const parsed = SetDefaultTemplateSchema.safeParse(id);
+  if (!parsed.success) throw new Error(parsed.error.message);
+
+  const rateLimitOk = await checkActionRateLimit("setDefaultTemplate", 20, "1 m");
+  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
