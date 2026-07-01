@@ -874,12 +874,21 @@ export async function deleteStrategy(strategyId: string) {
     const bots = await prisma.bot.findMany({ where: { strategyId }, select: { id: true } });
     const botIds = bots.map((b) => b.id);
 
+    const listings = await prisma.marketplaceListing.findMany({ where: { strategyId }, select: { id: true } });
+    const listingIds = listings.map((l) => l.id);
+
     await prisma.$transaction([
       // Children of the bots first.
       prisma.agentEvent.deleteMany({ where: { botId: { in: botIds } } }),
       prisma.trade.deleteMany({ where: { botId: { in: botIds } } }),
       prisma.botAdjustment.deleteMany({ where: { botId: { in: botIds } } }),
+      
+      // Children of the listings.
+      prisma.marketplacePurchase.deleteMany({ where: { listingId: { in: listingIds } } }),
+      prisma.marketplaceReview.deleteMany({ where: { listingId: { in: listingIds } } }),
+
       // Then everything that points straight at the strategy.
+      prisma.marketplaceListing.deleteMany({ where: { strategyId } }),
       prisma.botAdjustment.deleteMany({ where: { strategyId } }),
       prisma.forwardTest.deleteMany({ where: { strategyId } }),
       prisma.bot.deleteMany({ where: { strategyId } }),
