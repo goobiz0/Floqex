@@ -48,8 +48,8 @@ export function MarketplaceFilters() {
                 router.push(pathname + "?" + createQueryString("category", cat));
               }}
               className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                isActive 
-                  ? "bg-fg text-bg shadow-md" 
+                isActive
+                  ? "bg-fg text-base shadow-md"
                   : "bg-surface/50 text-fg-muted hover:bg-surface hover:text-fg"
               }`}
             >
@@ -65,7 +65,7 @@ export function MarketplaceFilters() {
           <select
             value={currentSort}
             onChange={handleSortChange}
-            className="h-9 w-40 appearance-none rounded-[var(--radius-button)] border-none bg-surface pl-4 pr-8 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-elevated focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
+            className="h-9 w-40 appearance-none rounded-[var(--radius-control)] border-none bg-surface pl-4 pr-8 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-elevated focus:outline-none focus:ring-2 focus:ring-accent-ring cursor-pointer"
           >
             <option value="newest">Newest Arrivals</option>
             <option value="price_asc">Price: Low to High</option>
