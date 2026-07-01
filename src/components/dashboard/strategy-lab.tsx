@@ -466,7 +466,7 @@ export function StrategyLab({
           </div>
           <p className="mt-1 text-xs text-fg-subtle">
             {botInstruments.length > 0
-              ? "Preview the tuning against an asset this bot trades. An estimate, not a guarantee."
+              ? "Preview starts with this bot's assets, with sample symbols available for comparison. An estimate, not a guarantee."
               : "Preview the tuning against a sample asset. Assets are chosen on the bot. An estimate, not a guarantee."}
           </p>
           <div className="mt-4">

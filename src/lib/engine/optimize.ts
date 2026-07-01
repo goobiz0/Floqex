@@ -14,7 +14,9 @@ export type Objective =
   | "consistency"
   | "quality";
 
-export type SweepDirection = "LONG" | "SHORT" | "BOTH";
+import type { TradeDirection } from "../custom-strategy";
+
+export type SweepDirection = TradeDirection;
 
 export type SweepParams = {
   rrTarget: number;

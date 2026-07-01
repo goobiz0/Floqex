@@ -72,7 +72,7 @@ describe("optimizeStrategy", () => {
   it("explores both directional biases across the grid", () => {
     // A symmetric-ish series should surface more than one direction somewhere in
     // the full ranking, proving the sweep is not hard-wired to one side.
-    const rows = optimizeStrategy(bars, { riskPct: 1 }, "return", 50);
+    const rows = optimizeStrategy(bars, { riskPct: 1 }, "return", Number.MAX_SAFE_INTEGER);
     const directions = new Set(rows.map((r) => r.params.direction));
     expect(directions.size).toBeGreaterThan(1);
   });
