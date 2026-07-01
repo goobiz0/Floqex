@@ -3,13 +3,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { summaryMetrics } from "@/lib/metrics";
-import { parseStrategyParams, coerceStrategyParams, applyRawParam, DEFAULT_PARAMS, type StrategyParams } from "@/lib/strategy-schema";
+import { summaryMetrics, byInstrument, bySession, byWeekday, streaks, rDistribution, type TradeRow } from "@/lib/metrics";
+import { parseStrategyParams, coerceStrategyParams, applyRawParam, rawParamValue, PARAM_BOUNDS, PARAM_LABELS, DEFAULT_PARAMS, type StrategyParams } from "@/lib/strategy-schema";
 import { parseCustomConfig } from "@/lib/custom-strategy";
-import { PLANS, type Plan } from "@/lib/plans";
+import { PLANS, hasAiAnalysis, AI_ANALYSIS_MIN_PLAN, type Plan } from "@/lib/plans";
+import { mochiModel, normalizeTokenUsage } from "@/lib/mochi";
+import { getMochiUsage, recordMochiUsage } from "@/lib/mochi-usage";
+import { checkRateLimit } from "@/lib/ratelimit";
 import type { Prisma } from "@prisma/client";
 import { generateObject } from 'ai';
-import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { getIntradayBars, getRealMarketData, type Interval } from "@/lib/engine/market-data";
 import { runValidation, DEFAULT_COSTS, type ValidationReport } from "@/lib/engine/validation";
@@ -282,86 +284,346 @@ export async function getEngineHealth(): Promise<EngineHealth> {
   return { status, lastBeatMs: age, runningBots: bots.length };
 }
 
-export async function runAiOptimization(accountId: string) {
+// ───────────────────────── AI Strategy Analysis ─────────────────────────────
+// Pro-tier, Mochi-powered analysis of a bot's real closed trades. It reads the
+// current strategy parameters AND the realised performance, then proposes ONE
+// small, conservative parameter change. Every knob here is deliberately cautious
+// so a single reading can never over-correct the bot into a worse place:
+//   • Pro entitlement gate (defence-in-depth, mirrors the UI).
+//   • Per-user rate limits (burst + hourly) so it can't be spammed.
+//   • Shared Mochi token budget — the same meter the chat copilot draws from.
+//   • A minimum sample size so we never tune on noise.
+//   • A hard per-parameter step clamp + schema-bound re-validation so the
+//     proposed value is always a nudge inside the safe envelope, never a leap.
+
+/** Parameters AI Analysis is allowed to touch, and how far it may move each one
+ *  in a single reading (absolute step, in the parameter's own units). */
+const AI_MAX_STEP = {
+  riskPct: 0.25,        // percentage points of account risk
+  rrTarget: 0.5,        // R
+  trailingStopPct: 0.5, // percentage points
+  stopLossPct: 0.25,    // percentage points
+  maxTrades: 2,         // trades per day
+} as const;
+
+type AiParamKey = keyof typeof AI_MAX_STEP;
+const AI_ALLOWED_KEYS = Object.keys(AI_MAX_STEP) as [AiParamKey, ...AiParamKey[]];
+
+/** Rounding precision per key so the proposal reads cleanly. */
+const AI_DECIMALS: Record<AiParamKey, number> = {
+  riskPct: 2, rrTarget: 1, trailingStopPct: 2, stopLossPct: 2, maxTrades: 0,
+};
+
+/** Safe absolute bounds for each tunable key (mirrors the strategy schema). */
+const AI_BOUNDS: Record<AiParamKey, { min: number; max: number }> = {
+  riskPct: { min: PARAM_BOUNDS.riskPct.min, max: PARAM_BOUNDS.riskPct.max },
+  rrTarget: { min: PARAM_BOUNDS.rrTarget.min, max: PARAM_BOUNDS.rrTarget.max },
+  trailingStopPct: { min: PARAM_BOUNDS.trailingStopPct.min, max: PARAM_BOUNDS.trailingStopPct.max },
+  stopLossPct: { min: 0.05, max: 20 },
+  maxTrades: { min: PARAM_BOUNDS.maxTrades.min, max: PARAM_BOUNDS.maxTrades.max },
+};
+
+/** Fewer than this many closed trades and there isn't enough signal to tune on. */
+const AI_MIN_TRADES = 10;
+
+export type AiAnalysisAdjustment = {
+  id: string;
+  parameter: string;
+  paramKey: string;
+  oldValue: string;
+  newValue: string;
+  reasoning: string | null;
+  sampleSize: number | null;
+  winRateDelta: number | null;
+  confidence: number | null;
+};
+
+export type AiAnalysisResult =
+  | { ok: true; adjustment: AiAnalysisAdjustment }
+  | { ok: true; adjustment: null; note: string }
+  | { ok: false; error: string; upgrade?: boolean };
+
+// Minimal DB trade → metrics TradeRow mapper (numbers, not Decimals).
+type AiTrade = {
+  id: string; instrument: string; direction: string; session: string; status: string;
+  entryPrice: unknown; exitPrice: unknown; stopPrice: unknown; targetPrice: unknown;
+  sizeUnits: unknown; netPnl: unknown; grossPnl: unknown; rMultiple: unknown;
+  mfe: unknown; mae: unknown; openedAt: Date; closedAt: Date | null;
+};
+const n = (d: unknown): number => Number(d as { toString(): string });
+const nOrNull = (d: unknown): number | null => (d == null ? null : Number(d as { toString(): string }));
+function aiToRow(t: AiTrade): TradeRow {
+  return {
+    id: t.id, instrument: t.instrument,
+    direction: t.direction as TradeRow["direction"],
+    session: t.session as TradeRow["session"],
+    status: t.status as TradeRow["status"],
+    entryPrice: n(t.entryPrice), exitPrice: nOrNull(t.exitPrice),
+    stopPrice: n(t.stopPrice), targetPrice: n(t.targetPrice), sizeUnits: n(t.sizeUnits),
+    netPnl: nOrNull(t.netPnl), grossPnl: nOrNull(t.grossPnl), rMultiple: nOrNull(t.rMultiple),
+    openedAt: t.openedAt.toISOString(), closedAt: t.closedAt ? t.closedAt.toISOString() : null,
+    narrative: null, screenshotUrl: null,
+  };
+}
+
+export async function runAiOptimization(accountId: string): Promise<AiAnalysisResult> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
-  const account = await prisma.account.findUnique({
-    where: { id: accountId },
-    include: { bot: true, trades: { where: { status: "CLOSED" }, take: 100, orderBy: { closedAt: "desc" } } }
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, plan: true },
   });
+  if (!user) return { ok: false, error: "User not found" };
+  const plan = (user.plan as Plan) || "FREE";
 
-  if (!account || account.userId !== userId || !account.bot) {
-    return { ok: false, error: "Bot not found" };
+  // 1) Pro entitlement gate (defence in depth; the UI also gates this).
+  if (!hasAiAnalysis(plan)) {
+    return {
+      ok: false,
+      upgrade: true,
+      error: `AI Analysis is a ${PLANS[AI_ANALYSIS_MIN_PLAN].name} feature. Upgrade to let Mochi analyse this bot and propose an improvement.`,
+    };
   }
 
-  // 1. Analyze recent trades
-  const tradeData = account.trades.map((t) => ({
-    direction: t.direction,
-    entryPrice: Number(t.entryPrice),
-    exitPrice: Number(t.exitPrice),
-    netPnl: Number(t.netPnl),
-    rMultiple: Number(t.rMultiple)
-  }));
+  // 2) Anti-abuse rate limiting, per user: a burst guard plus an hourly cap.
+  //    Degrades to allow when Upstash isn't configured (see checkRateLimit).
+  if (!(await checkRateLimit(`ai-analysis-burst:${user.id}`, 1, "30 s"))) {
+    return { ok: false, error: "You just ran an analysis. Give Mochi a moment before running another." };
+  }
+  if (!(await checkRateLimit(`ai-analysis:${user.id}`, 8, "1 h"))) {
+    return { ok: false, error: "You've reached the hourly limit for AI Analysis. Please try again a little later." };
+  }
 
-  // 2. Determine an adjustment based on metrics using Gemini
+  // 3) Shared Mochi token budget — the same meter the chat copilot spends against.
+  const usage = await getMochiUsage(user.id, plan);
+  if (usage.blocked) {
+    const which = usage.window === "week" ? "weekly" : "5-hour";
+    return {
+      ok: false,
+      upgrade: true,
+      error: `You've reached your Mochi ${which} token limit. AI Analysis draws from the same budget. It resets as the window rolls forward, or upgrade for a larger allowance.`,
+    };
+  }
+
+  // 4) Ownership + data. NOTE: account.userId is the internal User.id, not the
+  //    Clerk id — comparing it to the Clerk id (the original bug) always failed,
+  //    so the feature never worked. Scope the query by the resolved user.id.
+  const account = await prisma.account.findFirst({
+    where: { id: accountId, userId: user.id },
+    include: {
+      bot: { include: { strategy: true } },
+      trades: {
+        where: { status: "CLOSED" },
+        orderBy: { closedAt: "desc" },
+        take: 120,
+        select: {
+          id: true, instrument: true, direction: true, session: true, status: true,
+          entryPrice: true, exitPrice: true, stopPrice: true, targetPrice: true, sizeUnits: true,
+          netPnl: true, grossPnl: true, rMultiple: true, mfe: true, mae: true,
+          openedAt: true, closedAt: true,
+        },
+      },
+    },
+  });
+  if (!account || !account.bot) {
+    return { ok: false, error: "No bot is attached to this account yet. Attach a bot before running AI Analysis." };
+  }
+  const bot = account.bot;
+
+  const rows = account.trades.map((t) => aiToRow(t as AiTrade));
+  const m = summaryMetrics(rows);
+  if (m.count < AI_MIN_TRADES) {
+    return {
+      ok: false,
+      error: `Mochi needs at least ${AI_MIN_TRADES} closed trades on this bot to analyse reliably. It has ${m.count} so far. Let it trade a little more first.`,
+    };
+  }
+
+  const currentParams = coerceStrategyParams(bot.strategy.params);
+  const round = (x: number, dp = 2) => Math.round(x * 10 ** dp) / 10 ** dp;
+
+  // Excursion context: high MFE with a low win rate = exiting winners too early /
+  // stops too tight; MAE clustered near -1R = stops sit right where noise reaches.
+  const mfeVals = account.trades.map((t) => nOrNull(t.mfe)).filter((v): v is number => v != null);
+  const maeVals = account.trades.map((t) => nOrNull(t.mae)).filter((v): v is number => v != null);
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  const instrumentPnl = byInstrument(rows);
+  const topInstruments = Object.entries(instrumentPnl)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 5)
+    .map(([k, v]) => ({ instrument: k, netPnl: round(v, 2) }));
+
+  const context = {
+    strategy: {
+      kind: bot.strategy.kind,
+      current: {
+        riskPct: round(currentParams.riskPct, 2),
+        rrTarget: round(currentParams.rrTarget, 2),
+        trailingStopPct: round(currentParams.trailingStopPct, 2),
+        stopLossPct: round(typeof currentParams.stopLossPct === "number" ? currentParams.stopLossPct : 0.5, 2),
+        maxTrades: currentParams.maxTrades,
+        trendFilter: currentParams.trendFilter,
+        direction: typeof currentParams.direction === "string" ? currentParams.direction : "BOTH",
+      },
+    },
+    performance: {
+      closedTrades: m.count,
+      winRatePct: round(m.winRate, 1),
+      expectancyR: round(m.expectancy, 2),
+      profitFactor: Number.isFinite(m.profitFactor) ? round(m.profitFactor, 2) : null,
+      avgWin: round(m.avgWin, 2),
+      avgLoss: round(m.avgLoss, 2),
+      netPnl: round(m.total, 2),
+      avgMfeR: mfeVals.length ? round(avg(mfeVals)!, 2) : null,
+      avgMaeR: maeVals.length ? round(avg(maeVals)!, 2) : null,
+      rDistribution: rDistribution(rows),
+      streaks: streaks(rows),
+      bySession: bySession(rows),
+      byWeekday: byWeekday(rows),
+      byInstrument: topInstruments,
+    },
+    recentTrades: rows.slice(0, 12).map((r) => ({
+      instrument: r.instrument, direction: r.direction, session: r.session,
+      rMultiple: r.rMultiple, netPnl: r.netPnl,
+    })),
+  };
+
+  const boundsHelp = (Object.keys(AI_MAX_STEP) as AiParamKey[])
+    .map((k) => `${k} (${AI_BOUNDS[k].min}-${AI_BOUNDS[k].max}, max move ±${AI_MAX_STEP[k]} per reading)`)
+    .join("; ");
+
+  const system = `You are Mochi's strategy analyst inside the Floqex trading app.
+You are given a bot's CURRENT strategy parameters and its REAL closed-trade performance.
+Propose exactly ONE small, conservative parameter change that is most likely to improve
+the strategy's expectancy or win rate WITHOUT over-correcting.
+
+Hard rules:
+- Choose exactly one paramKey from: ${AI_ALLOWED_KEYS.join(", ")}.
+- Allowed ranges and the MAXIMUM you may move a parameter in a single reading: ${boundsHelp}.
+- Never exceed that per-reading step. One careful nudge, not a leap. The engine also clamps you.
+- Ground the change in the data provided (win rate, expectancy, R-distribution, MFE/MAE, sessions).
+  Examples: high average MFE with a low win rate suggests taking profit too early (lower rrTarget or
+  add/loosen a trailing stop); MAE clustered near -1R suggests stops are too tight (widen stopLossPct);
+  a strong positive edge with modest risk may justify a tiny riskPct increase; frequent late-day losses
+  suggest lowering maxTrades.
+- Prefer risk-reducing or neutral changes when the evidence is thin. Do not chase returns by raising risk
+  unless the edge is clearly positive on a solid sample.
+- If nothing is clearly worth changing, pick the smallest safe nudge and say so honestly, with low confidence.
+- winRateDelta is your projected percentage-point change in win rate (e.g. 2.5). Keep it realistic (|delta| <= 15).
+- confidence is 0-100 and MUST reflect the sample size and how clear the signal is.
+- newValue is the exact numeric value you propose for the chosen paramKey (a number, in the parameter's units).
+Be precise and do not invent numbers that aren't supported by the data.`;
+
   try {
-    const { object } = await generateObject({
-      model: google('gemini-1.5-pro'),
-      system: 'You are an expert quantitative trading bot optimizer. Analyze the provided recent trades. Identify inefficiencies (e.g., getting stopped out too early, taking profits too soon). Suggest exactly ONE parameter adjustment to improve the win rate or R-multiple. The parameter key must be one of: "riskPct", "rrTarget", "trailingStopPct". Give a plain-English reasoning, a projected win rate delta (e.g. +4.5), and your confidence level out of 100.',
-      prompt: `Recent trades: ${JSON.stringify(tradeData)}`,
+    const { object, usage: modelUsage } = await generateObject({
+      model: mochiModel(),
+      system,
+      prompt: JSON.stringify(context),
       schema: z.object({
-        parameterLabel: z.string().describe("Human readable parameter name (e.g. 'Reward to risk target')"),
-        paramKey: z.enum(["riskPct", "rrTarget", "trailingStopPct"]).describe("The exact schema key to change"),
-        oldValue: z.string().describe("The estimated current value based on trades"),
-        newValue: z.string().describe("The recommended new value as a string"),
-        reasoning: z.string().describe("Plain English explanation of why this change is needed based on the trades"),
-        winRateDelta: z.number().describe("Projected change in win rate (e.g., 2.5 for +2.5%)"),
-        confidence: z.number().describe("Confidence level from 0 to 100")
-      })
+        parameterLabel: z.string().describe("Human readable parameter name"),
+        paramKey: z.enum(AI_ALLOWED_KEYS).describe("The exact schema key to change"),
+        newValue: z.number().describe("The proposed numeric value for the chosen paramKey"),
+        reasoning: z.string().describe("Plain-English, data-grounded explanation of the change"),
+        winRateDelta: z.number().describe("Projected change in win rate in percentage points, e.g. 2.5"),
+        confidence: z.number().min(0).max(100).describe("Confidence 0-100, reflecting sample size and signal clarity"),
+      }),
+      maxRetries: 1,
     });
 
-    // 3. Create a pending adjustment
-    await prisma.botAdjustment.create({
+    // Record the spend against the SAME Mochi token budget as the chat copilot.
+    await recordMochiUsage(user.id, normalizeTokenUsage(modelUsage));
+
+    const key = object.paramKey as AiParamKey;
+    const current = Number(currentParams[key]);
+    const safeCurrent = Number.isFinite(current) ? current : (DEFAULT_PARAMS[key] as number);
+
+    // Over-correction guard: clamp the proposal to a small step from the current
+    // value AND inside the parameter's hard bounds, then round. This is what
+    // guarantees a reading can only nudge the bot, never yank it.
+    const step = AI_MAX_STEP[key];
+    const bounds = AI_BOUNDS[key];
+    let proposed = Number(object.newValue);
+    if (!Number.isFinite(proposed)) {
+      return { ok: false, error: "Mochi returned an invalid value. Please try again." };
+    }
+    proposed = Math.min(bounds.max, Math.max(bounds.min, proposed));
+    proposed = Math.min(safeCurrent + step, Math.max(safeCurrent - step, proposed));
+    const dp = AI_DECIMALS[key];
+    proposed = Math.round(proposed * 10 ** dp) / 10 ** dp;
+
+    // Re-validate through the full strategy schema so the stored value can never
+    // sit outside the engine's safety envelope, then read back the clamped value.
+    const applied = applyRawParam(currentParams, key, String(proposed));
+    if (!applied.ok) {
+      return { ok: false, error: "Mochi proposed a value outside safe bounds. Please try again." };
+    }
+    const finalValue = Number(applied.params[key]);
+
+    // After clamping, the nudge may collapse to the current value. That's a valid,
+    // honest outcome: the settings already fit recent performance.
+    if (Math.abs(finalValue - safeCurrent) < 10 ** -dp / 2) {
+      return {
+        ok: true,
+        adjustment: null,
+        note: "Mochi reviewed this bot's recent performance and found no change worth making right now. Your current settings look well matched to how it's been trading.",
+      };
+    }
+
+    // Honesty caps: confidence is bounded by sample size; win-rate projection is bounded.
+    const sampleCap = m.count >= 60 ? 90 : m.count >= 30 ? 75 : 55;
+    const confidence = Math.max(1, Math.min(Math.round(object.confidence), sampleCap));
+    const winRateDelta = Math.max(-15, Math.min(15, round(object.winRateDelta, 1)));
+
+    const created = await prisma.botAdjustment.create({
       data: {
-        botId: account.bot.id,
-        strategyId: account.bot.strategyId,
-        parameter: object.parameterLabel,
-        paramKey: object.paramKey,
-        oldValue: object.oldValue,
-        newValue: object.newValue,
+        botId: bot.id,
+        strategyId: bot.strategyId,
+        parameter: PARAM_LABELS[key] ?? object.parameterLabel,
+        paramKey: key,
+        oldValue: rawParamValue(key, safeCurrent),
+        newValue: rawParamValue(key, finalValue),
         source: "BOT",
         status: "PENDING",
-        reasoning: object.reasoning,
-        sampleSize: account.trades.length,
-        winRateDelta: object.winRateDelta,
-        confidence: object.confidence
-      }
+        reasoning: object.reasoning.slice(0, 600),
+        sampleSize: m.count,
+        winRateDelta,
+        confidence,
+      },
     });
 
-    // 4. Cleanup old adjustments (keep only the 10 most recent)
+    // Keep only the 10 most recent adjustments for this strategy.
     const recent = await prisma.botAdjustment.findMany({
-      where: { strategyId: account.bot.strategyId },
+      where: { strategyId: bot.strategyId },
       orderBy: { createdAt: "desc" },
       select: { id: true },
       take: 10,
     });
-    
     if (recent.length === 10) {
       await prisma.botAdjustment.deleteMany({
-        where: {
-          strategyId: account.bot.strategyId,
-          id: { notIn: recent.map(r => r.id) }
-        }
+        where: { strategyId: bot.strategyId, id: { notIn: recent.map((r) => r.id) } },
       });
     }
-  } catch (e) {
-    console.error("Failed to generate AI optimization:", e);
-    return { ok: false, error: "Failed to generate AI optimization." };
-  }
 
-  revalidatePath("/dashboard/strategy");
-  return { ok: true };
+    revalidatePath("/dashboard/strategy");
+    return {
+      ok: true,
+      adjustment: {
+        id: created.id,
+        parameter: created.parameter,
+        paramKey: key,
+        oldValue: created.oldValue,
+        newValue: created.newValue,
+        reasoning: created.reasoning,
+        sampleSize: created.sampleSize,
+        winRateDelta,
+        confidence,
+      },
+    };
+  } catch (e) {
+    console.error("Failed to generate AI analysis:", e);
+    return { ok: false, error: "Mochi couldn't complete the analysis. Please try again in a moment." };
+  }
 }
 
 /**

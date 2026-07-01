@@ -22,6 +22,9 @@ export type PlanConfig = {
   strategyLimit: number;
   liveTrading: boolean;
   copyTrading: boolean;
+  /** AI Strategy Analysis (Mochi-powered): reads a bot's recent trades and
+   *  proposes one conservative, evidence-backed parameter change. Pro tier and up. */
+  aiAnalysis: boolean;
   popular?: boolean;
   tagline: string;
   features: string[];
@@ -37,6 +40,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     strategyLimit: 2,
     liveTrading: false,
     copyTrading: false,
+    aiAnalysis: false,
     tagline: "Paper trade and learn the system.",
     features: [
       "Paper trading",
@@ -54,6 +58,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
     strategyLimit: 4,
     liveTrading: true,
     copyTrading: false,
+    aiAnalysis: false,
     tagline: "Go live across multiple accounts.",
     features: [
       "Everything in Free",
@@ -72,11 +77,13 @@ export const PLANS: Record<Plan, PlanConfig> = {
     strategyLimit: 10,
     liveTrading: true,
     copyTrading: true,
+    aiAnalysis: true,
     popular: true,
     tagline: "Scale with advanced bots and tooling.",
     features: [
       "Everything in Trader",
       "Max 10 accounts / bots",
+      "AI strategy analysis (Mochi)",
       "Cross-broker copy trading",
       "Strategy marketplace",
       "Backtesting & API access",
@@ -91,9 +98,11 @@ export const PLANS: Record<Plan, PlanConfig> = {
     strategyLimit: 15,
     liveTrading: true,
     copyTrading: true,
+    aiAnalysis: true,
     tagline: "Institutional-grade infrastructure.",
     features: [
       "25 Active Bots",
+      "AI strategy analysis (Mochi)",
       "Cross-broker copy trading",
       "Ultra-low latency execution",
       "Unlimited backtests",
@@ -138,3 +147,11 @@ export function planFromPriceId(priceId: string | null | undefined): Plan {
 export function formatAccountLimit(limit: number): string {
   return Number.isFinite(limit) ? String(limit) : "Unlimited";
 }
+
+/** True when the plan is entitled to AI Strategy Analysis (Pro tier and up). */
+export function hasAiAnalysis(plan: Plan): boolean {
+  return PLANS[plan]?.aiAnalysis ?? false;
+}
+
+/** The lowest plan that unlocks AI Strategy Analysis, for upgrade copy. */
+export const AI_ANALYSIS_MIN_PLAN: Plan = "PRO";

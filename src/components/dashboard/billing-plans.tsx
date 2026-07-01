@@ -20,6 +20,7 @@ const ACTION_LIMIT: Record<Plan, number> = {
 const COMPARISON_ROWS: { label: string; get: (p: Plan) => string | boolean }[] = [
   { label: "Max accounts / bots", get: (p) => formatAccountLimit(PLANS[p].accountLimit) },
   { label: "Live market trading", get: (p) => PLANS[p].liveTrading },
+  { label: "AI strategy analysis", get: (p) => PLANS[p].aiAnalysis },
   { label: "Copy trading", get: (p) => PLANS[p].copyTrading },
   { label: "Engine actions / month", get: (p) => (Number.isFinite(ACTION_LIMIT[p]) ? ACTION_LIMIT[p].toLocaleString() : "Unlimited") },
   { label: "Strategy sandbox & backtest", get: () => true },

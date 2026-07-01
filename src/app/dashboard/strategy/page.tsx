@@ -64,7 +64,7 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
           </p>
         </div>
 
-        {data.accountId && <AIOptimizer activeAccountId={data.accountId} />}
+        {data.accountId && <AIOptimizer activeAccountId={data.accountId} plan={data.plan} />}
 
         {data.error ? (
           <DashboardError title="Strategy lab unavailable" message="We couldn't load your active strategies or parameters. Please try again." />
