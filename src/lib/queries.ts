@@ -3,6 +3,7 @@ import { prisma } from "./db";
 import { summaryMetrics, equitySeries, maxDrawdown, type DailyRow, type TradeRow, type ExecRow, type HeartbeatRow } from "./metrics";
 export type { DailyRow, TradeRow };
 import { coerceStrategyParams, type StrategyParams } from "./strategy-schema";
+import { instrumentsForBot } from "./custom-strategy";
 import { PLANS, type Plan } from "./plans";
 import type { CopySizingMode, CopyLinkStatus, CopyFilterMode } from "./copy-trading";
 import { getMarketForInstrument, type MarketKind } from "./market";
@@ -364,6 +365,8 @@ export type StrategyData = {
   strategyId: string | null;
   kind: string;
   params: StrategyParams | null;
+  /** Assets the bot attached to this strategy trades (empty for a botless strategy). */
+  botInstruments: string[];
   changeLog: AdjustmentRow[];
   pending: AdjustmentRow[];
   autoAdjustmentsUsed: number;
@@ -377,6 +380,7 @@ const EMPTY_STRATEGY: StrategyData = {
   strategyId: null,
   kind: "ORB",
   params: null,
+  botInstruments: [],
   changeLog: [],
   pending: [],
   autoAdjustmentsUsed: 0,
@@ -466,6 +470,7 @@ export async function getStrategyData(accountId?: string, strategyId?: string): 
       strategyId: strategy.id,
       kind: strategy.kind ?? "ORB",
       params: coerceStrategyParams(strategy.params),
+      botInstruments: bot ? instrumentsForBot(bot.instruments, (strategy.params ?? {}) as Record<string, unknown>) : [],
       changeLog: adjustments.filter((a) => a.status !== "PENDING").map(serializeAdjustment),
       pending: adjustments.filter((a) => a.status === "PENDING").map(serializeAdjustment),
       autoAdjustmentsUsed: bot?.autoAdjustmentsUsed ?? 0,
@@ -553,6 +558,8 @@ export type BotRow = {
   isPublic: boolean;
   strategyName: string;
   strategyId: string;
+  strategyKind: string;
+  instruments: string[];
   lastHeartbeat: string | null;
   accountId: string | null;
   accountNickname: string | null;
@@ -597,7 +604,7 @@ export async function getBotsData(): Promise<BotsData> {
         bots: {
           orderBy: { createdAt: "desc" },
           include: {
-            strategy: { select: { name: true } },
+            strategy: { select: { name: true, kind: true, params: true } },
             account: {
               include: {
                 summaries: { orderBy: { date: "desc" }, take: 14 },
@@ -624,6 +631,8 @@ export async function getBotsData(): Promise<BotsData> {
         isPublic: b.isPublic,
         strategyName: b.strategy.name,
         strategyId: b.strategyId,
+        strategyKind: b.strategy.kind ?? "ORB",
+        instruments: instrumentsForBot(b.instruments, (b.strategy.params ?? {}) as Record<string, unknown>),
         lastHeartbeat: b.lastHeartbeat?.toISOString() ?? null,
         accountId: a?.id ?? null,
         accountNickname: a?.nickname ?? null,

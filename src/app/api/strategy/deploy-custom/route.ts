@@ -37,11 +37,15 @@ export async function POST(req: Request) {
     const custom = parseCustomConfig(rawParams);
     if (!custom.ok) return NextResponse.json({ error: custom.error }, { status: 400 });
 
+    // Assets live on the bot now, so they are optional here. When the caller does
+    // supply instruments we keep them on the strategy params purely as a fallback
+    // for bots that have none of their own (legacy bots).
     const params: Record<string, unknown> = {
       ...risk.params,
-      instruments: custom.instruments,
-      instrument: custom.instruments[0],
       ...custom.config,
+      ...(custom.instruments.length > 0
+        ? { instruments: custom.instruments, instrument: custom.instruments[0] }
+        : {}),
     };
 
     const user = await prisma.user.findUnique({
