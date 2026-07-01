@@ -360,9 +360,9 @@ process.on("SIGTERM", () => { shutdown("SIGTERM").catch(() => {}); });
 
 // Reconcile DB open trades against broker positions in the background,
 // and begin ticking immediately so the engine is non-blocking.
-function bootstrap() {
+async function bootstrap() {
+  await reconcileOpenPositions(ownsBot).catch((e) => console.error("[engine] reconcile failed:", e));
   runLoop();
-  reconcileOpenPositions(ownsBot).catch((e) => console.error("[engine] reconcile failed:", e));
 }
 
 bootstrap();
