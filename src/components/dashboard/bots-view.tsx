@@ -62,8 +62,10 @@ export function BotsView({
   plan: Plan;
   forwardTests: ForwardTestRow[];
 }) {
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const cfg = PLANS[plan];
-  const atLimit = bots.length >= (cfg.accountLimit ?? 999);
+  const items = bots.filter((b) => !removedIds.has(b.id));
+  const atLimit = items.length >= (cfg.accountLimit ?? 999);
 
   // Index forward tests by accountId for O(1) lookup
   const ftByAccount = new Map<string, ForwardTestRow>();
@@ -77,8 +79,8 @@ export function BotsView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <p className="text-sm text-fg-subtle">
-            <span className="tnum font-medium text-fg">{bots.length}</span> of{" "}
-            {formatAccountLimit(cfg.accountLimit)} bot{bots.length === 1 ? "" : "s"}
+            <span className="tnum font-medium text-fg">{items.length}</span> of{" "}
+            {formatAccountLimit(cfg.accountLimit)} bot{items.length === 1 ? "" : "s"}
           </p>
           {plan === "FREE" && (
             <span title="Upgrade to create more bots.">
@@ -99,7 +101,7 @@ export function BotsView({
         )}
       </div>
 
-      {bots.length === 0 ? (
+      {items.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-12 text-center border-dashed">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface mb-4">
             <Flask className="text-fg-subtle" size={24} />
@@ -120,13 +122,19 @@ export function BotsView({
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {bots.map((b, index) => (
+          {items.map((b, index) => (
             <BotCard
               key={b.id}
               bot={b}
               availableAccounts={availableAccounts}
               forwardTest={b.accountId ? (ftByAccount.get(b.accountId) ?? null) : null}
               index={index}
+              onDeleteOptimistic={() => setRemovedIds((prev) => new Set(prev).add(b.id))}
+              onDeleteRevert={() => setRemovedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(b.id);
+                return next;
+              })}
             />
           ))}
         </div>
@@ -140,11 +148,15 @@ function BotCard({
   availableAccounts,
   forwardTest,
   index = 0,
+  onDeleteOptimistic,
+  onDeleteRevert,
 }: {
   bot: BotRow;
   availableAccounts: AvailableAccount[];
   forwardTest: ForwardTestRow | null;
   index?: number;
+  onDeleteOptimistic?: () => void;
+  onDeleteRevert?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -310,8 +322,20 @@ function BotCard({
               icon: <Trash size={16} className="text-negative" />,
               onClick: () => {
                 if (confirm("Are you sure you want to delete this bot forever?")) {
+                  onDeleteOptimistic?.();
                   startTransition(async () => {
-                    await deleteBot(bot.id);
+                    const res = await deleteBot(bot.id);
+                    if (res?.ok) {
+                      toast.success("Bot deleted.");
+                      router.refresh();
+                    } else if (res?.error) {
+                      onDeleteRevert?.();
+                      toast.error(res.error);
+                    } else {
+                      // Fallback in case deleteBot doesn't return Result (if we haven't updated it yet)
+                      toast.success("Bot deleted.");
+                      router.refresh();
+                    }
                   });
                 }
               },

@@ -53,9 +53,11 @@ function formatUtcTime(iso: string): string {
 export function CopyTradingView({ data }: { data: CopyTradingData }) {
   const router = useRouter();
   const { accounts, links, recentEvents, stats } = data;
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [dialog, setDialog] = useState<{ mode: "new" } | { mode: "edit"; link: CopyLinkRow } | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const items = links.filter((l) => !removedIds.has(l.id));
   const canCreate = accounts.length >= 2;
 
   function openEdit(id: string) {
@@ -79,12 +81,18 @@ export function CopyTradingView({ data }: { data: CopyTradingData }) {
     if (!confirm(`Remove the copy link from ${link.master.nickname} to ${link.follower.nickname}? Open copied trades are left untouched.`)) {
       return;
     }
+    setRemovedIds((prev) => new Set(prev).add(link.id));
     startTransition(async () => {
       const res = await deleteCopyLink(link.id);
       if (res.ok) {
         toast.success("Copy link removed.");
         router.refresh();
       } else {
+        setRemovedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(link.id);
+          return next;
+        });
         toast.error(res.error ?? "Could not remove the link.");
       }
     });
@@ -150,7 +158,7 @@ export function CopyTradingView({ data }: { data: CopyTradingData }) {
             <h2 className="text-sm font-semibold text-fg">Connection map</h2>
             <p className="text-xs text-fg-subtle">Master accounts on the left flow trades to their followers on the right.</p>
           </div>
-          {links.length > 0 && (
+          {items.length > 0 && (
             <div className="hidden items-center gap-4 text-[11px] text-fg-subtle sm:flex">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-0.5 w-5 rounded-full bg-accent" /> Active
@@ -164,19 +172,19 @@ export function CopyTradingView({ data }: { data: CopyTradingData }) {
             </div>
           )}
         </div>
-        {links.length > 0 ? (
-          <CopyTradingDiagram links={links} onEditLink={openEdit} />
+        {items.length > 0 ? (
+          <CopyTradingDiagram links={items} onEditLink={openEdit} />
         ) : (
           <DiagramEmpty canCreate={canCreate} onNew={() => setDialog({ mode: "new" })} />
         )}
       </Card>
 
       {/* Links list */}
-      {links.length > 0 && (
+      {items.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-fg">Links</h2>
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-            {links.map((link) => (
+            {items.map((link) => (
               <LinkCard
                 key={link.id}
                 link={link}

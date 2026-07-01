@@ -282,20 +282,36 @@ export function DashboardPageClient({
   };
 
   const handleDeleteTemplate = async (id: string) => {
-    const res = await deleteDashboardTemplate(id);
-    if (res.success) {
-      const newTpls = templates.filter(t => t.id !== id);
-      setTemplates(newTpls);
-      if (activeTemplateId === id) {
-        if (newTpls.length > 0) {
-          setActiveTemplateId(newTpls[0].id);
-          setLayoutItems(newTpls[0].layout as WidgetItem[]);
-        } else {
-          setActiveTemplateId(null);
-          setLayoutItems(DEFAULT_LAYOUT);
-        }
+    // Optimistic deletion
+    const oldTemplates = [...templates];
+    const oldActiveTemplateId = activeTemplateId;
+    const oldLayoutItems = [...layoutItems];
+
+    const newTpls = templates.filter(t => t.id !== id);
+    setTemplates(newTpls);
+    if (activeTemplateId === id) {
+      if (newTpls.length > 0) {
+        setActiveTemplateId(newTpls[0].id);
+        setLayoutItems(newTpls[0].layout as WidgetItem[]);
+      } else {
+        setActiveTemplateId(null);
+        setLayoutItems(DEFAULT_LAYOUT);
       }
-      toast.success("Template deleted");
+    }
+
+    try {
+      const res = await deleteDashboardTemplate(id);
+      if (res.success) {
+        toast.success("Template deleted");
+      } else {
+        throw new Error("Failed to delete template");
+      }
+    } catch (e) {
+      // Revert on failure
+      setTemplates(oldTemplates);
+      setActiveTemplateId(oldActiveTemplateId);
+      setLayoutItems(oldLayoutItems);
+      toast.error("Could not delete template");
     }
   };
 
