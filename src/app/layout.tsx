@@ -43,6 +43,7 @@ import { Toaster } from "sonner";
 import { PrivacyProvider } from "@/components/privacy-provider";
 import { DisplayProvider } from "@/components/display-provider";
 import { NavigationLoader } from "@/components/navigation-loader";
+import { ChunkErrorReload } from "@/components/chunk-error-reload";
 import { WebVitals } from "@/components/web-vitals";
 
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
@@ -68,6 +69,7 @@ export default async function RootLayout({
     >
       <body className="min-h-[100dvh] bg-base text-fg">
         <WebVitals />
+        <ChunkErrorReload />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
