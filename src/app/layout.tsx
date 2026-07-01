@@ -45,6 +45,7 @@ import { DisplayProvider } from "@/components/display-provider";
 import { NavigationLoader } from "@/components/navigation-loader";
 import { ChunkErrorReload } from "@/components/chunk-error-reload";
 import { WebVitals } from "@/components/web-vitals";
+import { PostHogProvider } from "@/components/posthog-provider";
 
 // Auth UI is entirely custom-built on Clerk's headless hooks (see
 // src/components/auth); no prebuilt Clerk widgets are rendered, so the provider
@@ -70,27 +71,29 @@ export default async function RootLayout({
       <body className="min-h-[100dvh] bg-base text-fg">
         <WebVitals />
         <ChunkErrorReload />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          <DisplayProvider>
-            <PrivacyProvider>
-              <ClerkProvider
-                signInUrl="/sign-in"
-                signUpUrl="/sign-up"
-                signInFallbackRedirectUrl="/dashboard"
-                signUpFallbackRedirectUrl="/onboarding"
-              >
-                {children}
-              </ClerkProvider>
-              <NavigationLoader />
-              <Toaster position="bottom-right" />
-            </PrivacyProvider>
-          </DisplayProvider>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            disableTransitionOnChange
+          >
+            <DisplayProvider>
+              <PrivacyProvider>
+                <ClerkProvider
+                  signInUrl="/sign-in"
+                  signUpUrl="/sign-up"
+                  signInFallbackRedirectUrl="/dashboard"
+                  signUpFallbackRedirectUrl="/onboarding"
+                >
+                  {children}
+                </ClerkProvider>
+                <NavigationLoader />
+                <Toaster position="bottom-right" />
+              </PrivacyProvider>
+            </DisplayProvider>
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

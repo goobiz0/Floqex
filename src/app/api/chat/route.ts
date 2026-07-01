@@ -159,18 +159,24 @@ export async function POST(req: Request) {
 
   const { messages } = parsedBody.data;
 
-  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true, email: true } });
+  const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true, email: true, useExtraBalance: true, extraBalanceUsd: true } });
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const usage = await getMochiUsage(user.id, user.plan as Plan);
+  let chargeExtra = false;
+
   if (usage.blocked) {
-    const which = usage.window === "week" ? "weekly" : "5-hour";
-    return new Response(
-      JSON.stringify({
-        error: `You've reached your Mochi ${which} token limit on the ${String(user.plan)} plan. It resets as the window rolls forward, or you can upgrade for a larger allowance.`,
-      }),
-      { status: 429, headers: { "content-type": "application/json" } },
-    );
+    if (!user.useExtraBalance || Number(user.extraBalanceUsd) <= 0) {
+      const which = usage.window === "week" ? "weekly" : "5-hour";
+      return new Response(
+        JSON.stringify({
+          error: `You've reached your Mochi ${which} token limit on the ${String(user.plan)} plan. Enable Extra Balance or upgrade for a larger allowance.`,
+        }),
+        { status: 429, headers: { "content-type": "application/json" } },
+      );
+    } else {
+      chargeExtra = true;
+    }
   }
 
   const systemPrompt = `You are Mochi, an expert trading copilot inside the Floqex app.
@@ -205,7 +211,7 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
       },
     },
     onFinish: ({ usage: u }) => {
-      void recordMochiUsage(user.id, normalizeTokenUsage(u));
+      void recordMochiUsage(user.id, normalizeTokenUsage(u), { chargeExtra });
     },
     tools: {
       getPerformance: tool({

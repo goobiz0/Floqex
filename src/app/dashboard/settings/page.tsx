@@ -104,7 +104,14 @@ export default async function SettingsPage() {
           Notifications, alert thresholds, and data export.
         </p>
       </div>
-      <SettingsView trades={trades} accounts={accounts} settings={settings} mcpKey={mcpKey} />
+      <SettingsView 
+        trades={trades} 
+        accounts={accounts} 
+        settings={settings} 
+        mcpKey={mcpKey}
+        affiliateBalanceUsd={user?.affiliateBalanceUsd ? Number(user.affiliateBalanceUsd) : 0}
+        initialAffiliateCode={user?.affiliateCode ?? null}
+      />
     </div>
   );
 }

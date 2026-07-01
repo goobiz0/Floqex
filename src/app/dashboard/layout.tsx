@@ -26,6 +26,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 document.documentElement.style.setProperty('--sidebar-width', width + 'px');
               }
             } catch (e) {}
+
+            try {
+              if (document.cookie.includes('floqex_ref=')) {
+                fetch('/api/affiliate/register', { method: 'POST' }).catch(() => {});
+              }
+            } catch (e) {}
           `
         }}
       />

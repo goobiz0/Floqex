@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
+import { FeedbackSurvey } from "@/components/ui/feedback-survey";
 
 type StrategyAst = {
   name: string;
@@ -113,6 +114,10 @@ export default function StrategyBuilderPage() {
           </button>
         </div>
       )}
+
+      <div className="pt-8">
+        <FeedbackSurvey featureId="ai-strategy-builder" title="Is the AI Strategy Builder producing accurate results?" />
+      </div>
     </div>
   );
 }

@@ -58,8 +58,9 @@ export default clerkMiddleware(
 
     const role = hostRole(host);
 
-    // ── app.floqex.com — the unified auth and product surface ──
-    if (role === "app") {
+    const handleRoute = async () => {
+      // ── app.floqex.com — the unified auth and product surface ──
+      if (role === "app") {
       // API routes authenticate themselves (e.g. the Clerk webhook verifies a signature)
       if (pathname.startsWith("/api")) return NextResponse.next();
 
@@ -121,10 +122,25 @@ export default clerkMiddleware(
       }
     }
 
-    if (isProtectedRoute(req)) {
-      await auth.protect();
+      if (isProtectedRoute(req)) {
+        await auth.protect();
+      }
+      return NextResponse.next();
+    };
+
+    const response = (await handleRoute()) ?? NextResponse.next();
+
+    // ── Affiliate Tracking ──
+    const ref = url.searchParams.get("ref");
+    if (ref) {
+      response.cookies.set("floqex_ref", ref, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        sameSite: "lax",
+      });
     }
-    return NextResponse.next();
+
+    return response;
   },
   (req) => {
     const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();

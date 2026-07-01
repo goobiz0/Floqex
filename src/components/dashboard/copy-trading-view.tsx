@@ -35,6 +35,7 @@ import { DashboardEmptyState } from "@/components/dashboard/states";
 import { CopyTradingDiagram } from "@/components/dashboard/copy-trading-diagram";
 import { CopyEquitySparkline } from "@/components/dashboard/copy-equity-sparkline";
 import { CopyLinkEditor } from "@/components/dashboard/copy-link-editor";
+import { FeedbackSurvey } from "@/components/ui/feedback-survey";
 import { cn } from "@/lib/utils";
 import { SIZING_MODE_LABEL, shortAccountId } from "@/lib/copy-trading";
 import type { CopyTradingData, CopyLinkRow, CopyAccountLite } from "@/lib/queries";
@@ -214,6 +215,10 @@ export function CopyTradingView({ data }: { data: CopyTradingData }) {
           }}
         />
       )}
+
+      <div className="pt-4">
+        <FeedbackSurvey featureId="copy-trading" title="How is copy trading working for you?" />
+      </div>
     </div>
   );
 }

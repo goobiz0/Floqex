@@ -83,6 +83,7 @@ function OnboardingFlow() {
   const [planSelection, setPlanSelection] = useState<Plan>("FREE");
   const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York");
   const [nickname, setNickname] = useState("Main account");
+  const [affiliateCode, setAffiliateCode] = useState("");
   const [discord, setDiscord] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -106,6 +107,7 @@ function OnboardingFlow() {
         if (parsed.planSelection) setPlanSelection(parsed.planSelection);
         if (parsed.tz) setTz(parsed.tz);
         if (parsed.nickname) setNickname(parsed.nickname);
+        if (parsed.affiliateCode) setAffiliateCode(parsed.affiliateCode);
         
         // If returning from stripe checkout
         if (searchParams?.get("checkout") === "success") {
@@ -130,9 +132,9 @@ function OnboardingFlow() {
   // Save state whenever it changes
   useEffect(() => {
     localStorage.setItem("ob_state", JSON.stringify({
-      step, referral, customReferral, experience, goal, asset, planSelection, tz, nickname
+      step, referral, customReferral, experience, goal, asset, planSelection, tz, nickname, affiliateCode
     }));
-  }, [step, referral, customReferral, experience, goal, asset, planSelection, tz, nickname]);
+  }, [step, referral, customReferral, experience, goal, asset, planSelection, tz, nickname, affiliateCode]);
 
   const last = STEPS.length - 1;
   const isPaid = planSelection !== "FREE";
@@ -181,6 +183,7 @@ function OnboardingFlow() {
         asset: asset ?? undefined,
         apiKey: isPaid ? apiKey : undefined,
         apiSecret: isPaid ? apiSecret : undefined,
+        affiliateCode: affiliateCode.trim() || undefined,
       });
       if (!res.ok) {
         setError(res.error ?? "Could not finish setup. Please try again.");
@@ -375,6 +378,20 @@ function OnboardingFlow() {
                             <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
                           ))}
                         </select>
+                      </div>
+                    </Field>
+
+                    <Field label="Referral Code (Optional)" id="ob-affiliate" hint="If someone referred you, enter their code here.">
+                      <div className="relative">
+                        <Input
+                          id="ob-affiliate"
+                          value={affiliateCode}
+                          onChange={(e) => setAffiliateCode(e.target.value)}
+                          placeholder="Code"
+                          maxLength={40}
+                          className="pl-10 h-12 bg-surface text-base shadow-[var(--shadow-sm)]"
+                        />
+                        <Megaphone size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
                       </div>
                     </Field>
                   </div>

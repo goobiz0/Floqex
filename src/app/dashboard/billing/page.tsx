@@ -29,11 +29,17 @@ export default async function BillingPage(props: { searchParams: Promise<{ statu
 
   // Mochi token usage for the signed-in user (graceful if unavailable).
   let mochiUsage = null;
+  let extraBalanceUsd = 0;
+  let useExtraBalance = false;
   try {
     const { userId } = await auth();
     if (userId) {
-      const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true } });
-      if (user) mochiUsage = await getMochiUsage(user.id, user.plan as Plan);
+      const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, plan: true, extraBalanceUsd: true, useExtraBalance: true } });
+      if (user) {
+        mochiUsage = await getMochiUsage(user.id, user.plan as Plan);
+        extraBalanceUsd = Number(user.extraBalanceUsd || 0);
+        useExtraBalance = user.useExtraBalance;
+      }
     }
   } catch {
     // non-fatal: billing still renders without the Mochi panel
@@ -99,7 +105,13 @@ export default async function BillingPage(props: { searchParams: Promise<{ statu
 
           {mochiUsage && <MochiUsageCard usage={mochiUsage} plan={data.plan} />}
 
-          <BillingPlans currentPlan={data.plan} hasCustomer={data.hasCustomer} monthlyUsage={monthlyUsage} />
+          <BillingPlans 
+            currentPlan={data.plan} 
+            hasCustomer={data.hasCustomer} 
+            monthlyUsage={monthlyUsage} 
+            extraBalanceUsd={extraBalanceUsd}
+            useExtraBalance={useExtraBalance}
+          />
         </>
       )}
     </div>

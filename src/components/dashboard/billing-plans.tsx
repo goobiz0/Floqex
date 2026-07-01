@@ -5,7 +5,11 @@ import { Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PLANS, PLAN_ORDER, formatAccountLimit, type Plan } from "@/lib/plans";
-import { startCheckout, openBillingPortal } from "@/app/dashboard/billing/actions";
+import { startCheckout, openBillingPortal, toggleUseExtraBalance } from "@/app/dashboard/billing/actions";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { CurrencyDollar } from "@phosphor-icons/react";
+import { toast } from "sonner";
 
 // Monthly engine-action allowance per plan (real usage is metered against this).
 const ACTION_LIMIT: Record<Plan, number> = {
@@ -40,10 +44,52 @@ export function BillingPlans({
   currentPlan: Plan;
   hasCustomer: boolean;
   monthlyUsage?: number;
+  extraBalanceUsd?: number;
+  useExtraBalance?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [topupAmount, setTopupAmount] = useState<string>("");
+  const [toppingUp, setToppingUp] = useState(false);
   const currentIndex = PLAN_ORDER.indexOf(currentPlan);
+
+  async function handleToggleUseExtraBalance(checked: boolean) {
+    startTransition(async () => {
+      const res = await toggleUseExtraBalance(checked);
+      if (!res.ok) {
+        toast.error(res.error || "Failed to update preference.");
+      } else {
+        toast.success(`Extra balance ${checked ? "enabled" : "disabled"}.`);
+      }
+    });
+  }
+
+  async function handleTopup() {
+    const amount = Number(topupAmount);
+    if (!amount || amount < 5 || amount > 1000) {
+      toast.error("Please enter an amount between $5 and $1000.");
+      return;
+    }
+    
+    setToppingUp(true);
+    try {
+      const res = await fetch("/api/checkout/balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.assign(data.url);
+      } else {
+        toast.error(data.error || "Could not start checkout.");
+      }
+    } catch (e) {
+      toast.error("Could not start checkout.");
+    } finally {
+      setToppingUp(false);
+    }
+  }
 
   function go(action: () => Promise<{ ok: boolean; url?: string; error?: string }>) {
     setError(null);
@@ -85,6 +131,56 @@ export function BillingPlans({
         </p>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
           <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${usagePct}%` }} />
+        </div>
+      </div>
+
+      <div className="rounded-[var(--radius-card)] border border-line bg-elevated p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h3 className="text-lg font-semibold text-fg">Extra Credits Balance</h3>
+          <p className="text-sm text-fg-subtle max-w-md mt-1">
+            When you run out of plan limits, use your extra balance to keep trading and running AI models without interruption.
+          </p>
+          <div className="flex items-center gap-4 mt-4">
+            <span className="text-3xl font-black text-fg tracking-tight tnum">
+              ${(extraBalanceUsd || 0).toFixed(2)}
+            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-fg">Auto-use extra balance</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Switch 
+                  checked={useExtraBalance || false} 
+                  onChange={handleToggleUseExtraBalance} 
+                  label="Use Extra Balance" 
+                />
+                <span className="text-xs text-fg-subtle">
+                  {useExtraBalance ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-surface/50 border border-line rounded-[var(--radius-control)] p-4 flex flex-col gap-3 min-w-[240px]">
+          <p className="text-sm font-medium text-fg">Buy Extra Credits</p>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              placeholder="Amount ($5-$1000)"
+              value={topupAmount}
+              onChange={(e) => setTopupAmount(e.target.value)}
+              icon={<CurrencyDollar />}
+              min={5}
+              max={1000}
+              className="bg-base"
+            />
+          </div>
+          <Button 
+            onClick={handleTopup} 
+            disabled={toppingUp || !topupAmount || Number(topupAmount) < 5 || Number(topupAmount) > 1000}
+            className="w-full"
+          >
+            {toppingUp ? "Loading..." : "Add to Balance"}
+          </Button>
         </div>
       </div>
 

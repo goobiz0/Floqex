@@ -125,11 +125,15 @@ export function SettingsView({
   accounts = [],
   settings,
   mcpKey,
+  affiliateBalanceUsd = 0,
+  initialAffiliateCode = null,
 }: {
   trades: TradeRow[];
   accounts?: SettingsAccount[];
   settings: NotificationSettings;
   mcpKey?: string;
+  affiliateBalanceUsd?: number;
+  initialAffiliateCode?: string | null;
 }) {
   const { isPrivacyMode, togglePrivacyMode } = usePrivacy();
   const { displayMode, setDisplayMode } = useDisplayMode();
@@ -337,7 +341,12 @@ export function SettingsView({
         </div>
       )}
 
-      {activeTab === "AFFILIATE" && <AffiliatePanel />}
+      {activeTab === "AFFILIATE" && (
+        <AffiliatePanel 
+          balance={affiliateBalanceUsd} 
+          initialCode={initialAffiliateCode} 
+        />
+      )}
 
       {activeTab === "CUSTOMISATION" && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -1284,10 +1293,12 @@ function SecurityAuditLog() {
   );
 }
 
-function AffiliatePanel() {
-  const [code, setCode] = useState<string | null>(null);
+function AffiliatePanel({ balance, initialCode }: { balance: number; initialCode: string | null }) {
+  const [code, setCode] = useState<string | null>(initialCode);
   const [loading, setLoading] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
 
   const link = code ? `https://floqex.com/?ref=${code}` : "";
 
@@ -1301,6 +1312,25 @@ function AffiliatePanel() {
     }
   }
 
+  async function handleRedeem() {
+    setRedeeming(true);
+    try {
+      const res = await fetch("/api/affiliate/redeem", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Successfully redeemed balance to Stripe.");
+        posthog.capture("affiliate_balance_redeemed", { amount: balance });
+        router.refresh();
+      } else {
+        toast.error(data.error || "Failed to redeem balance.");
+      }
+    } catch (e) {
+      toast.error("Failed to redeem balance.");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(link);
@@ -1311,32 +1341,66 @@ function AffiliatePanel() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <Card className="p-8 flex flex-col items-center text-center">
-        <div className="h-16 w-16 bg-accent-soft border border-accent/20 rounded-full flex items-center justify-center text-accent mb-4">
-          <CurrencyDollar size={32} weight="duotone" />
-        </div>
-        <h3 className="text-xl font-bold text-fg mb-2">Partner Program</h3>
-        <p className="text-fg-subtle mb-6 max-w-sm">
-          Share your link and earn a share of subscription revenue for every trader you refer to Floqex.
-        </p>
+      <Card className="p-0 overflow-hidden relative">
+        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/10 via-accent/5 to-transparent pointer-events-none" />
+        <div className="p-8 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
+          <div className="h-20 w-20 bg-surface border border-line shadow-[var(--shadow-sm)] rounded-2xl flex items-center justify-center text-accent shrink-0 relative overflow-hidden">
+             <div className="absolute inset-0 bg-accent/10" />
+             <CurrencyDollar size={36} weight="duotone" className="relative z-10" />
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-fg mb-2">Partner Program</h3>
+            <p className="text-sm text-fg-subtle max-w-lg mb-4">
+              Earn <strong className="text-fg">$2</strong> for every user who signs up with your link, plus a <strong className="text-fg">$5 bonus</strong> if they subscribe within 2 weeks. Use your balance toward extra credits or your subscription.
+            </p>
 
-        {!code ? (
-          <Button onClick={handleGenerate} disabled={loading} className="bg-accent text-on-accent hover:bg-accent-hover">
-            {loading ? "Generating..." : "Generate my referral link"}
-          </Button>
-        ) : (
-          <div className="w-full max-w-md space-y-3">
-            <div className="flex items-center gap-2 rounded-[var(--radius-control)] border border-line bg-base px-3 py-2">
-              <span className="truncate text-sm text-fg tnum">{link}</span>
-              <button onClick={copyLink} className="ml-auto shrink-0 rounded-[var(--radius-control)] bg-accent px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] hover:bg-accent-hover">
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-            <p className="text-xs text-fg-subtle">
-              Your code is <span className="font-semibold text-fg">{code}</span>. Referred sign-ups are credited automatically.
+            {!code ? (
+              <Button onClick={handleGenerate} disabled={loading} className="bg-accent text-on-accent hover:bg-accent-hover shadow-lg shadow-accent/20">
+                {loading ? "Generating..." : "Generate my referral link"}
+              </Button>
+            ) : (
+              <div className="w-full max-w-md space-y-3 mx-auto md:mx-0">
+                <div className="flex items-center gap-2 rounded-[var(--radius-control)] border border-accent/30 bg-accent/5 px-3 py-2">
+                  <span className="truncate text-sm text-fg font-medium tracking-wide tnum">{link}</span>
+                  <button onClick={copyLink} className="ml-auto shrink-0 rounded-[var(--radius-control)] bg-accent px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] hover:bg-accent-hover transition-colors shadow-sm shadow-accent/20">
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p className="text-xs text-fg-subtle">
+                  Share this link anywhere. Sign-ups are credited automatically.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Available Balance</CardTitle>
+            <p className="text-sm text-fg-subtle mt-1">
+              Your earned rewards from the partner program.
             </p>
           </div>
-        )}
+          <div className="text-right">
+            <p className="text-3xl font-black text-fg tracking-tight tnum">${balance.toFixed(2)}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-line pt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <p className="text-sm text-fg-subtle">
+            Redeeming transfers your balance to your Stripe customer account, which automatically applies to your next invoice or extra credit purchases.
+          </p>
+          <Button 
+            onClick={handleRedeem} 
+            disabled={redeeming || balance <= 0}
+            className="w-full md:w-auto shrink-0 bg-fg text-base-pure hover:bg-fg/90"
+          >
+            {redeeming ? "Redeeming..." : "Redeem to Stripe"}
+          </Button>
+        </div>
       </Card>
     </div>
   );

@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
 import { InfoTip } from "@/components/ui/tooltip";
+import { FeedbackSurvey } from "@/components/ui/feedback-survey";
 import { AssetMultiSelect } from "@/components/dashboard/asset-multi-select";
 import { CustomSignalBuilder } from "@/components/dashboard/custom-signal-builder";
 import dynamic from "next/dynamic";
@@ -505,6 +506,10 @@ export function BotsNewClient({
           <Robot size={16} weight="bold" className="mr-1" />
           {loading ? "Deploying..." : "Deploy bot"}
         </Button>
+      </div>
+
+      <div className="mt-12">
+        <FeedbackSurvey featureId="bot-creation" title="Is the bot creation process clear?" />
       </div>
     </motion.div>
   );

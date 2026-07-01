@@ -18,6 +18,7 @@ const OnboardingInputSchema = z.object({
   apiKey: z.string().max(200).optional(),
   apiSecret: z.string().max(200).optional(),
   broker: z.string().max(100).optional(),
+  affiliateCode: z.string().max(100).optional(),
 }).strict();
 
 type Result = { ok: boolean; error?: string };
@@ -32,6 +33,7 @@ export type OnboardingInput = {
   apiKey?: string;
   apiSecret?: string;
   broker?: string;
+  affiliateCode?: string;
 };
 
 /**
@@ -88,6 +90,31 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Result
         apiSecret: input.apiSecret,
       });
       if (!res.ok) return res;
+      
+      // Process manual affiliate code entry
+      if (input.affiliateCode) {
+        try {
+          const referrer = await prisma.user.findUnique({
+            where: { affiliateCode: input.affiliateCode },
+          });
+
+          // Prevent self-referral or double-award
+          if (referrer && referrer.id !== user.id && !user.referredById) {
+            await prisma.$transaction([
+              prisma.user.update({
+                where: { id: user.id },
+                data: { referredById: referrer.id },
+              }),
+              prisma.user.update({
+                where: { id: referrer.id },
+                data: { affiliateBalanceUsd: { increment: 2 } },
+              }),
+            ]);
+          }
+        } catch (err) {
+          console.error("Failed to process affiliate code during onboarding", err);
+        }
+      }
     }
 
     // Persist preferences + survey answers on the Clerk user

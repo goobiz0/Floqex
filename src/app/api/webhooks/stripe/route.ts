@@ -60,6 +60,63 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error("Failed to process marketplace purchase:", err);
       }
+    } else if (session.metadata?.type === "balance_topup") {
+      const userId = session.metadata.userId;
+      const amountUsd = Number(session.metadata.amountUsd);
+
+      if (!userId || isNaN(amountUsd)) {
+         console.error("Missing metadata for balance topup webhook", session.metadata);
+         return NextResponse.json({ received: true });
+      }
+
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { extraBalanceUsd: { increment: amountUsd } },
+        });
+
+        const posthog = getPostHogClient();
+        posthog.capture({
+          distinctId: session.customer_email ?? userId,
+          event: "balance_topup_completed",
+          properties: {
+            amount_usd: amountUsd,
+          },
+        });
+      } catch (err) {
+        console.error("Failed to process balance topup:", err);
+      }
+    } else if (session.mode === "subscription") {
+      // Process affiliate bonus
+      const userId = session.metadata?.userId || session.client_reference_id;
+      if (userId) {
+        try {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, createdAt: true, referredById: true, affiliateBonusPaid: true },
+          });
+
+          if (user && user.referredById && !user.affiliateBonusPaid) {
+            const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+            const timeSinceSignup = Date.now() - user.createdAt.getTime();
+            
+            if (timeSinceSignup <= TWO_WEEKS_MS) {
+              await prisma.$transaction([
+                prisma.user.update({
+                  where: { id: user.referredById },
+                  data: { affiliateBalanceUsd: { increment: 5 } },
+                }),
+                prisma.user.update({
+                  where: { id: user.id },
+                  data: { affiliateBonusPaid: true },
+                }),
+              ]);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to process subscription affiliate bonus:", err);
+        }
+      }
     }
   }
 

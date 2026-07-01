@@ -83,14 +83,25 @@ export async function getMochiUsage(userId: string, plan: Plan): Promise<MochiUs
 export async function recordMochiUsage(
   userId: string,
   usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number },
+  options?: { chargeExtra?: boolean }
 ): Promise<void> {
   const promptTokens = Math.max(0, Math.round(usage.promptTokens ?? 0));
   const completionTokens = Math.max(0, Math.round(usage.completionTokens ?? 0));
   const totalTokens = Math.max(0, Math.round(usage.totalTokens ?? promptTokens + completionTokens));
   if (totalTokens === 0) return;
   try {
-    await prisma.mochiUsage.create({
-      data: { userId, promptTokens, completionTokens, totalTokens },
+    await prisma.$transaction(async (tx) => {
+      await tx.mochiUsage.create({
+        data: { userId, promptTokens, completionTokens, totalTokens },
+      });
+
+      if (options?.chargeExtra) {
+        const cost = totalTokens * 0.00001; // $10 per 1M tokens
+        await tx.user.update({
+          where: { id: userId },
+          data: { extraBalanceUsd: { decrement: cost } },
+        });
+      }
     });
   } catch (err) {
     console.error("[mochi-usage] write failed (table missing?)", err);

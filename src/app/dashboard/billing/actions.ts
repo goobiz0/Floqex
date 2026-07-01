@@ -233,3 +233,25 @@ export async function reconcileSubscription(): Promise<{ ok: boolean; plan?: Pla
     return { ok: false, error: "Could not refresh your subscription." };
   }
 }
+
+/** Toggles whether the user wants to use extra balance for API usage when they run out of tokens. */
+export async function toggleUseExtraBalance(useExtraBalance: boolean): Promise<Result> {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return { ok: false, error: "You are not signed in." };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) return { ok: false, error: "User not found." };
+    
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { useExtraBalance },
+    });
+
+    revalidatePath("/dashboard/billing");
+    return { ok: true };
+  } catch (e) {
+    console.error("[toggleUseExtraBalance]", e);
+    return { ok: false, error: "Failed to update preference." };
+  }
+}

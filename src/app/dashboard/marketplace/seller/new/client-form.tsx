@@ -7,6 +7,7 @@ import { Field } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { createListing } from "../../actions";
 import { CaretDown, CurrencyDollar, Hash, ListDashes, Tag, TextAa, Textbox } from "@phosphor-icons/react";
+import { FeedbackSurvey } from "@/components/ui/feedback-survey";
 
 export function CreateListingForm({ strategies, userPlan }: { strategies: { id: string; name: string }[], userPlan: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function CreateListingForm({ strategies, userPlan }: { strategies: { id: 
   };
 
   return (
+    <>
     <Card className="p-8">
       <form action={action} className="flex flex-col gap-6">
         {error && (
@@ -171,5 +173,10 @@ export function CreateListingForm({ strategies, userPlan }: { strategies: { id: 
         </div>
       </form>
     </Card>
+    
+    <div className="mt-8">
+      <FeedbackSurvey featureId="marketplace-listing" title="Is the listing process straightforward?" />
+    </div>
+    </>
   );
 }
