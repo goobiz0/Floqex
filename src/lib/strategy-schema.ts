@@ -23,6 +23,12 @@ export type StrategyParams = {
   minVolume: number;
   newsPause: boolean;
   extendedHours: boolean;
+  /** Stop distance as a % of entry. Tolerant/optional so legacy ORB rows that
+   *  never stored it keep validating; defaults applied when absent. */
+  stopLossPct: number;
+  /** ATR-based stop distance multiple (stop = ATR × this). 0 keeps the fixed
+   *  percentage stop; > 0 lets the stop scale with realised volatility. */
+  atrStopMultiple: number;
   [key: string]: unknown;
 };
 
@@ -120,6 +126,35 @@ export const PARAM_BOUNDS: Record<NumericParam, Bound> = {
   },
 };
 
+/**
+ * Optional, tolerant numeric params. Unlike `PARAM_BOUNDS` these are NOT part of
+ * the strict required-keys contract — a payload that omits them is still valid
+ * (the default applies). When present they are clamped, never rejected, so the
+ * Strategy Lab and template builders can opt into a wider stop or ATR scaling
+ * without every legacy caller having to supply them.
+ */
+export const OPTIONAL_PARAM_BOUNDS = {
+  stopLossPct: {
+    min: 0.05,
+    max: 20,
+    step: 0.05,
+    label: "Stop loss distance",
+    suffix: "%",
+    help: "Stop distance as a percentage of entry. Wider stops survive normal noise; tighter stops risk less per trade but get shaken out more.",
+  },
+  atrStopMultiple: {
+    min: 0,
+    max: 5,
+    step: 0.1,
+    label: "ATR stop multiple",
+    suffix: "× ATR",
+    help: "Scale the stop with realised volatility (stop = ATR × this). 0 keeps the fixed percentage stop.",
+  },
+} as const satisfies Record<string, Bound>;
+
+export type OptionalNumericParam = keyof typeof OPTIONAL_PARAM_BOUNDS;
+const OPTIONAL_NUMERIC_KEYS = Object.keys(OPTIONAL_PARAM_BOUNDS) as OptionalNumericParam[];
+
 export const PARAM_LABELS: Record<keyof StrategyParams, string> = {
   rangeMinutes: PARAM_BOUNDS.rangeMinutes.label,
   rrTarget: PARAM_BOUNDS.rrTarget.label,
@@ -134,12 +169,19 @@ export const PARAM_LABELS: Record<keyof StrategyParams, string> = {
   reEntry: "Re-entry rule",
   newsPause: "News event pause",
   extendedHours: "Extended hours trading",
+  stopLossPct: OPTIONAL_PARAM_BOUNDS.stopLossPct.label,
+  atrStopMultiple: OPTIONAL_PARAM_BOUNDS.atrStopMultiple.label,
 };
 
+// Calibrated defaults. A 0.75% stop survives a normal session's noise (a 0.5%
+// stop on an instrument with ~0.8-1.2% ATR is hit before the trade can work),
+// an RR of 1.8 is reachable on the majority of trending days, and a 0.2x range
+// floor keeps quiet-day scratch trades out without over-filtering. See the
+// validation engine for the data behind these numbers.
 export const DEFAULT_PARAMS: StrategyParams = {
   rangeMinutes: 15,
-  rrTarget: 2,
-  minRange: 0.3,
+  rrTarget: 1.8,
+  minRange: 0.2,
   maxRange: 3,
   riskPct: 1,
   dailyLoss: 3,
@@ -150,6 +192,8 @@ export const DEFAULT_PARAMS: StrategyParams = {
   reEntry: true,
   newsPause: true,
   extendedHours: false,
+  stopLossPct: 0.75,
+  atrStopMultiple: 1.5,
 };
 
 const NUMERIC_KEYS = Object.keys(PARAM_BOUNDS) as NumericParam[];
@@ -187,10 +231,24 @@ export function parseStrategyParams(
   out.reEntry = Boolean(o.reEntry);
   out.newsPause = Boolean(o.newsPause);
   out.extendedHours = Boolean(o.extendedHours);
-  
+
+  // Optional numeric params: clamp into bounds when present, otherwise keep the
+  // default. Never reject — these are additive and may be absent on legacy rows.
+  for (const key of OPTIONAL_NUMERIC_KEYS) {
+    const bound = OPTIONAL_PARAM_BOUNDS[key];
+    const value = Number(o[key]);
+    if (Number.isFinite(value)) {
+      out[key] = Math.min(bound.max, Math.max(bound.min, value));
+    }
+  }
+
   // Custom parameters
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause" && key !== "extendedHours") {
+    if (
+      !NUMERIC_KEYS.includes(key as NumericParam) &&
+      !OPTIONAL_NUMERIC_KEYS.includes(key as OptionalNumericParam) &&
+      key !== "trendFilter" && key !== "reEntry" && key !== "newsPause" && key !== "extendedHours"
+    ) {
       out[key] = o[key];
     }
   }
@@ -217,8 +275,20 @@ export function coerceStrategyParams(input: unknown): StrategyParams {
   if (typeof o.newsPause === "boolean") out.newsPause = o.newsPause;
   if (typeof o.extendedHours === "boolean") out.extendedHours = o.extendedHours;
 
+  for (const key of OPTIONAL_NUMERIC_KEYS) {
+    const bound = OPTIONAL_PARAM_BOUNDS[key];
+    const value = Number(o[key]);
+    if (Number.isFinite(value)) {
+      out[key] = Math.min(bound.max, Math.max(bound.min, value));
+    }
+  }
+
   for (const key of Object.keys(o)) {
-    if (!NUMERIC_KEYS.includes(key as NumericParam) && key !== "trendFilter" && key !== "reEntry" && key !== "newsPause" && key !== "extendedHours") {
+    if (
+      !NUMERIC_KEYS.includes(key as NumericParam) &&
+      !OPTIONAL_NUMERIC_KEYS.includes(key as OptionalNumericParam) &&
+      key !== "trendFilter" && key !== "reEntry" && key !== "newsPause" && key !== "extendedHours"
+    ) {
       out[key] = o[key];
     }
   }
@@ -229,7 +299,12 @@ export function coerceStrategyParams(input: unknown): StrategyParams {
 /** Format a param value for the change log (adds the unit suffix). */
 export function formatParamValue(key: keyof StrategyParams, value: number | boolean): string {
   if (typeof value === "boolean") return value ? "On" : "Off";
-  const suffix = key in PARAM_BOUNDS ? (PARAM_BOUNDS[key as NumericParam].suffix ?? "") : "";
+  const suffix =
+    key in PARAM_BOUNDS
+      ? (PARAM_BOUNDS[key as NumericParam].suffix ?? "")
+      : key in OPTIONAL_PARAM_BOUNDS
+        ? (OPTIONAL_PARAM_BOUNDS[key as OptionalNumericParam].suffix ?? "")
+        : "";
   return `${value}${suffix}`;
 }
 

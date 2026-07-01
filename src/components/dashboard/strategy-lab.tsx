@@ -125,6 +125,8 @@ export function StrategyLab({
       stopLossPct: typeof params.stopLossPct === "number" ? params.stopLossPct : undefined,
       trendFilter: params.trendFilter,
       direction: params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH",
+      trailingStopPct: typeof params.trailingStopPct === "number" ? params.trailingStopPct : undefined,
+      atrStopMultiple: typeof params.atrStopMultiple === "number" ? params.atrStopMultiple : undefined,
     });
   }, [bars, params]);
 
@@ -564,6 +566,7 @@ export function StrategyLab({
               onChange={(e) => setObjective(e.target.value as Objective)}
               aria-label="Optimization objective"
             >
+              <option value="balanced">Balanced (robust)</option>
               <option value="return">Maximise return</option>
               <option value="profitFactor">Maximise profit factor</option>
               <option value="winRate">Maximise win rate</option>
@@ -588,6 +591,7 @@ export function StrategyLab({
                       <th className="px-2 py-1.5 text-left font-medium">Trend</th>
                       <th className="px-2 py-1.5 text-right font-medium">Return</th>
                       <th className="px-2 py-1.5 text-right font-medium">DD</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Stab</th>
                       <th className="px-2 py-1.5" />
                     </tr>
                   </thead>
@@ -601,6 +605,9 @@ export function StrategyLab({
                           {row.totalReturnPct >= 0 ? "+" : ""}{row.totalReturnPct.toFixed(0)}%
                         </td>
                         <td className="tnum px-2 py-1.5 text-right text-negative">-{row.maxDrawdownPct.toFixed(0)}%</td>
+                        <td className="tnum px-2 py-1.5 text-right text-fg-subtle" title="Robustness to small parameter changes (higher is steadier)">
+                          {Math.round(row.stabilityScore * 100)}%
+                        </td>
                         <td className="px-2 py-1.5 text-right">
                           <button onClick={() => applySweep(row)} className="rounded-[var(--radius-pill)] bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-[var(--color-on-accent)]">
                             Apply
