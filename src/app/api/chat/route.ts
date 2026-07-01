@@ -1,19 +1,15 @@
 import { streamText, tool, convertToModelMessages, type UIMessage } from "ai";
-import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { PARAM_BOUNDS } from "@/lib/strategy-schema";
 import { type Plan } from "@/lib/plans";
+import { mochiModel, normalizeTokenUsage } from "@/lib/mochi";
 import { getMochiUsage, recordMochiUsage } from "@/lib/mochi-usage";
 import { summaryMetrics, byInstrument, bySession, byWeekday, type TradeRow } from "@/lib/metrics";
 import { kelly, expectancy } from "@/lib/calculators";
 
 export const maxDuration = 30;
-
-function chatModel() {
-  return google("gemini-2.5-flash");
-}
 
 const boundsHelp = (Object.keys(PARAM_BOUNDS) as (keyof typeof PARAM_BOUNDS)[])
   .map((k) => `${k} ${PARAM_BOUNDS[k].min}-${PARAM_BOUNDS[k].max}${PARAM_BOUNDS[k].suffix ?? ""}`)
@@ -159,16 +155,11 @@ Allowed parameters for updateStrategyParams: ${boundsHelp}`;
   const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
-    model: chatModel(),
+    model: mochiModel(),
     messages: modelMessages,
     system: systemPrompt,
     onFinish: ({ usage: u }) => {
-      const x = u as unknown as Record<string, number | undefined>;
-      void recordMochiUsage(user.id, {
-        promptTokens: x.inputTokens ?? x.promptTokens,
-        completionTokens: x.outputTokens ?? x.completionTokens,
-        totalTokens: x.totalTokens,
-      });
+      void recordMochiUsage(user.id, normalizeTokenUsage(u));
     },
     tools: {
       getPerformance: tool({
