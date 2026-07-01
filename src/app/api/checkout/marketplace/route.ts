@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { getOrCreateUser } from "@/lib/user";
 import { z } from "zod";
 import { checkRateLimit, clientIp } from "@/lib/ratelimit";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const CheckoutMarketplaceSchema = z.object({
   listingId: z.string().max(100),
@@ -104,6 +105,17 @@ export async function POST(req: Request) {
         data: { stripeSessionId: session.id },
       });
     }
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "marketplace_checkout_initiated",
+      properties: {
+        listing_id: listing.id,
+        listing_title: listing.title,
+        price_usd: priceUsd,
+      },
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

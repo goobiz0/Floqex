@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { PLANS, type Plan } from "@/lib/plans";
 import { parseSymbolFilter, type CopySizingMode, type CopyFilterMode } from "@/lib/copy-trading";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 type Result = { ok: boolean; error?: string; warning?: string };
 
@@ -179,6 +180,17 @@ export async function createCopyLink(
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "copy_link_created",
+      properties: {
+        sizing_mode: input.sizingMode,
+        has_symbol_filter: Boolean(input.symbolFilter),
+        reverse: Boolean(input.reverse),
+      },
+    });
+
     revalidatePath("/dashboard/copy-trading");
     return follower.bot
       ? { ok: true }
@@ -225,10 +237,19 @@ export async function toggleCopyLink(id: string): Promise<Result> {
 
     // Either direction clears any stale breaker note: a manual pause is not a
     // breaker trip, and resuming should arm the link fresh.
+    const newStatus = link.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
     await prisma.copyLink.update({
       where: { id },
-      data: { status: link.status === "ACTIVE" ? "PAUSED" : "ACTIVE", pausedReason: null },
+      data: { status: newStatus, pausedReason: null },
     });
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: gate.user.id,
+      event: "copy_link_toggled",
+      properties: { new_status: newStatus },
+    });
+
     revalidatePath("/dashboard/copy-trading");
     return { ok: true };
   } catch (err) {

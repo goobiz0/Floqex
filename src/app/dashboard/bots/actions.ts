@@ -7,6 +7,7 @@ import { parseStrategyParams } from "@/lib/strategy-schema";
 import { parseCustomConfig, parseInstruments } from "@/lib/custom-strategy";
 import { PLANS, type Plan } from "@/lib/plans";
 import type { StrategyKind, Prisma } from "@prisma/client";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function createBot({
   accountId,
@@ -138,6 +139,17 @@ export async function createBot({
       },
     });
 
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "bot_created",
+      properties: {
+        strategy_kind: strategyKind,
+        instrument_count: botInstruments.length,
+        has_account: Boolean(accountId),
+      },
+    });
+
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/bots");
     return { ok: true };
@@ -258,6 +270,13 @@ export async function deleteBot(botId: string) {
 
     await prisma.bot.delete({ where: { id: botId } });
 
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "bot_deleted",
+      properties: { bot_id: botId },
+    });
+
     revalidatePath("/dashboard/bots");
     revalidatePath("/dashboard");
     return { ok: true };
@@ -305,6 +324,17 @@ export async function startForwardTest(botId: string) {
         accountId: bot.account.id,
         targetTrades: 20,
         ...(baselineExpectancy !== undefined ? { baselineExpectancy } : {}),
+      },
+    });
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "forward_test_started",
+      properties: {
+        bot_id: botId,
+        strategy_id: bot.strategyId,
+        has_baseline_expectancy: baselineExpectancy !== undefined,
       },
     });
 

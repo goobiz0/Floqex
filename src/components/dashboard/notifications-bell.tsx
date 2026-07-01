@@ -6,8 +6,9 @@ import { Bell, X, Check, Info, Warning } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { dashboardUrl } from "@/lib/urls";
+import { useRef } from "react";
 import type { NotificationItem } from "@/app/dashboard/notifications-actions";
-import { markAsRead, clearAllNotifications, generateTestAlert } from "@/app/dashboard/notifications-actions";
+import { markAllAsRead, deleteNotification, generateTestAlert } from "@/app/dashboard/notifications-actions";
 
 function relTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -24,6 +25,7 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [optimisticItems, setOptimisticItems] = useState(items);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Sync optimistic state when items prop updates from server
   useEffect(() => {
@@ -37,21 +39,33 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const onClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onClick);
+    };
   }, [open]);
 
-  const handleMarkAsRead = (id: string) => {
-    setOptimisticItems((prev) => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    startTransition(() => {
-      markAsRead(id);
-    });
-  };
+  // Auto mark all as read when opened
+  useEffect(() => {
+    if (open && unreadCount > 0) {
+      setOptimisticItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      startTransition(() => {
+        markAllAsRead();
+      });
+    }
+  }, [open, unreadCount]);
 
-  const handleClearAll = () => {
-    setOptimisticItems([]);
+  const handleDismiss = (id: string) => {
+    setOptimisticItems((prev) => prev.filter((n) => n.id !== id));
     startTransition(() => {
-      clearAllNotifications();
+      deleteNotification(id);
     });
   };
 
@@ -62,7 +76,7 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
   };
 
   return (
-    <div className="relative inline-flex">
+    <div className="relative inline-flex" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -79,12 +93,6 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
       <AnimatePresence>
         {open ? (
           <>
-            {/* Transparent backdrop for click-outside */}
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setOpen(false)}
-            />
-            
             {/* Dropdown Menu */}
             <motion.div
               role="dialog"
@@ -97,12 +105,7 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
             >
               <div className="flex items-center justify-between border-b border-line px-5 py-4 shrink-0 bg-surface/30">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-fg">Alerts & Notifications</h2>
-                  {unreadCount > 0 && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-[var(--color-on-accent)]">
-                      {unreadCount}
-                    </span>
-                  )}
+                  <h2 className="text-[13px] font-semibold text-fg tracking-wide uppercase">Notifications</h2>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
@@ -110,17 +113,8 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
                     disabled={isPending}
                     className="text-[11px] font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                   >
-                    Test
+                    Test Alert
                   </button>
-                  {optimisticItems.length > 0 && (
-                    <button
-                      onClick={handleClearAll}
-                      disabled={isPending}
-                      className="text-[11px] font-medium text-fg-subtle hover:text-fg transition-colors disabled:opacity-50"
-                    >
-                      Clear All
-                    </button>
-                  )}
                 </div>
               </div>
               
@@ -132,10 +126,7 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
                       return (
                         <li 
                           key={n.id} 
-                          className={cn(
-                            "group relative flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface",
-                            !n.isRead ? "bg-accent-soft/5" : "bg-transparent"
-                          )}
+                          className="group relative flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface bg-transparent"
                         >
                           <div className={cn(
                             "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]",
@@ -146,10 +137,7 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <span className={cn(
-                                "text-[13px] font-semibold truncate", 
-                                !n.isRead ? "text-fg" : "text-fg-subtle"
-                              )}>
+                              <span className="text-[13px] font-semibold truncate text-fg-subtle group-hover:text-fg transition-colors">
                                 {n.title}
                               </span>
                               <span className="shrink-0 text-[11px] text-fg-faint">{relTime(n.createdAt)}</span>
@@ -157,26 +145,28 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
                             <p className="mt-0.5 text-[12px] leading-relaxed text-fg-muted">
                               {n.message}
                             </p>
-                            
-                            {!n.isRead && (
-                              <button
-                                onClick={() => handleMarkAsRead(n.id)}
-                                disabled={isPending}
-                                className="mt-2.5 inline-flex items-center gap-1.5 rounded-[var(--radius-control)] bg-surface border border-line px-2 py-1 text-[10px] font-medium text-fg-subtle transition-colors hover:text-fg hover:bg-line disabled:opacity-50"
-                              >
-                                <Check size={12} className="text-accent" /> Mark read
-                              </button>
-                            )}
                           </div>
+
+                          <button
+                            onClick={() => handleDismiss(n.id)}
+                            disabled={isPending}
+                            aria-label="Dismiss notification"
+                            className="absolute right-2 top-2 rounded p-1 text-fg-faint opacity-0 transition-all hover:bg-line hover:text-fg group-hover:opacity-100 disabled:opacity-50"
+                          >
+                            <X size={14} weight="bold" />
+                          </button>
                         </li>
                       );
                     })}
                   </ul>
                 ) : (
-                  <div className="flex h-32 flex-col items-center justify-center px-4 text-center">
-                    <p className="text-sm font-medium text-fg-muted">No alerts</p>
-                    <p className="mt-1 text-xs text-fg-subtle">
-                      You are all caught up.
+                  <div className="flex h-[180px] flex-col items-center justify-center px-4 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface mb-3">
+                      <Bell size={20} weight="light" className="text-fg-faint" />
+                    </div>
+                    <p className="text-[13px] font-medium text-fg-subtle">No new notifications</p>
+                    <p className="mt-1 text-[12px] text-fg-faint">
+                      You're all caught up for now.
                     </p>
                   </div>
                 )}

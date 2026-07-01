@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PricingPlans } from "@/components/marketing/pricing-plans";
+import { PricingPageTracker } from "@/components/marketing/pricing-page-tracker";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6 lg:py-32">
+      <PricingPageTracker />
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-balance text-4xl font-extrabold tracking-tight text-fg sm:text-5xl lg:text-6xl">
           Start free. Go live when you are ready.

@@ -13,6 +13,7 @@ import { isBrokerLive } from "@/lib/brokers";
 import type { Broker, AccountMode, BotStatus } from "@prisma/client";
 import { z } from "zod";
 import { checkActionRateLimit } from "@/lib/ratelimit";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const ConnectAccountSchema = z.object({
   nickname: z.string().min(1).max(50),
@@ -140,6 +141,16 @@ export async function connectAccount(rawInput: {
         currency: "USD",
         isActive: true,
         connection,
+      },
+    });
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "account_connected",
+      properties: {
+        broker,
+        mode,
       },
     });
 

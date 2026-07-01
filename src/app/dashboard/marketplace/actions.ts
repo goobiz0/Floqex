@@ -9,6 +9,7 @@ import type { ListingCategory } from "@/lib/marketplace";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { checkActionRateLimit } from "@/lib/ratelimit";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const UpdateListingStatusSchema = z.object({
   listingId: z.string().max(100),
@@ -29,7 +30,7 @@ export async function createListing(formData: FormData) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user || !canListStrategies(user.plan)) {
     throw new Error("Your current plan does not support listing strategies on the marketplace.");
   }
@@ -60,7 +61,7 @@ export async function createListing(formData: FormData) {
 
   // Verify the strategy belongs to the user and is custom (or we allow preset mods)
   const strategy = await prisma.strategy.findUnique({
-    where: { id: parsed.strategyId, userId },
+    where: { id: parsed.strategyId, userId: user.id },
   });
   if (!strategy) throw new Error("Strategy not found");
 
@@ -70,7 +71,7 @@ export async function createListing(formData: FormData) {
 
   const listing = await prisma.marketplaceListing.create({
     data: {
-      sellerId: userId,
+      sellerId: user.id,
       strategyId: parsed.strategyId,
       title: parsed.title,
       tagline: parsed.tagline || null,
@@ -78,6 +79,17 @@ export async function createListing(formData: FormData) {
       category: parsed.category,
       priceUsd: parsed.priceUsd,
       status: "DRAFT",
+    },
+  });
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: user.id,
+    event: "marketplace_listing_created",
+    properties: {
+      listing_id: listing.id,
+      category: parsed.category,
+      price_usd: parsed.priceUsd,
     },
   });
 
@@ -93,6 +105,9 @@ export async function updateListingDetails(listingId: string, formData: FormData
 
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
+
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) throw new Error("User not found");
 
   const schema = z.object({
     title: z.string().min(5).max(100),
@@ -111,7 +126,7 @@ export async function updateListingDetails(listingId: string, formData: FormData
   });
 
   await prisma.marketplaceListing.update({
-    where: { id: listingId, sellerId: userId },
+    where: { id: listingId, sellerId: user.id },
     data: {
       title: parsed.title,
       tagline: parsed.tagline || null,
@@ -135,8 +150,11 @@ export async function updateListingStatus(listingId: string, status: "DRAFT" | "
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) throw new Error("User not found");
+
   const listing = await prisma.marketplaceListing.findUnique({
-    where: { id: listingId, sellerId: userId },
+    where: { id: listingId, sellerId: user.id },
   });
   if (!listing) throw new Error("Listing not found");
 
@@ -148,6 +166,16 @@ export async function updateListingStatus(listingId: string, status: "DRAFT" | "
   await prisma.marketplaceListing.update({
     where: { id: listingId },
     data: { status },
+  });
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: user.id,
+    event: "marketplace_listing_status_changed",
+    properties: {
+      listing_id: listingId,
+      new_status: status,
+    },
   });
 
   revalidatePath("/dashboard/marketplace");
@@ -165,7 +193,7 @@ export async function buyStrategy(listingId: string) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) throw new Error("User not found");
 
   const listing = await prisma.marketplaceListing.findUnique({
@@ -173,11 +201,11 @@ export async function buyStrategy(listingId: string) {
   });
   
   if (!listing) throw new Error("Listing not available");
-  if (listing.sellerId === userId) throw new Error("You cannot buy your own strategy");
+  if (listing.sellerId === user.id) throw new Error("You cannot buy your own strategy");
 
   // Check if already purchased
   const existing = await prisma.marketplacePurchase.findFirst({
-    where: { buyerId: userId, listingId, status: "COMPLETED" },
+    where: { buyerId: user.id, listingId, status: "COMPLETED" },
   });
   if (existing) throw new Error("You already own this strategy");
 
@@ -186,7 +214,7 @@ export async function buyStrategy(listingId: string) {
   // Create pending purchase
   const purchase = await prisma.marketplacePurchase.create({
     data: {
-      buyerId: userId,
+      buyerId: user.id,
       listingId,
       priceUsd: listing.priceUsd,
       platformFeeUsd,
@@ -217,7 +245,7 @@ export async function buyStrategy(listingId: string) {
     metadata: {
       type: "marketplace_purchase",
       purchaseId: purchase.id,
-      buyerId: userId,
+      buyerId: user.id,
       listingId: listing.id,
     },
     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/marketplace/${listing.id}?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -242,7 +270,7 @@ export async function requestWithdrawal(amountUsd: number, payoutEmail: string) 
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) throw new Error("User not found");
 
   if (amountUsd < 50) {
@@ -256,21 +284,28 @@ export async function requestWithdrawal(amountUsd: number, payoutEmail: string) 
   // Deduct balance and create request in a transaction
   await prisma.$transaction([
     prisma.user.update({
-      where: { id: userId },
-      data: { 
+      where: { id: user.id },
+      data: {
         sellerBalance: { decrement: amountUsd },
         payoutEmail // Save for future use
       },
     }),
     prisma.withdrawalRequest.create({
       data: {
-        userId,
+        userId: user.id,
         amountUsd,
         payoutEmail,
         status: "PENDING",
       },
     }),
   ]);
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: user.id,
+    event: "withdrawal_requested",
+    properties: { amount_usd: amountUsd },
+  });
 
   revalidatePath("/dashboard/marketplace/seller");
 }
