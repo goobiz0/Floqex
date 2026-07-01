@@ -40,13 +40,41 @@ describe("optimizeStrategy", () => {
       expect(r.params.rrTarget).toBeGreaterThanOrEqual(1);
       expect(r.params.rrTarget).toBeLessThanOrEqual(5);
       expect(r.params.stopLossPct).toBeGreaterThan(0);
-      expect(r.params.stopLossPct).toBeLessThanOrEqual(2);
+      expect(r.params.stopLossPct).toBeLessThanOrEqual(3);
+      expect(["LONG", "SHORT", "BOTH"]).toContain(r.params.direction);
     }
   });
 
   it("drawdown objective prefers lower drawdown", () => {
     const rows = optimizeStrategy(bars, { riskPct: 1 }, "drawdown", 3);
     expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("reports the advanced metrics and a bounded quality score", () => {
+    const rows = optimizeStrategy(bars, { riskPct: 1 }, "quality", 5);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) {
+      expect(Number.isFinite(r.expectancy)).toBe(true);
+      expect(Number.isFinite(r.consistency)).toBe(true);
+      expect(r.score).toBeGreaterThanOrEqual(0);
+      expect(r.score).toBeLessThanOrEqual(100);
+      expect(r.trades).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  it("ranks by quality score descending for the quality objective", () => {
+    const rows = optimizeStrategy(bars, { riskPct: 1 }, "quality", 6);
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i - 1].score).toBeGreaterThanOrEqual(rows[i].score);
+    }
+  });
+
+  it("explores both directional biases across the grid", () => {
+    // A symmetric-ish series should surface more than one direction somewhere in
+    // the full ranking, proving the sweep is not hard-wired to one side.
+    const rows = optimizeStrategy(bars, { riskPct: 1 }, "return", 50);
+    const directions = new Set(rows.map((r) => r.params.direction));
+    expect(directions.size).toBeGreaterThan(1);
   });
 });
 

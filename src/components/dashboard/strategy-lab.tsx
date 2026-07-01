@@ -65,6 +65,7 @@ export function StrategyLab({
   accountId = null,
   strategyId = null,
   kind = "ORB",
+  botInstruments = [],
 }: {
   initialParams: StrategyParams;
   changeLog: AdjustmentRow[];
@@ -74,6 +75,7 @@ export function StrategyLab({
   accountId?: string | null;
   strategyId?: string | null;
   kind?: string;
+  botInstruments?: string[];
 }) {
   const [params, setParams] = useState<StrategyParams>(initialParams);
   const [saved, setSaved] = useState<StrategyParams>(initialParams);
@@ -90,10 +92,17 @@ export function StrategyLab({
 
   const reduce = useReducedMotion();
 
-  // Backtest the strategy over real historical bars for its instrument. The bars
-  // are fetched once; the simulation re-runs instantly as parameters change, so
-  // the sandbox reflects the actual breakout logic instead of a fabricated curve.
-  const instrument = typeof params.instrument === "string" && params.instrument ? params.instrument : "NQ";
+  // The sandbox previews the strategy over real historical bars. A strategy is
+  // asset-agnostic now (the assets live on the bot), so the preview symbol is a
+  // separate choice: default to what the attached bot trades, then any legacy
+  // instrument on the params, then NQ. Changing it only affects the preview.
+  const previewChoices = useMemo(() => {
+    const legacy = typeof params.instrument === "string" && params.instrument ? [params.instrument] : [];
+    const merged = [...botInstruments, ...legacy, "NQ", "ES", "SPY", "AAPL", "BTC"].map((s) => s.toUpperCase());
+    return Array.from(new Set(merged));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- botInstruments/params.instrument are effectively static per mount
+  }, []);
+  const [instrument, setInstrument] = useState<string>(previewChoices[0] ?? "NQ");
   const [bars, setBars] = useState<Bar[] | null>(null);
   const [barsError, setBarsError] = useState<string | null>(null);
 
@@ -153,8 +162,10 @@ export function StrategyLab({
     return monteCarlo(backtest.tradeReturns, typeof params.riskPct === "number" ? params.riskPct : 1);
   }, [backtest, params.riskPct]);
 
-  // Optimization sweep over a bounded grid of the loaded bars.
-  const [objective, setObjective] = useState<Objective>("return");
+  // Optimization sweep over a bounded grid of the loaded bars. Defaults to the
+  // composite quality score so the top result is the most robust edge, not just
+  // the biggest (over-fit) return.
+  const [objective, setObjective] = useState<Objective>("quality");
   const [sweep, setSweep] = useState<SweepRow[] | null>(null);
   const [sweeping, setSweeping] = useState(false);
   // Monotonic id so a queued sweep that finishes after its inputs changed is
@@ -162,12 +173,13 @@ export function StrategyLab({
   const sweepRunId = useRef(0);
 
   // Stale results are misleading: clear the ranking whenever an input that feeds
-  // the sweep changes (bars, objective, direction, or risk per trade).
+  // the sweep changes (bars, objective, or risk per trade). The sweep now
+  // explores every directional bias itself, so direction no longer invalidates it.
   useEffect(() => {
     sweepRunId.current += 1;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- invalidate stale sweep on input change
     setSweep(null);
-  }, [bars, objective, params.direction, params.riskPct]);
+  }, [bars, objective, params.riskPct]);
 
   function runOptimization() {
     if (!bars || bars.length < 5) return;
@@ -175,8 +187,6 @@ export function StrategyLab({
     const sweepBars = bars;
     const sweepObjective = objective;
     const sweepRiskPct = typeof params.riskPct === "number" ? params.riskPct : 1;
-    const sweepDirection: "LONG" | "SHORT" | "BOTH" =
-      params.direction === "SHORT" ? "SHORT" : params.direction === "LONG" ? "LONG" : "BOTH";
     setSweeping(true);
     // Defer so the button shows its pending state before the synchronous sweep.
     setTimeout(() => {
@@ -185,7 +195,7 @@ export function StrategyLab({
         setSweeping(false);
         return;
       }
-      const rows = optimizeStrategy(sweepBars, { riskPct: sweepRiskPct, direction: sweepDirection }, sweepObjective);
+      const rows = optimizeStrategy(sweepBars, { riskPct: sweepRiskPct }, sweepObjective);
       setSweeping(false);
       setSweep(rows);
     }, 0);
@@ -193,12 +203,17 @@ export function StrategyLab({
 
   function applySweep(row: SweepRow) {
     // Apply the swept edge params into the lab; the user reviews then Saves, where
-    // parseStrategyParams re-enforces every bound (no ceiling bypass).
+    // parseStrategyParams re-enforces every bound (no ceiling bypass). rrTarget
+    // and targetRatio are kept in lock-step so the setting lands whether this is
+    // an ORB (rrTarget) or a custom (targetRatio) strategy, and the direction is
+    // applied too now that the engine trades whichever side you choose.
     setParams((p) => ({
       ...p,
       rrTarget: row.params.rrTarget,
+      targetRatio: row.params.rrTarget,
       trendFilter: row.params.trendFilter,
       stopLossPct: row.params.stopLossPct,
+      direction: row.params.direction,
     }));
   }
 
@@ -429,14 +444,30 @@ export function StrategyLab({
       {/* Side: change log + learning */}
       <div className="space-y-4">
         <Card className="p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <CardTitle>Sandbox backtest</CardTitle>
-            <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
-              {instrument} · 180d
-            </span>
+            <div className="flex items-center gap-1.5">
+              <label className="sr-only" htmlFor="preview-symbol">Preview symbol</label>
+              <select
+                id="preview-symbol"
+                value={instrument}
+                onChange={(e) => setInstrument(e.target.value)}
+                className="h-6 rounded-[var(--radius-pill)] border border-line bg-surface px-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle focus:border-accent focus:outline-none"
+                aria-label="Preview symbol"
+              >
+                {previewChoices.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <span className="rounded-[var(--radius-pill)] border border-line bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+                180d
+              </span>
+            </div>
           </div>
           <p className="mt-1 text-xs text-fg-subtle">
-            Your rules run over real historical bars. An estimate, not a guarantee.
+            {botInstruments.length > 0
+              ? "Preview the tuning against an asset this bot trades. An estimate, not a guarantee."
+              : "Preview the tuning against a sample asset. Assets are chosen on the bot. An estimate, not a guarantee."}
           </p>
           <div className="mt-4">
             {barsError ? (
@@ -557,7 +588,8 @@ export function StrategyLab({
             </span>
           </div>
           <p className="mt-1 text-xs text-fg-subtle">
-            Backtests a grid of reward, stop, and trend-filter combinations over the same bars, then ranks them.
+            Backtests a grid of reward, stop, trend-filter and direction combinations over the same bars, scores each on
+            expectancy, consistency and drawdown, then ranks them.
           </p>
           <div className="mt-4 flex items-center gap-2">
             <select
@@ -566,9 +598,11 @@ export function StrategyLab({
               onChange={(e) => setObjective(e.target.value as Objective)}
               aria-label="Optimization objective"
             >
-              <option value="balanced">Balanced (robust)</option>
+              <option value="quality">Best overall (quality score)</option>
+              <option value="expectancy">Maximise expectancy (R/trade)</option>
               <option value="return">Maximise return</option>
               <option value="profitFactor">Maximise profit factor</option>
+              <option value="consistency">Maximise consistency</option>
               <option value="winRate">Maximise win rate</option>
               <option value="drawdown">Minimise drawdown</option>
             </select>
@@ -578,45 +612,19 @@ export function StrategyLab({
             </Button>
           </div>
 
+          {!bars && !barsError && (
+            <p className="mt-4 text-xs text-fg-subtle">Loading history for {instrument}…</p>
+          )}
+          {barsError && <p className="mt-4 text-sm text-fg-subtle">{barsError}</p>}
+
           {sweep && (
             sweep.length === 0 ? (
-              <p className="mt-4 text-sm text-fg-subtle">No combination produced enough trades to rank on this instrument.</p>
+              <p className="mt-4 text-sm text-fg-subtle">No combination produced enough trades to rank on {instrument}. Try a different preview symbol.</p>
             ) : (
-              <div className="mt-4 overflow-hidden rounded-[var(--radius-control)] border border-line">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-line bg-surface text-fg-subtle">
-                      <th className="px-2 py-1.5 text-left font-medium">R:R</th>
-                      <th className="px-2 py-1.5 text-left font-medium">Stop</th>
-                      <th className="px-2 py-1.5 text-left font-medium">Trend</th>
-                      <th className="px-2 py-1.5 text-right font-medium">Return</th>
-                      <th className="px-2 py-1.5 text-right font-medium">DD</th>
-                      <th className="px-2 py-1.5 text-right font-medium">Stab</th>
-                      <th className="px-2 py-1.5" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sweep.map((row, i) => (
-                      <tr key={i} className="border-b border-line/50 last:border-0">
-                        <td className="tnum px-2 py-1.5">{row.params.rrTarget}R</td>
-                        <td className="tnum px-2 py-1.5">{row.params.stopLossPct}%</td>
-                        <td className="px-2 py-1.5">{row.params.trendFilter ? "On" : "Off"}</td>
-                        <td className={cn("tnum px-2 py-1.5 text-right font-medium", row.totalReturnPct >= 0 ? "text-profit" : "text-negative")}>
-                          {row.totalReturnPct >= 0 ? "+" : ""}{row.totalReturnPct.toFixed(0)}%
-                        </td>
-                        <td className="tnum px-2 py-1.5 text-right text-negative">-{row.maxDrawdownPct.toFixed(0)}%</td>
-                        <td className="tnum px-2 py-1.5 text-right text-fg-subtle" title="Robustness to small parameter changes (higher is steadier)">
-                          {Math.round(row.stabilityScore * 100)}%
-                        </td>
-                        <td className="px-2 py-1.5 text-right">
-                          <button onClick={() => applySweep(row)} className="rounded-[var(--radius-pill)] bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-[var(--color-on-accent)]">
-                            Apply
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mt-4 space-y-2.5">
+                {sweep.map((row, i) => (
+                  <SweepResult key={i} row={row} recommended={i === 0} onApply={() => applySweep(row)} />
+                ))}
               </div>
             )
           )}
@@ -866,6 +874,98 @@ function NumberField({
         {bound.help} <span className="text-fg-faint">Range {bound.min} to {bound.max}{bound.suffix ?? ""}.</span>
       </p>
     </div>
+  );
+}
+
+const DIRECTION_LABEL: Record<SweepRow["params"]["direction"], string> = {
+  BOTH: "Long & short",
+  LONG: "Long only",
+  SHORT: "Short only",
+};
+
+function scoreTone(score: number): string {
+  if (score >= 66) return "text-profit";
+  if (score >= 40) return "text-warning";
+  return "text-negative";
+}
+
+/** One ranked settings candidate from the optimizer, shown with its full metric
+ *  set so the trade-offs are visible before applying. */
+function SweepResult({
+  row,
+  recommended,
+  onApply,
+}: {
+  row: SweepRow;
+  recommended?: boolean;
+  onApply: () => void;
+}) {
+  const stats: { k: string; v: string; tone?: string }[] = [
+    {
+      k: "Return",
+      v: `${row.totalReturnPct >= 0 ? "+" : ""}${row.totalReturnPct.toFixed(0)}%`,
+      tone: row.totalReturnPct >= 0 ? "text-profit" : "text-negative",
+    },
+    { k: "Win", v: `${row.winRate.toFixed(0)}%` },
+    { k: "Expectancy", v: `${row.expectancy >= 0 ? "+" : ""}${row.expectancy.toFixed(2)}R`, tone: row.expectancy >= 0 ? "text-profit" : "text-negative" },
+    { k: "Profit factor", v: row.profitFactor != null ? row.profitFactor.toFixed(2) : "∞" },
+    { k: "Max DD", v: `-${row.maxDrawdownPct.toFixed(0)}%`, tone: "text-negative" },
+    { k: "Trades", v: String(row.trades) },
+  ];
+
+  return (
+    <div
+      className={cn(
+        "rounded-[var(--radius-control)] border p-3 transition-colors",
+        recommended ? "border-accent/40 bg-accent/5" : "border-line bg-surface/50",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          {recommended && (
+            <span className="mb-1.5 inline-flex items-center gap-1 rounded-[var(--radius-pill)] bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+              <Star size={9} weight="fill" /> Recommended
+            </span>
+          )}
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <SweepChip label={DIRECTION_LABEL[row.params.direction]} />
+            <SweepChip label={`${row.params.rrTarget}R target`} />
+            <SweepChip label={`${row.params.stopLossPct}% stop`} />
+            <SweepChip label={`Trend ${row.params.trendFilter ? "on" : "off"}`} />
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className={cn("tnum text-lg font-bold leading-none", scoreTone(row.score))}>{row.score}</p>
+          <p className="text-[9px] font-medium uppercase tracking-wider text-fg-faint">Score</p>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-3 gap-1.5">
+        {stats.map((s) => (
+          <div key={s.k} className="rounded-[6px] border border-line/60 bg-base/40 px-2 py-1 text-center">
+            <dt className="text-[9px] font-medium uppercase tracking-wider text-fg-subtle">{s.k}</dt>
+            <dd className={cn("tnum mt-0.5 text-xs font-semibold", s.tone ?? "text-fg")}>{s.v}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-3 flex justify-end">
+        <button
+          onClick={onApply}
+          className="rounded-[var(--radius-pill)] bg-accent/10 px-3 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-[var(--color-on-accent)]"
+        >
+          Apply these settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SweepChip({ label }: { label: string }) {
+  return (
+    <span className="tnum rounded-[var(--radius-pill)] border border-line bg-base px-2 py-0.5 font-medium text-fg-muted">
+      {label}
+    </span>
   );
 }
 

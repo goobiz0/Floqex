@@ -1,6 +1,6 @@
 import { MarketData } from './market-data';
 import type { Trade } from '@prisma/client';
-import { evaluateBuilder, type ConditionGroup } from '../custom-strategy';
+import { evaluateBuilder, parseDirection, type ConditionGroup } from '../custom-strategy';
 import { runTranspiled } from './transpile';
 import type { IndicatorContext } from './indicators';
 
@@ -85,11 +85,17 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
 
   const { price, dayHigh, dayLow, sma50 } = marketData;
   const range = dayHigh - dayLow;
-  
+
   const trendFilterEnabled = params && params.trendFilter === true;
   const isUptrend = sma50 ? price > sma50 : true;
   const isDowntrend = sma50 ? price < sma50 : true;
-  
+
+  // A breakout can fire either way. By default the strategy takes both the upside
+  // and downside break; a user who wants a one-sided book can restrict it.
+  const dir = parseDirection(params?.direction);
+  const allowLong = dir !== "SHORT";
+  const allowShort = dir !== "LONG";
+
   // Real Opening Range Breakout logic:
   // Using real data, if the price pushes very close to or above the day's high, it's a LONG signal.
   const isHighBreakout = price >= dayHigh - (range * 0.05); // within top 5% of day's range
@@ -109,10 +115,7 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
   const targetRatio = params && params.rrTarget != null ? Number(params.rrTarget) : 2.0;
   const stopLossPct = params && params.stopLossPct != null ? Number(params.stopLossPct) : 0.5;
 
-  const ctx = contextFromMarketData(marketData);
-
-  if (isHighBreakout && (!trendFilterEnabled || isUptrend)) {
-    if (!allowSignal(guard, 'LONG')) return null;
+  if (allowLong && isHighBreakout && (!trendFilterEnabled || isUptrend)) {
     const stopPrice = price * (1 - stopLossPct / 100);
     const riskAmt = price - stopPrice;
     return {
@@ -124,8 +127,7 @@ export function evaluateOrbStrategy(params: Record<string, unknown>, marketData:
     };
   }
 
-  if (isLowBreakout && (!trendFilterEnabled || isDowntrend)) {
-    if (!allowSignal(guard, 'SHORT')) return null;
+  if (allowShort && isLowBreakout && (!trendFilterEnabled || isDowntrend)) {
     const stopPrice = price * (1 + stopLossPct / 100);
     const riskAmt = stopPrice - price;
     return {
@@ -214,12 +216,13 @@ export function evaluateCustomStrategy(params: Record<string, unknown>, marketDa
   if (!params) return null;
 
   const ctx = contextFromMarketData(marketData);
-  const direction = params.direction === 'SHORT' ? 'SHORT' : 'LONG';
+  const dir = parseDirection(params.direction);
   const stopLossPct = Number(params.stopLossPct) || 0.5;
   const targetRatio = Number(params.targetRatio) || 2.0;
 
   // Code mode: run the user's strategy via the transpiler (supports JS, Python,
-  // Pine Script, and TradingView).
+  // Pine Script, and TradingView). The code fully decides the side (its return
+  // value is LONG or SHORT), so we never second-guess it with a direction filter.
   if (params.mode === 'CODE') {
     const code = typeof params.code === 'string' ? params.code : '';
     if (!code.trim()) return null;
@@ -236,16 +239,29 @@ export function evaluateCustomStrategy(params: Record<string, unknown>, marketDa
     );
   }
 
-  // Rule-builder groups (AND across groups, ALL/ANY within).
+  // Rule-builder groups (AND across groups, ALL/ANY within). A strategy set to
+  // trade BOTH keeps a separate short ruleset; long conditions win if both fire
+  // on the same tick.
   if (Array.isArray(params.groups)) {
-    if (!evaluateBuilder(params.groups as ConditionGroup[], ctx)) return null;
-    return buildSignal(direction, marketData.price, stopLossPct, targetRatio, ctx, guard);
+    const longGroups = params.groups as ConditionGroup[];
+    if (dir === 'BOTH') {
+      if (evaluateBuilder(longGroups, ctx)) {
+        return buildSignal('LONG', marketData.price, stopLossPct, targetRatio);
+      }
+      const shortGroups = Array.isArray(params.shortGroups) ? (params.shortGroups as ConditionGroup[]) : [];
+      if (shortGroups.length && evaluateBuilder(shortGroups, ctx)) {
+        return buildSignal('SHORT', marketData.price, stopLossPct, targetRatio);
+      }
+      return null;
+    }
+    if (!evaluateBuilder(longGroups, ctx)) return null;
+    return buildSignal(dir === 'SHORT' ? 'SHORT' : 'LONG', marketData.price, stopLossPct, targetRatio);
   }
 
-  // Legacy flat conditions.
+  // Legacy flat conditions (single-direction by design).
   if (Array.isArray(params.conditions)) {
     if (!evaluateLegacyConditions(params, marketData)) return null;
-    return buildSignal(direction, marketData.price, stopLossPct, targetRatio, ctx, guard);
+    return buildSignal(dir === 'SHORT' ? 'SHORT' : 'LONG', marketData.price, stopLossPct, targetRatio);
   }
 
   return null;

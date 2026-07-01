@@ -78,11 +78,12 @@ export default async function StrategyPage(props: { searchParams: Promise<{ acco
               accountId={data.accountId}
               strategyId={data.strategyId}
               kind={data.kind}
+              botInstruments={data.botInstruments}
             />
             <div className="pt-2">
               <ValidationLab
                 strategyId={data.strategyId}
-                instrument={typeof data.params.instrument === "string" && data.params.instrument ? data.params.instrument : "NQ"}
+                instrument={data.botInstruments[0] ?? (typeof data.params.instrument === "string" && data.params.instrument ? data.params.instrument : "NQ")}
                 defaults={{
                   riskPct: typeof data.params.riskPct === "number" ? data.params.riskPct : 1,
                   rrTarget: typeof data.params.rrTarget === "number" ? data.params.rrTarget : 2,

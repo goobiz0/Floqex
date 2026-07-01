@@ -403,15 +403,12 @@ export async function createStrategyAdvanced(input: {
   let params: Record<string, unknown> = { ...risk.params };
 
   if (kind === "CUSTOM") {
-    // Validate the entry logic (builder groups or live code) and instruments.
+    // Validate the entry logic (builder groups or live code). Assets are chosen
+    // on the bot when the strategy is deployed, so the strategy itself stays
+    // asset-agnostic and carries no instrument.
     const custom = parseCustomConfig(input.params ?? {});
     if (!custom.ok) return { ok: false, error: custom.error };
-    params = {
-      ...risk.params,
-      instruments: custom.instruments,
-      instrument: custom.instruments[0],
-      ...custom.config,
-    };
+    params = { ...risk.params, ...custom.config };
   }
 
   const user = await prisma.user.findUnique({
@@ -577,11 +574,32 @@ export async function deleteStrategy(strategyId: string) {
 
   if (!strategy) return { ok: false, error: "Strategy not found" };
 
-  // Delete bots first since there is no cascade from Strategy -> Bot
-  await prisma.$transaction([
-    prisma.bot.deleteMany({ where: { strategyId } }),
-    prisma.strategy.delete({ where: { id: strategyId } }),
-  ]);
+  // Delete everything that references this strategy (and its bots) explicitly and
+  // in dependency order. Relying on the database's ON DELETE cascades is fragile
+  // here — an environment whose foreign keys were created without the cascade (or
+  // a bot that has agent events / trades) makes a bare `bot.deleteMany` throw,
+  // which surfaced as a delete button that "does nothing". Deleting the children
+  // ourselves inside one transaction removes that dependency, and the try/catch
+  // turns any residual failure into a proper error the UI can roll back on.
+  try {
+    const bots = await prisma.bot.findMany({ where: { strategyId }, select: { id: true } });
+    const botIds = bots.map((b) => b.id);
+
+    await prisma.$transaction([
+      // Children of the bots first.
+      prisma.agentEvent.deleteMany({ where: { botId: { in: botIds } } }),
+      prisma.trade.deleteMany({ where: { botId: { in: botIds } } }),
+      prisma.botAdjustment.deleteMany({ where: { botId: { in: botIds } } }),
+      // Then everything that points straight at the strategy.
+      prisma.botAdjustment.deleteMany({ where: { strategyId } }),
+      prisma.forwardTest.deleteMany({ where: { strategyId } }),
+      prisma.bot.deleteMany({ where: { strategyId } }),
+      prisma.strategy.delete({ where: { id: strategyId } }),
+    ]);
+  } catch (e) {
+    console.error("deleteStrategy error:", e);
+    return { ok: false, error: "Could not delete the strategy. Please try again." };
+  }
 
   revalidatePath("/dashboard/strategy");
   return { ok: true };
