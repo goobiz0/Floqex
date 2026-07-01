@@ -89,80 +89,82 @@ export function BotAssetsEditor({ botId, instruments }: { botId: string; instrum
         <p className="text-xs text-fg-subtle italic">No assets set. Click Edit to choose what this bot trades.</p>
       )}
 
-      <AnimatePresence>
-        {open && mounted &&
-          createPortal(
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="absolute inset-0 bg-base/80 backdrop-blur-sm"
-                onClick={() => !pending && setOpen(false)}
-              />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 10 }}
-                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                className="relative z-10 mx-4 w-full max-w-lg overflow-visible rounded-[var(--radius-card)] border border-line bg-elevated shadow-[var(--shadow-xl)]"
-              >
-                <div className="flex items-start justify-between border-b border-line p-5">
-                  <div>
-                    <h2 className="text-base font-semibold text-fg">Edit traded assets</h2>
-                    <p className="mt-1 text-sm text-fg-subtle">
-                      Choose which markets this bot trades. Each asset is managed independently under your risk limits.
-                    </p>
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 bg-base/80 backdrop-blur-sm"
+                  onClick={() => !pending && setOpen(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                  className="relative z-10 mx-4 w-full max-w-lg overflow-visible rounded-[var(--radius-card)] border border-line bg-elevated shadow-[var(--shadow-xl)]"
+                >
+                  <div className="flex items-start justify-between border-b border-line p-5">
+                    <div>
+                      <h2 className="text-base font-semibold text-fg">Edit traded assets</h2>
+                      <p className="mt-1 text-sm text-fg-subtle">
+                        Choose which markets this bot trades. Each asset is managed independently under your risk limits.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => !pending && setOpen(false)}
+                      className="text-fg-subtle transition-colors hover:text-fg"
+                      aria-label="Close"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => !pending && setOpen(false)}
-                    className="text-fg-subtle transition-colors hover:text-fg"
-                    aria-label="Close"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
 
-                <div className="p-5">
-                  <AssetMultiSelect value={draft} onChange={setDraft} />
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-fg-subtle">Quick add:</span>
-                    {QUICK_SYMBOLS.map((s) => {
-                      const active = draft.includes(s);
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setDraft((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
-                          className={
-                            "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors " +
-                            (active
-                              ? "border-accent/40 bg-accent-soft text-accent"
-                              : "border-line bg-surface text-fg-subtle hover:bg-surface-hover hover:text-fg")
-                          }
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
+                  <div className="p-5">
+                    <AssetMultiSelect value={draft} onChange={setDraft} />
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-fg-subtle">Quick add:</span>
+                      {QUICK_SYMBOLS.map((s) => {
+                        const active = draft.includes(s);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setDraft((cur) => (active ? cur.filter((x) => x !== s) : [...cur, s]))}
+                            className={
+                              "rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-medium transition-colors " +
+                              (active
+                                ? "border-accent/40 bg-accent-soft text-accent"
+                                : "border-line bg-surface text-fg-subtle hover:bg-surface-hover hover:text-fg")
+                            }
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {error && <p className="mt-3 text-sm text-negative">{error}</p>}
                   </div>
-                  {error && <p className="mt-3 text-sm text-negative">{error}</p>}
-                </div>
 
-                <div className="flex justify-end gap-2 border-t border-line p-5">
-                  <Button variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={pending}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={save} disabled={pending}>
-                    {pending ? "Saving…" : "Save assets"}
-                  </Button>
-                </div>
-              </motion.div>
-            </div>,
-            document.body,
-          )}
-      </AnimatePresence>
+                  <div className="flex justify-end gap-2 border-t border-line p-5">
+                    <Button variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={pending}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={save} disabled={pending}>
+                      {pending ? "Saving…" : "Save assets"}
+                    </Button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
     </div>
   );
 }
