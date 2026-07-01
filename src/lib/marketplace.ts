@@ -26,11 +26,12 @@ export function canListStrategies(plan: Plan): boolean {
 
 /** Compute the platform fee and seller earnings for a given listing price. */
 export function computeMarketplaceSplits(priceUsd: number) {
-  const fee = priceUsd * MARKETPLACE_PLATFORM_FEE_PCT;
-  const earning = priceUsd - fee;
+  const totalCents = Math.round(priceUsd * 100);
+  const platformFeeCents = Math.round(totalCents * MARKETPLACE_PLATFORM_FEE_PCT);
+  const sellerEarningCents = totalCents - platformFeeCents;
+
   return {
-    // Round to 2 decimals, avoiding float math artifacts
-    platformFeeUsd: Math.round(fee * 100) / 100,
-    sellerEarningUsd: Math.round(earning * 100) / 100,
+    platformFeeUsd: platformFeeCents / 100,
+    sellerEarningUsd: sellerEarningCents / 100,
   };
 }
