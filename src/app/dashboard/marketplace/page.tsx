@@ -5,9 +5,25 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Storefront, User, Star } from "@phosphor-icons/react/dist/ssr";
 
-export default async function MarketplacePage() {
+import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
+
+export default async function MarketplacePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+  const category = searchParams.category as string;
+  const sort = searchParams.sort as string;
+
+  const whereClause: any = { status: "ACTIVE" };
+  if (category && category !== "all") {
+    whereClause.category = category;
+  }
+
+  let orderByClause: any = { createdAt: "desc" };
+  if (sort === "price_asc") orderByClause = { priceUsd: "asc" };
+  if (sort === "price_desc") orderByClause = { priceUsd: "desc" };
+  if (sort === "rating") orderByClause = { avgRating: "desc" };
+  if (sort === "popular") orderByClause = { salesCount: "desc" };
+
   const listings = await prisma.marketplaceListing.findMany({
-    where: { status: "ACTIVE" },
+    where: whereClause,
     include: {
       strategy: {
         select: { name: true, params: true }
@@ -16,17 +32,35 @@ export default async function MarketplacePage() {
         select: { firstName: true, lastName: true }
       }
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: orderByClause
   });
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-medium tracking-tight">Marketplace</h1>
-        <p className="text-muted-foreground text-lg">
-          Discover and purchase proven, battle-tested strategies from top algorithmic traders.
-        </p>
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-medium tracking-tight">Marketplace</h1>
+          <p className="text-muted-foreground text-lg">
+            Discover and purchase proven, battle-tested strategies from top algorithmic traders.
+          </p>
+        </div>
+        <div className="shrink-0 flex items-center gap-3">
+          <Link 
+            href="/dashboard/marketplace/purchases"
+            className="inline-flex items-center justify-center rounded-[var(--radius-button)] bg-surface border border-line px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-elevated"
+          >
+            My Purchases
+          </Link>
+          <Link 
+            href="/dashboard/marketplace/seller"
+            className="inline-flex items-center justify-center rounded-[var(--radius-button)] bg-fg px-4 py-2 text-sm font-medium text-bg transition-transform hover:scale-[0.98] active:scale-95"
+          >
+            Become a Seller
+          </Link>
+        </div>
       </header>
+
+      <MarketplaceFilters />
 
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {listings.map((listing) => (

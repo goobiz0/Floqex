@@ -20,6 +20,19 @@ export default async function SellerDashboard() {
     orderBy: { createdAt: "desc" },
   });
 
+  const recentSales = await prisma.marketplacePurchase.findMany({
+    where: { 
+      status: "COMPLETED",
+      listing: { sellerId: user.id }
+    },
+    include: {
+      listing: { select: { title: true } },
+      buyer: { select: { firstName: true, lastName: true } }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 5
+  });
+
   const totalSalesCount = listings.reduce((acc, l) => acc + l.salesCount, 0);
 
   return (
@@ -95,6 +108,52 @@ export default async function SellerDashboard() {
                 </Button>
               </Card>
             ))}
+          </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4 mt-8">
+        <h2 className="text-xl font-medium tracking-tight">Recent Sales</h2>
+        {recentSales.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 rounded-[var(--radius-card)] bg-surface border border-line/50 gap-2">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-elevated border border-line mb-2">
+              <span className="text-fg-muted font-mono text-lg">$</span>
+            </div>
+            <h3 className="text-lg font-medium tracking-tight text-fg">No sales yet</h3>
+            <p className="text-fg-subtle max-w-sm text-center">
+              Keep building and promoting your edges! Your recent transactions will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-[var(--radius-card)] border border-line overflow-hidden">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-surface text-fg-muted uppercase text-xs tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Strategy</th>
+                  <th className="px-4 py-3 font-medium">Buyer</th>
+                  <th className="px-4 py-3 font-medium text-right">Net Earnings</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line bg-elevated">
+                {recentSales.map(sale => (
+                  <tr key={sale.id} className="hover:bg-surface/50 transition-colors">
+                    <td className="px-4 py-3 text-fg-subtle">
+                      {new Date(sale.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-fg">
+                      {sale.listing.title}
+                    </td>
+                    <td className="px-4 py-3 text-fg-subtle">
+                      {sale.buyer.firstName || "Anonymous"} {sale.buyer.lastName || ""}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-medium text-emerald-500">
+                      +${Number(sale.sellerEarningUsd).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
