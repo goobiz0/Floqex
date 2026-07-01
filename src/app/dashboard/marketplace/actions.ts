@@ -69,6 +69,41 @@ export async function createListing(formData: FormData) {
   redirect(`/dashboard/marketplace/seller/${listing.id}/edit`);
 }
 
+export async function updateListingDetails(listingId: string, formData: FormData) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const schema = z.object({
+    title: z.string().min(5).max(100),
+    tagline: z.string().max(200).optional(),
+    description: z.string().min(20).max(5000),
+    category: z.enum(["Breakout", "Reversion", "Momentum", "Trend", "Volatility", "Scalp"]),
+    priceUsd: z.coerce.number().min(0).max(999),
+  });
+
+  const parsed = schema.parse({
+    title: formData.get("title"),
+    tagline: formData.get("tagline"),
+    description: formData.get("description"),
+    category: formData.get("category"),
+    priceUsd: formData.get("priceUsd"),
+  });
+
+  await prisma.marketplaceListing.update({
+    where: { id: listingId, sellerId: userId },
+    data: {
+      title: parsed.title,
+      tagline: parsed.tagline || null,
+      description: parsed.description,
+      category: parsed.category,
+      priceUsd: parsed.priceUsd,
+    }
+  });
+
+  revalidatePath(`/dashboard/marketplace/seller/${listingId}/edit`);
+  revalidatePath(`/marketplace/${listingId}`);
+}
+
 export async function updateListingStatus(listingId: string, status: "DRAFT" | "ACTIVE" | "PAUSED") {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
@@ -89,7 +124,7 @@ export async function updateListingStatus(listingId: string, status: "DRAFT" | "
   });
 
   revalidatePath("/dashboard/marketplace");
-  revalidatePath(`/dashboard/marketplace/${listingId}`);
+  revalidatePath(`/marketplace/${listingId}`);
   revalidatePath("/dashboard/marketplace/seller");
 }
 
@@ -201,52 +236,4 @@ export async function requestWithdrawal(amountUsd: number, payoutEmail: string) 
   revalidatePath("/dashboard/marketplace/seller");
 }
 
-export async function submitReview(listingId: string, rating: number, title?: string, body?: string) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
 
-  // Verify they purchased it
-  const purchase = await prisma.marketplacePurchase.findFirst({
-    where: { buyerId: userId, listingId, status: "COMPLETED" },
-  });
-  
-  if (!purchase) {
-    throw new Error("You must purchase this strategy to leave a review");
-  }
-
-  await prisma.marketplaceReview.upsert({
-    where: {
-      buyerId_listingId: { buyerId: userId, listingId }
-    },
-    create: {
-      buyerId: userId,
-      listingId,
-      rating,
-      title,
-      body,
-    },
-    update: {
-      rating,
-      title,
-      body,
-    }
-  });
-
-  // Update aggregated rating on the listing
-  const allReviews = await prisma.marketplaceReview.findMany({
-    where: { listingId },
-    select: { rating: true },
-  });
-  
-  const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-
-  await prisma.marketplaceListing.update({
-    where: { id: listingId },
-    data: {
-      reviewCount: allReviews.length,
-      avgRating: avg,
-    }
-  });
-
-  revalidatePath(`/dashboard/marketplace/${listingId}`);
-}

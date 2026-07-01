@@ -62,7 +62,7 @@ export default async function MarketplacePage(props: { searchParams: Promise<{ [
 
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {listings.map((listing) => (
-          <Link href={`/dashboard/marketplace/${listing.id}`} key={listing.id} className="group">
+          <Link href={`/marketplace/${listing.id}`} key={listing.id} className="group">
             <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-emerald-900/10 hover:border-emerald-500/20 active:scale-[0.98]">
               <div className="p-6 flex flex-col flex-1 gap-4">
                 <div className="flex justify-between items-start gap-4">

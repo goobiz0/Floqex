@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Lock } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { requestWithdrawal } from "./actions";
+import { WithdrawalForm } from "./withdrawal-form";
 
 export default async function SellerDashboard() {
   const { userId } = await auth();
@@ -54,17 +55,10 @@ export default async function SellerDashboard() {
         <Card className="p-6 flex flex-col gap-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Available Balance</h3>
           <div className="text-4xl font-medium font-mono">${Number(user.sellerBalance).toFixed(2)}</div>
-          {Number(user.sellerBalance) >= 50 ? (
-             <form action={async () => {
-                "use server";
-                await requestWithdrawal(Number(user.sellerBalance), user.email);
-             }}>
-                <Button type="submit" className="mt-4 w-full" variant="outline">Request Payout</Button>
-             </form>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-4">$50.00 minimum for withdrawal</p>
-          )}
-
+          <WithdrawalForm 
+            balance={Number(user.sellerBalance)} 
+            existingEmail={user.payoutEmail} 
+          />
         </Card>
         
         <Card className="p-6 flex flex-col gap-2">
