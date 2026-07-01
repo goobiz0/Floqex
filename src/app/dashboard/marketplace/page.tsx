@@ -3,7 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Storefront, User, Star } from "@phosphor-icons/react";
+import { Storefront, User, Star } from "@phosphor-icons/react/dist/ssr";
 
 export default async function MarketplacePage() {
   const listings = await prisma.marketplaceListing.findMany({
