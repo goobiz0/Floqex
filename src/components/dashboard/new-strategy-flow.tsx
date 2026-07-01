@@ -29,7 +29,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClampedNumberInput } from "@/components/ui/clamped-number-input";
 import { InfoTip } from "@/components/ui/tooltip";
-import { AssetMultiSelect } from "@/components/dashboard/asset-multi-select";
 import { CustomSignalBuilder } from "@/components/dashboard/custom-signal-builder";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
@@ -52,8 +51,10 @@ const StrategyCodeEditor = dynamic(
 import {
   defaultBuilderConfig,
   defaultCodeConfig,
+  defaultShortGroup,
   type ConditionGroup,
   type StrategyLanguage,
+  type TradeDirection,
 } from "@/lib/custom-strategy";
 import { STRATEGY_TEMPLATES, templateById, type TemplateIconKey } from "@/lib/strategy-templates";
 import { backtestStrategy, type Bar } from "@/lib/engine/backtest";
@@ -89,10 +90,10 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
 
   // Custom path state.
   const [customMode, setCustomMode] = useState<CustomMode>("BUILDER");
-  const [instruments, setInstruments] = useState<string[]>(["NQ"]);
   const builderDefaults = useMemo(() => defaultBuilderConfig(), []);
-  const [direction, setDirection] = useState<"LONG" | "SHORT">(builderDefaults.direction);
+  const [direction, setDirection] = useState<TradeDirection>(builderDefaults.direction);
   const [groups, setGroups] = useState<ConditionGroup[]>(builderDefaults.groups);
+  const [shortGroups, setShortGroups] = useState<ConditionGroup[]>(() => [defaultShortGroup()]);
   const codeDefaults = useMemo(() => defaultCodeConfig(), []);
   const [language, setLanguage] = useState<StrategyLanguage>(codeDefaults.language);
   const [code, setCode] = useState<string>(codeDefaults.code);
@@ -136,12 +137,13 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
       return { ok: true, kind: t.kind, params: t.buildParams() };
     }
 
-    // Custom path.
-    if (instruments.length === 0) {
-      return { ok: false, error: "Add at least one asset for the strategy to watch." };
-    }
+    // Custom path. Strategies are asset-agnostic now — the assets are chosen on
+    // the bot when the strategy is deployed, so we never ask for them here.
     if (customMode === "BUILDER" && groups.every((g) => g.conditions.length === 0)) {
       return { ok: false, error: "Add at least one entry condition." };
+    }
+    if (customMode === "BUILDER" && direction === "BOTH" && shortGroups.every((g) => g.conditions.length === 0)) {
+      return { ok: false, error: "Add at least one short entry condition, or switch to long only." };
     }
     if (customMode === "CODE") {
       if (!code.trim()) return { ok: false, error: "Write some strategy code before saving." };
@@ -149,13 +151,11 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
 
     const params: Record<string, unknown> = {
       ...DEFAULT_PARAMS,
-      instruments,
-      instrument: instruments[0],
       stopLossPct,
       targetRatio,
       ...(customMode === "BUILDER"
-        ? { mode: "BUILDER", direction, groups }
-        : { mode: "CODE", language, code, direction: "LONG" }),
+        ? { mode: "BUILDER", direction, groups, ...(direction === "BOTH" ? { shortGroups } : {}) }
+        : { mode: "CODE", language, code, direction: "BOTH" }),
     };
     return { ok: true, kind: "CUSTOM", params };
   }
@@ -251,12 +251,12 @@ export function NewStrategyFlow({ plan }: { plan: string }) {
               <CustomAuthor
                 customMode={customMode}
                 onModeChange={setCustomMode}
-                instruments={instruments}
-                onInstrumentsChange={setInstruments}
                 direction={direction}
                 onDirectionChange={setDirection}
                 groups={groups}
                 onGroupsChange={setGroups}
+                shortGroups={shortGroups}
+                onShortGroupsChange={setShortGroups}
                 language={language}
                 onLanguageChange={setLanguage}
                 code={code}
@@ -549,12 +549,12 @@ function TemplatePreview({ templateId }: { templateId: string }) {
 function CustomAuthor({
   customMode,
   onModeChange,
-  instruments,
-  onInstrumentsChange,
   direction,
   onDirectionChange,
   groups,
   onGroupsChange,
+  shortGroups,
+  onShortGroupsChange,
   language,
   onLanguageChange,
   code,
@@ -567,12 +567,12 @@ function CustomAuthor({
 }: {
   customMode: CustomMode;
   onModeChange: (m: CustomMode) => void;
-  instruments: string[];
-  onInstrumentsChange: (s: string[]) => void;
-  direction: "LONG" | "SHORT";
-  onDirectionChange: (d: "LONG" | "SHORT") => void;
+  direction: TradeDirection;
+  onDirectionChange: (d: TradeDirection) => void;
   groups: ConditionGroup[];
   onGroupsChange: (g: ConditionGroup[]) => void;
+  shortGroups: ConditionGroup[];
+  onShortGroupsChange: (g: ConditionGroup[]) => void;
   language: StrategyLanguage;
   onLanguageChange: (l: StrategyLanguage) => void;
   code: string;
@@ -607,13 +607,14 @@ function CustomAuthor({
         </div>
       </div>
 
-      {/* Instruments */}
-      <Panel
-        title="What should this strategy watch?"
-        hint="Search any stock, ETF, index or crypto. This seeds the strategy; you can change it when you assign it to an account."
-      >
-        <AssetMultiSelect value={instruments} onChange={onInstrumentsChange} />
-      </Panel>
+      {/* Assets note: they belong to the bot now, not the strategy */}
+      <div className="flex items-start gap-2 rounded-[var(--radius-control)] border border-line bg-surface/50 px-3.5 py-3 text-xs text-fg-muted">
+        <Sparkle size={14} weight="fill" className="mt-px shrink-0 text-accent" />
+        <span>
+          This is reusable, asset-agnostic logic. You pick which asset(s) to trade when you deploy it to a bot in
+          <span className="font-medium text-fg"> Bots &amp; Automations</span>, so one strategy can run on several markets.
+        </span>
+      </div>
 
       {/* Entry logic */}
       <Panel
@@ -626,6 +627,8 @@ function CustomAuthor({
             onGroupsChange={onGroupsChange}
             direction={direction}
             onDirectionChange={onDirectionChange}
+            shortGroups={shortGroups}
+            onShortGroupsChange={onShortGroupsChange}
           />
         ) : (
           <StrategyCodeEditor
@@ -633,7 +636,7 @@ function CustomAuthor({
             onLanguageChange={onLanguageChange}
             code={code}
             onCodeChange={onCodeChange}
-            sampleSymbol={instruments[0]}
+            sampleSymbol="NQ"
             isFree={isFree}
           />
         )}

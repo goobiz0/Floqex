@@ -30,6 +30,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import { EdgeDecayChart } from "@/components/dashboard/edge-decay-chart";
+import { BotAssetsEditor } from "@/components/dashboard/bot-assets-editor";
 import { toggleBotStatus } from "@/app/dashboard/accounts/actions";
 import { detachBot, connectBotToAccount, deleteBot, startForwardTest, stopForwardTest, resumeEdgeDecay, updateBotEdgeDecayThreshold } from "@/app/dashboard/bots/actions";
 import { PLANS, formatAccountLimit, type Plan } from "@/lib/plans";
@@ -312,6 +313,9 @@ function BotCard({
           ]}
         />
       </div>
+
+      {/* Assets this bot trades (a property of the bot, editable in place) */}
+      <BotAssetsEditor botId={bot.id} instruments={bot.instruments} />
 
       {bot.accountId ? (
         <>

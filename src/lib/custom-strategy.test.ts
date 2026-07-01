@@ -5,7 +5,10 @@ import {
   evaluateGroup,
   parseCustomConfig,
   parseInstruments,
+  parseDirection,
   instrumentsFromParams,
+  instrumentsForBot,
+  mirrorGroups,
   defaultBuilderConfig,
   type Condition,
   type ConditionGroup,
@@ -82,6 +85,46 @@ describe("instrumentsFromParams", () => {
   });
 });
 
+describe("instrumentsForBot", () => {
+  it("uses the bot's assets when it has them", () => {
+    expect(instrumentsForBot(["tsla", "AMD"], { instruments: ["ES"] })).toEqual(["TSLA", "AMD"]);
+  });
+  it("falls back to the strategy params for legacy bots, then NQ", () => {
+    expect(instrumentsForBot([], { instruments: ["ES"] })).toEqual(["ES"]);
+    expect(instrumentsForBot(null, {})).toEqual(["NQ"]);
+  });
+});
+
+describe("parseDirection", () => {
+  it("defaults to BOTH and only accepts the three known values", () => {
+    expect(parseDirection("LONG")).toBe("LONG");
+    expect(parseDirection("SHORT")).toBe("SHORT");
+    expect(parseDirection("BOTH")).toBe("BOTH");
+    expect(parseDirection(undefined)).toBe("BOTH");
+    expect(parseDirection("sideways")).toBe("BOTH");
+  });
+});
+
+describe("mirrorGroups", () => {
+  it("flips every comparison and preserves the join and operands", () => {
+    const groups: ConditionGroup[] = [
+      {
+        join: "ALL",
+        conditions: [
+          { left: "price", op: ">", right: { kind: "indicator", key: "sma50" } },
+          { left: "rsi14", op: "<", right: { kind: "value", value: 40 } },
+        ],
+      },
+    ];
+    const mirrored = mirrorGroups(groups);
+    expect(mirrored[0].join).toBe("ALL");
+    expect(mirrored[0].conditions[0].op).toBe("<");
+    expect(mirrored[0].conditions[1].op).toBe(">");
+    // Operands are untouched, only the comparison flips.
+    expect(mirrored[0].conditions[1].right).toEqual({ kind: "value", value: 40 });
+  });
+});
+
 describe("parseCustomConfig", () => {
   it("validates a builder config", () => {
     const res = parseCustomConfig({
@@ -99,9 +142,43 @@ describe("parseCustomConfig", () => {
     }
   });
 
-  it("rejects a config with no instruments", () => {
-    const res = parseCustomConfig({ mode: "BUILDER", instruments: [], groups: [] });
-    expect(res.ok).toBe(false);
+  it("allows a config with no instruments (assets live on the bot now)", () => {
+    const res = parseCustomConfig({
+      mode: "BUILDER",
+      instruments: [],
+      direction: "LONG",
+      groups: [{ join: "ALL", conditions: [{ left: "price", op: ">", right: { kind: "indicator", key: "sma50" } }] }],
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.instruments).toEqual([]);
+  });
+
+  it("parses a BOTH-direction builder with a separate short ruleset", () => {
+    const res = parseCustomConfig({
+      mode: "BUILDER",
+      direction: "BOTH",
+      groups: [{ join: "ALL", conditions: [{ left: "price", op: ">", right: { kind: "indicator", key: "sma50" } }] }],
+      shortGroups: [{ join: "ALL", conditions: [{ left: "price", op: "<", right: { kind: "indicator", key: "sma50" } }] }],
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok && res.config.mode === "BUILDER") {
+      expect(res.config.direction).toBe("BOTH");
+      expect(res.config.shortGroups?.length).toBe(1);
+    }
+  });
+
+  it("mirrors the long rules into shorts for a BOTH builder when none is supplied", () => {
+    const res = parseCustomConfig({
+      mode: "BUILDER",
+      direction: "BOTH",
+      groups: [{ join: "ALL", conditions: [{ left: "price", op: ">", right: { kind: "indicator", key: "sma50" } }] }],
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok && res.config.mode === "BUILDER") {
+      expect(res.config.shortGroups?.length).toBe(1);
+      // "price > sma50" (long) mirrors to "price < sma50" (short).
+      expect(res.config.shortGroups?.[0].conditions[0].op).toBe("<");
+    }
   });
 
   it("rejects a builder with no valid conditions", () => {

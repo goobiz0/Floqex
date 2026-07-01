@@ -7,7 +7,7 @@ import { BrokerNotConfiguredError, brokerSupportsInstrument } from "../lib/engin
 import { recordBotStatus, RISK_REASON_TEXT } from "../lib/engine/feedback";
 import { isInstrumentTradeable, marketLabel, getMarketForInstrument } from "../lib/market";
 import { sendUrgentAlert } from "../lib/alerting";
-import { instrumentsFromParams } from "../lib/custom-strategy";
+import { instrumentsForBot } from "../lib/custom-strategy";
 import { checkEdgeDecay } from "../lib/engine/edge-decay";
 
 // Engine configuration
@@ -55,9 +55,10 @@ async function tick() {
         ? JSON.parse(bot.strategy.params) 
         : bot.strategy.params;
 
-      // A bot can trade several instruments. Evaluate each independently; the
-      // per-account risk limits below still span all of them.
-      const instruments = instrumentsFromParams(params);
+      // A bot can trade several instruments. The assets live on the bot itself
+      // (legacy bots fall back to the strategy's params). Evaluate each
+      // independently; the per-account risk limits below still span all of them.
+      const instruments = instrumentsForBot(bot.instruments, params);
       for (const instrument of instruments) {
       if (bot.account.broker !== "PAPER" && !brokerSupportsInstrument(bot.account.broker, instrument)) {
         await recordBotStatus({
