@@ -11,6 +11,12 @@ export async function submitReview(listingId: string, rating: number, title: str
   const user = await prisma.user.findUnique({ where: { clerkId } });
   if (!user) throw new Error("User not found");
 
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  if (user.createdAt > thirtyDaysAgo) {
+    throw new Error("You must have been on Floqex for longer than a month to review a strategy.");
+  }
+
   // Verify the user actually purchased this
   const purchase = await prisma.marketplacePurchase.findFirst({
     where: {

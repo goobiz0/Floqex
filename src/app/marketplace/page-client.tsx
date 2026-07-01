@@ -61,14 +61,28 @@ export function MarketplacePageClient({ listings }: { listings: Listing[] }) {
           <p className="max-w-xl text-lg text-fg-muted mt-2">
             Access robust, forward-tested algorithms created by top quants. Every strategy has been verified in live paper markets before being listed.
           </p>
+          <div className="mt-6 flex items-center gap-4">
+            <Link 
+              href="/dashboard/marketplace/seller" 
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-button)] bg-fg px-4 text-sm font-medium text-bg transition-transform hover:scale-[0.98] active:scale-95"
+            >
+              Become a Seller
+            </Link>
+          </div>
         </motion.div>
       </header>
 
       {/* Grid Section */}
       <main className="px-6 pb-32 md:px-12 max-w-7xl mx-auto">
         {listings.length === 0 ? (
-          <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-line">
+          <div className="flex h-64 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-line">
             <p className="text-fg-muted">No active strategies available yet.</p>
+            <Link 
+              href="/dashboard/marketplace/seller" 
+              className="text-sm font-medium text-emerald-500 hover:text-emerald-400 transition-colors"
+            >
+              Be the first to list a strategy &rarr;
+            </Link>
           </div>
         ) : (
           <motion.div 

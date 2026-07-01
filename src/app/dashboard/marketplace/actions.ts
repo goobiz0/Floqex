@@ -18,6 +18,12 @@ export async function createListing(formData: FormData) {
     throw new Error("Your current plan does not support listing strategies on the marketplace.");
   }
 
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  if (user.createdAt > thirtyDaysAgo) {
+    throw new Error("You must have been on Floqex for longer than a month to list a strategy.");
+  }
+
   const schema = z.object({
     strategyId: z.string(),
     title: z.string().min(5).max(100),
