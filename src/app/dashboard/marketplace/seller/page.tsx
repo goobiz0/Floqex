@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lock } from "@phosphor-icons/react";
+import { Lock } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { canListStrategies } from "@/lib/marketplace";
 

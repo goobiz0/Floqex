@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Star, ShoppingCart } from "@phosphor-icons/react";
+import { User, Star, ShoppingCart } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
 import { buyStrategy } from "../actions";
 
