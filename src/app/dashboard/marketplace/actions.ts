@@ -25,20 +25,20 @@ const RequestWithdrawalSchema = z.object({
 
 export async function createListing(formData: FormData) {
   const rateLimitOk = await checkActionRateLimit("createListing", 10, "1 m");
-  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+  if (!rateLimitOk) return { error: "Rate limit exceeded" };
 
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  if (!userId) return { error: "Unauthorized" };
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user || !canListStrategies(user.plan)) {
-    throw new Error("Your current plan does not support listing strategies on the marketplace.");
+    return { error: "Your current plan does not support listing strategies on the marketplace." };
   }
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   if (user.createdAt > thirtyDaysAgo) {
-    throw new Error("You must have been on Floqex for longer than a month to list a strategy.");
+    return { error: "You must have been on Floqex for longer than a month to list a strategy." };
   }
 
   const schema = z.object({
@@ -47,10 +47,10 @@ export async function createListing(formData: FormData) {
     tagline: z.string().max(200).optional(),
     description: z.string().min(20).max(5000),
     category: z.enum(["Breakout", "Reversion", "Momentum", "Trend", "Volatility", "Scalp"]),
-    priceUsd: z.coerce.number().min(5).max(999),
+    priceUsd: z.coerce.number().min(0).max(999),
   });
 
-  const parsed = schema.parse({
+  const parsedResult = schema.safeParse({
     strategyId: formData.get("strategyId"),
     title: formData.get("title"),
     tagline: formData.get("tagline"),
@@ -58,12 +58,21 @@ export async function createListing(formData: FormData) {
     category: formData.get("category"),
     priceUsd: formData.get("priceUsd"),
   });
+  
+  if (!parsedResult.success) {
+    return { error: "Invalid form data: " + parsedResult.error.errors[0].message };
+  }
+  const parsed = parsedResult.data;
+
+  if (user.plan === "FREE" && parsed.priceUsd > 0) {
+    return { error: "Free plan users can only list free strategies ($0)." };
+  }
 
   // Verify the strategy belongs to the user and is custom (or we allow preset mods)
   const strategy = await prisma.strategy.findUnique({
     where: { id: parsed.strategyId, userId: user.id },
   });
-  if (!strategy) throw new Error("Strategy not found");
+  if (!strategy) return { error: "Strategy not found" };
 
   // We should theoretically snapshot the edge score here, but for now we'll 
   // allow the listing to be created in DRAFT and the user can run validation
@@ -104,10 +113,10 @@ export async function updateListingDetails(listingId: string, formData: FormData
   if (!rateLimitOk) throw new Error("Rate limit exceeded");
 
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  if (!userId) return { error: "Unauthorized" };
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) throw new Error("User not found");
+  if (!user) return { error: "User not found" };
 
   const schema = z.object({
     title: z.string().min(5).max(100),
@@ -117,13 +126,22 @@ export async function updateListingDetails(listingId: string, formData: FormData
     priceUsd: z.coerce.number().min(0).max(999),
   });
 
-  const parsed = schema.parse({
+  const parsedResult = schema.safeParse({
     title: formData.get("title"),
     tagline: formData.get("tagline"),
     description: formData.get("description"),
     category: formData.get("category"),
     priceUsd: formData.get("priceUsd"),
   });
+  
+  if (!parsedResult.success) {
+    return { error: "Invalid form data: " + parsedResult.error.errors[0].message };
+  }
+  const parsed = parsedResult.data;
+
+  if (user.plan === "FREE" && parsed.priceUsd > 0) {
+    return { error: "Free plan users can only list free strategies ($0)." };
+  }
 
   await prisma.marketplaceListing.update({
     where: { id: listingId, sellerId: user.id },
@@ -138,29 +156,30 @@ export async function updateListingDetails(listingId: string, formData: FormData
 
   revalidatePath(`/dashboard/marketplace/seller/${listingId}/edit`);
   revalidatePath(`/marketplace/${listingId}`);
+  return { error: undefined };
 }
 
 export async function updateListingStatus(listingId: string, status: "DRAFT" | "ACTIVE" | "PAUSED") {
-  const parsed = UpdateListingStatusSchema.safeParse({ listingId, status });
-  if (!parsed.success) throw new Error(parsed.error.message);
+  const parsedResult = UpdateListingStatusSchema.safeParse({ listingId, status });
+  if (!parsedResult.success) return { error: parsedResult.error.message };
 
   const rateLimitOk = await checkActionRateLimit("updateListingStatus", 20, "1 m");
-  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+  if (!rateLimitOk) return { error: "Rate limit exceeded" };
 
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  if (!userId) return { error: "Unauthorized" };
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) throw new Error("User not found");
+  if (!user) return { error: "User not found" };
 
   const listing = await prisma.marketplaceListing.findUnique({
     where: { id: listingId, sellerId: user.id },
   });
-  if (!listing) throw new Error("Listing not found");
+  if (!listing) return { error: "Listing not found" };
 
   // Require stats to be baked before activating
   if (status === "ACTIVE" && listing.edgeScore == null) {
-    throw new Error("You must run a validation on this strategy to bake its performance stats before activating the listing.");
+    return { error: "You must run a validation on this strategy to bake its performance stats before activating the listing." };
   }
 
   await prisma.marketplaceListing.update({
@@ -181,33 +200,34 @@ export async function updateListingStatus(listingId: string, status: "DRAFT" | "
   revalidatePath("/dashboard/marketplace");
   revalidatePath(`/marketplace/${listingId}`);
   revalidatePath("/dashboard/marketplace/seller");
+  return { error: undefined };
 }
 
 export async function buyStrategy(listingId: string) {
   const parsed = BuyStrategySchema.safeParse(listingId);
-  if (!parsed.success) throw new Error(parsed.error.message);
+  if (!parsed.success) return { error: parsed.error.message };
 
   const rateLimitOk = await checkActionRateLimit("buyStrategy", 10, "1 m");
-  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+  if (!rateLimitOk) return { error: "Rate limit exceeded" };
 
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  if (!userId) return { error: "Unauthorized" };
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) throw new Error("User not found");
+  if (!user) return { error: "User not found" };
 
   const listing = await prisma.marketplaceListing.findUnique({
     where: { id: listingId, status: "ACTIVE" },
   });
   
-  if (!listing) throw new Error("Listing not available");
-  if (listing.sellerId === user.id) throw new Error("You cannot buy your own strategy");
+  if (!listing) return { error: "Listing not available" };
+  if (listing.sellerId === user.id) return { error: "You cannot buy your own strategy" };
 
   // Check if already purchased
   const existing = await prisma.marketplacePurchase.findFirst({
     where: { buyerId: user.id, listingId, status: "COMPLETED" },
   });
-  if (existing) throw new Error("You already own this strategy");
+  if (existing) return { error: "You already own this strategy" };
 
   const { platformFeeUsd, sellerEarningUsd } = computeMarketplaceSplits(Number(listing.priceUsd));
 
@@ -262,23 +282,23 @@ export async function buyStrategy(listingId: string) {
 
 export async function requestWithdrawal(amountUsd: number, payoutEmail: string) {
   const parsed = RequestWithdrawalSchema.safeParse({ amountUsd, payoutEmail });
-  if (!parsed.success) throw new Error(parsed.error.message);
+  if (!parsed.success) return { error: parsed.error.message };
 
   const rateLimitOk = await checkActionRateLimit("requestWithdrawal", 5, "1 m");
-  if (!rateLimitOk) throw new Error("Rate limit exceeded");
+  if (!rateLimitOk) return { error: "Rate limit exceeded" };
 
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  if (!userId) return { error: "Unauthorized" };
 
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) throw new Error("User not found");
+  if (!user) return { error: "User not found" };
 
   if (amountUsd < 50) {
-    throw new Error("Minimum withdrawal amount is $50.00");
+    return { error: "Minimum withdrawal amount is $50.00" };
   }
 
   if (Number(user.sellerBalance) < amountUsd) {
-    throw new Error("Insufficient balance");
+    return { error: "Insufficient balance" };
   }
 
   // Deduct balance and create request in a transaction
@@ -308,6 +328,7 @@ export async function requestWithdrawal(amountUsd: number, payoutEmail: string) 
   });
 
   revalidatePath("/dashboard/marketplace/seller");
+  return { error: undefined };
 }
 
 

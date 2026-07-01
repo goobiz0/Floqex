@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { requestWithdrawal } from "./actions";
+import { requestWithdrawal } from "../actions";
 import { toast } from "sonner";
 import { EnvelopeSimple } from "@phosphor-icons/react";
 
@@ -21,11 +21,15 @@ export function WithdrawalForm({ balance, existingEmail }: { balance: number, ex
 
     startTransition(async () => {
       try {
-        await requestWithdrawal(balance, email);
-        toast.success("Withdrawal request submitted", {
-          description: "We will process your payout within 2-3 business days."
-        });
-        setShowEmailInput(false);
+        const result = await requestWithdrawal(balance, email);
+        if (result?.error) {
+          toast.error("Failed to request withdrawal", { description: result.error });
+        } else {
+          toast.success("Withdrawal request submitted", {
+            description: "We will process your payout within 2-3 business days."
+          });
+          setShowEmailInput(false);
+        }
       } catch (err: any) {
         toast.error("Failed to request withdrawal", { description: err.message });
       }

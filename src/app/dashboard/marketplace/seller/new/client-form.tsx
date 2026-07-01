@@ -46,7 +46,10 @@ export function CreateListingForm({ strategies, userPlan }: { strategies: { id: 
 
     startTransition(async () => {
       try {
-        await createListing(formData);
+        const result = await createListing(formData);
+        if (result?.error) {
+          setError(result.error);
+        }
       } catch (err: any) {
         if (err?.digest?.startsWith("NEXT_REDIRECT")) {
           throw err;

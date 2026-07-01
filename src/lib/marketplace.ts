@@ -21,7 +21,7 @@ export type ListingCategory = typeof LISTING_CATEGORIES[number];
 
 /** Can this user list strategies for sale? */
 export function canListStrategies(plan: Plan): boolean {
-  return plan === "PRO" || plan === "ELITE";
+  return true; // All users can list (FREE users are restricted to $0 in the action and client form)
 }
 
 /** Compute the platform fee and seller earnings for a given listing price. */

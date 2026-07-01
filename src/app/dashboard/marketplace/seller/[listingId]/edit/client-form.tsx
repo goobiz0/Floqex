@@ -36,9 +36,16 @@ export function EditListingForm({ listing, userPlan }: { listing: any, userPlan:
 
     startTransition(async () => {
       try {
-        await updateListingDetails(listing.id, formData);
-        toast.success("Listing updated successfully");
+        const result = await updateListingDetails(listing.id, formData);
+        if (result?.error) {
+          setError(result.error);
+        } else {
+          toast.success("Listing updated successfully");
+        }
       } catch (err: any) {
+        if (err?.digest?.startsWith("NEXT_REDIRECT")) {
+          throw err;
+        }
         setError(err.message || "Failed to update listing.");
       }
     });
@@ -48,9 +55,16 @@ export function EditListingForm({ listing, userPlan }: { listing: any, userPlan:
     startTransition(async () => {
       try {
         const newStatus = listing.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-        await updateListingStatus(listing.id, newStatus);
-        toast.success(`Listing ${newStatus.toLowerCase()}`);
+        const result = await updateListingStatus(listing.id, newStatus);
+        if (result?.error) {
+          toast.error("Failed to update status", { description: result.error });
+        } else {
+          toast.success(`Listing ${newStatus.toLowerCase()}`);
+        }
       } catch (err: any) {
+        if (err?.digest?.startsWith("NEXT_REDIRECT")) {
+          throw err;
+        }
         toast.error("Failed to update status", { description: err.message });
       }
     });

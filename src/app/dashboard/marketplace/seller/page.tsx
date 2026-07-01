@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lock } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
-import { requestWithdrawal } from "./actions";
+
 import { WithdrawalForm } from "./withdrawal-form";
 
 export default async function SellerDashboard() {
