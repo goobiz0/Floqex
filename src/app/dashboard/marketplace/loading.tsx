@@ -9,8 +9,8 @@ export default function MarketplaceLoading() {
           <div className="h-5 w-96 bg-surface rounded-md"></div>
         </div>
         <div className="flex gap-3">
-          <div className="h-10 w-32 bg-surface rounded-[var(--radius-button)]"></div>
-          <div className="h-10 w-32 bg-surface rounded-[var(--radius-button)]"></div>
+          <div className="h-10 w-32 bg-surface rounded-[var(--radius-control)]"></div>
+          <div className="h-10 w-32 bg-surface rounded-[var(--radius-control)]"></div>
         </div>
       </header>
 

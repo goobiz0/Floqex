@@ -64,7 +64,7 @@ export function MarketplacePageClient({ listings }: { listings: Listing[] }) {
           <div className="mt-6 flex items-center gap-4">
             <Link 
               href="/dashboard/marketplace/seller" 
-              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-button)] bg-fg px-4 text-sm font-medium text-bg transition-transform hover:scale-[0.98] active:scale-95"
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-control)] bg-fg px-4 text-sm font-medium text-base transition-transform hover:scale-[0.98] active:scale-95"
             >
               Become a Seller
             </Link>
