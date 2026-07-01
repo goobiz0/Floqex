@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Bell, X, Check } from "@phosphor-icons/react";
+import { Bell, X, Check, Info, Warning } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { dashboardUrl } from "@/lib/urls";
@@ -22,8 +22,15 @@ function relTime(iso: string): string {
 export function NotificationsBell({ items }: { items: NotificationItem[] }) {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [optimisticItems, setOptimisticItems] = useState(items);
 
-  const unreadCount = items.filter((i) => !i.isRead).length;
+  // Sync optimistic state when items prop updates from server
+  useEffect(() => {
+    setOptimisticItems(items);
+  }, [items]);
+
+  const unreadCount = optimisticItems.filter((i) => !i.isRead).length;
 
   useEffect(() => {
     if (!open) return;
@@ -33,6 +40,26 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  const handleMarkAsRead = (id: string) => {
+    setOptimisticItems((prev) => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    startTransition(() => {
+      markAsRead(id);
+    });
+  };
+
+  const handleClearAll = () => {
+    setOptimisticItems([]);
+    startTransition(() => {
+      clearAllNotifications();
+    });
+  };
+
+  const handleTestAlert = () => {
+    startTransition(() => {
+      generateTestAlert();
+    });
+  };
 
   return (
     <div className="relative inline-flex">
@@ -62,84 +89,104 @@ export function NotificationsBell({ items }: { items: NotificationItem[] }) {
             <motion.div
               role="dialog"
               aria-modal="true"
-              className="absolute right-0 top-full mt-2 z-50 w-[340px] max-h-[85vh] rounded-[var(--radius-card)] border border-line bg-elevated shadow-lg flex flex-col origin-top-right overflow-hidden"
+              className="absolute right-0 top-full mt-2 z-50 w-[360px] max-h-[85vh] rounded-[var(--radius-card)] border border-line bg-elevated shadow-lg flex flex-col origin-top-right overflow-hidden"
               initial={reduce ? { opacity: 0 } : { scale: 0.97, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={reduce ? { opacity: 0 } : { scale: 0.97, opacity: 0 }}
               transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
             >
-              <div className="flex items-center justify-between border-b border-line px-5 py-4 shrink-0">
+              <div className="flex items-center justify-between border-b border-line px-5 py-4 shrink-0 bg-surface/30">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-fg">Alerts & Notifications</h2>
+                  <h2 className="text-sm font-semibold text-fg">Alerts & Notifications</h2>
                   {unreadCount > 0 && (
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-[var(--color-on-accent)]">
                       {unreadCount}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => generateTestAlert()}
-                    className="text-xs font-medium text-accent hover:text-accent-hover transition-colors"
+                    onClick={handleTestAlert}
+                    disabled={isPending}
+                    className="text-[11px] font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                   >
-                    Test Alert
+                    Test
                   </button>
-                  {items.length > 0 && (
+                  {optimisticItems.length > 0 && (
                     <button
-                      onClick={() => clearAllNotifications()}
-                      className="text-xs font-medium text-fg-subtle hover:text-fg transition-colors"
+                      onClick={handleClearAll}
+                      disabled={isPending}
+                      className="text-[11px] font-medium text-fg-subtle hover:text-fg transition-colors disabled:opacity-50"
                     >
                       Clear All
                     </button>
                   )}
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface hover:text-fg"
-                  >
-                    <X size={18} />
-                  </button>
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto">
-                {items.length ? (
-                  <ul className="divide-y divide-line">
-                    {items.map((n) => (
-                      <li key={n.id} className={cn("relative px-5 py-4 group", !n.isRead && "bg-accent-soft/10")}>
-                        <div className="flex items-baseline justify-between gap-2 pr-6">
-                          <span className={cn("text-[0.65rem] font-medium uppercase tracking-wide", !n.isRead ? "text-accent" : "text-fg-subtle")}>
-                            {n.title}
-                          </span>
-                          <span className="shrink-0 text-[0.7rem] text-fg-faint">{relTime(n.createdAt)}</span>
-                        </div>
-                        <p className="mt-1 text-sm leading-snug text-fg-muted">{n.message}</p>
-                        
-                        {!n.isRead && (
-                          <button
-                            onClick={() => markAsRead(n.id)}
-                            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:bg-line"
-                          >
-                            <Check size={12} className="text-accent" /> Mark read
-                          </button>
-                        )}
-                      </li>
-                    ))}
+              <div className="flex-1 overflow-y-auto overscroll-contain">
+                {optimisticItems.length ? (
+                  <ul className="flex flex-col gap-1 p-2">
+                    {optimisticItems.map((n) => {
+                      const isRisk = n.title.toLowerCase().includes("risk") || n.title.toLowerCase().includes("error");
+                      return (
+                        <li 
+                          key={n.id} 
+                          className={cn(
+                            "group relative flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface",
+                            !n.isRead ? "bg-accent-soft/5" : "bg-transparent"
+                          )}
+                        >
+                          <div className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]",
+                            isRisk ? "bg-negative-soft text-negative" : "bg-accent-soft text-accent"
+                          )}>
+                            {isRisk ? <Warning size={16} weight="bold" /> : <Info size={16} weight="bold" />}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={cn(
+                                "text-[13px] font-semibold truncate", 
+                                !n.isRead ? "text-fg" : "text-fg-subtle"
+                              )}>
+                                {n.title}
+                              </span>
+                              <span className="shrink-0 text-[11px] text-fg-faint">{relTime(n.createdAt)}</span>
+                            </div>
+                            <p className="mt-0.5 text-[12px] leading-relaxed text-fg-muted">
+                              {n.message}
+                            </p>
+                            
+                            {!n.isRead && (
+                              <button
+                                onClick={() => handleMarkAsRead(n.id)}
+                                disabled={isPending}
+                                className="mt-2.5 inline-flex items-center gap-1.5 rounded-[var(--radius-control)] bg-surface border border-line px-2 py-1 text-[10px] font-medium text-fg-subtle transition-colors hover:text-fg hover:bg-line disabled:opacity-50"
+                              >
+                                <Check size={12} className="text-accent" /> Mark read
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
-                  <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                  <div className="flex h-32 flex-col items-center justify-center px-4 text-center">
                     <p className="text-sm font-medium text-fg-muted">No alerts</p>
                     <p className="mt-1 text-xs text-fg-subtle">
-                      You are all caught up. New system alerts will appear here.
+                      You are all caught up.
                     </p>
                   </div>
                 )}
               </div>
               
-              <div className="shrink-0 border-t border-line p-4">
+              <div className="shrink-0 border-t border-line p-3 bg-surface/30">
                 <Link
                   href={dashboardUrl("/settings")}
                   onClick={() => setOpen(false)}
-                  className="block w-full rounded-[var(--radius-control)] bg-surface py-2 text-center text-xs font-medium text-fg transition-colors hover:bg-surface/80"
+                  className="block w-full rounded-[var(--radius-control)] bg-surface border border-transparent py-2 text-center text-xs font-medium text-fg transition-colors hover:bg-elevated hover:border-line"
                 >
                   Notification settings
                 </Link>
