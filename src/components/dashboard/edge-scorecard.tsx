@@ -26,6 +26,23 @@ const BAR_STAGGER = 0.12; // gentle cascade down the factor list
 
 const CIRCUMFERENCE = 2 * Math.PI * 42;
 
+function useCountUp(
+  target: number,
+  { armed, reduce, duration, delay = 0 }: { armed: boolean; reduce: boolean; duration: number; delay?: number },
+) {
+  const count = useMotionValue(reduce ? target : 0);
+  useEffect(() => {
+    if (reduce) {
+      count.set(target);
+      return;
+    }
+    if (!armed) return;
+    const controls = animate(count, target, { duration, delay, ease: EASE });
+    return controls.stop;
+  }, [armed, reduce, target, duration, delay, count]);
+  return count;
+}
+
 export function EdgeScorecard({ edge }: { edge: EdgeScore }) {
   const reduce = useReducedMotion();
   // Re-key on the result so a fresh validation replays the load-then-fill
@@ -51,17 +68,8 @@ function Scorecard({ edge, reduce }: { edge: EdgeScore; reduce: boolean }) {
 
   // Count the headline score up from 0 to its final value, in lockstep with the
   // arc draw-on, so the eye lands on the result exactly as it resolves.
-  const count = useMotionValue(reduce ? pct : 0);
+  const count = useCountUp(pct, { armed, reduce, duration: DIAL_DURATION });
   const display = useTransform(count, (n) => Math.round(n));
-  useEffect(() => {
-    if (reduce) {
-      count.set(pct);
-      return;
-    }
-    if (!armed) return;
-    const controls = animate(count, pct, { duration: DIAL_DURATION, ease: EASE });
-    return controls.stop;
-  }, [pct, reduce, armed, count]);
 
   const scoredFactors = edge.factors.filter((f) => f.max > 0);
 
@@ -124,17 +132,8 @@ function FactorBar({ factor, armed, reduce, index }: { factor: EdgeFactor; armed
 
   // Count each factor's points up in parallel with its own bar filling, so the
   // number and the bar tell the same story at the same pace.
-  const count = useMotionValue(reduce ? factor.points : 0);
+  const count = useCountUp(factor.points, { armed, reduce, duration: BAR_DURATION, delay });
   const display = useTransform(count, (n) => n.toFixed(0));
-  useEffect(() => {
-    if (reduce) {
-      count.set(factor.points);
-      return;
-    }
-    if (!armed) return;
-    const controls = animate(count, factor.points, { duration: BAR_DURATION, delay, ease: EASE });
-    return controls.stop;
-  }, [armed, reduce, factor.points, delay, count]);
 
   return (
     <div>
