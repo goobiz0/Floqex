@@ -4,31 +4,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lock } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
-import { canListStrategies } from "@/lib/marketplace";
+import { requestWithdrawal } from "./actions";
 
 export default async function SellerDashboard() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !canListStrategies(user.plan)) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-        <Lock className="w-12 h-12 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-medium tracking-tight">Pro Feature</h2>
-        <p className="text-muted-foreground max-w-md">
-          Selling strategies on the marketplace requires a Pro or Elite plan. 
-          Upgrade your account to start monetizing your algorithmic edges.
-        </p>
-        <Button href="/dashboard/billing" className="mt-4">
-          Upgrade Plan
-        </Button>
-      </div>
-    );
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) {
+     return null;
   }
 
   const listings = await prisma.marketplaceListing.findMany({
-    where: { sellerId: userId },
+    where: { sellerId: user.id },
     orderBy: { createdAt: "desc" },
   });
 
@@ -40,6 +28,9 @@ export default async function SellerDashboard() {
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-medium tracking-tight">Seller Dashboard</h1>
           <p className="text-muted-foreground">Manage your listings and earnings.</p>
+          {user.plan === "FREE" && (
+            <p className="text-sm text-emerald-500">Free users can list strategies for $0. Upgrade to Pro to sell paid strategies.</p>
+          )}
         </div>
         <Button href="/dashboard/marketplace/seller/new" className="bg-emerald-500 hover:bg-emerald-600 text-white">
           Create Listing
@@ -51,17 +42,16 @@ export default async function SellerDashboard() {
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Available Balance</h3>
           <div className="text-4xl font-medium font-mono">${Number(user.sellerBalance).toFixed(2)}</div>
           {Number(user.sellerBalance) >= 50 ? (
-             // In a real app this would open a dialog to confirm payout email
              <form action={async () => {
                 "use server";
-                // Mock withdrawal action call
-                // await requestWithdrawal(Number(user.sellerBalance), user.email);
+                await requestWithdrawal(Number(user.sellerBalance), user.email);
              }}>
-                <Button type="button" className="mt-4 w-full" variant="outline">Request Payout</Button>
+                <Button type="submit" className="mt-4 w-full" variant="outline">Request Payout</Button>
              </form>
           ) : (
             <p className="text-xs text-muted-foreground mt-4">$50.00 minimum for withdrawal</p>
           )}
+
         </Card>
         
         <Card className="p-6 flex flex-col gap-2">

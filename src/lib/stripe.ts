@@ -14,7 +14,7 @@ export function getStripe(): Stripe {
     }
     
     client = new Stripe(key || "sk_test_mock", {
-      apiVersion: "2024-04-10",
+      apiVersion: "2026-06-24.dahlia",
     });
   }
   return client;

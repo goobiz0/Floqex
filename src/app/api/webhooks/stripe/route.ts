@@ -52,11 +52,12 @@ export async function POST(req: Request) {
 async function handleMarketplacePurchase(purchaseId: string, buyerId: string, listingId: string) {
   // Use a transaction to ensure atomic execution
   await prisma.$transaction(async (tx) => {
-    // 1. Mark purchase as completed
-    const purchase = await tx.marketplacePurchase.update({
-      where: { id: purchaseId },
-      data: { status: "COMPLETED" },
+    const existingPurchase = await tx.marketplacePurchase.findUnique({
+      where: { id: purchaseId }
     });
+
+    if (!existingPurchase) throw new Error("Purchase not found");
+    if (existingPurchase.status === "COMPLETED") return; // Idempotency check
 
     // 2. Fetch the listing and its strategy template
     const listing = await tx.marketplaceListing.findUnique({
@@ -76,10 +77,24 @@ async function handleMarketplacePurchase(purchaseId: string, buyerId: string, li
       }
     });
 
-    // 4. Update the listing metrics (sales count)
+    // 1. Mark purchase as completed and set clonedStrategyId
+    const purchase = await tx.marketplacePurchase.update({
+      where: { id: purchaseId },
+      data: { 
+        status: "COMPLETED",
+        clonedStrategyId: newStrategy.id,
+      },
+    });
+
+    // 4. Update the listing metrics (sales count and revenue)
     await tx.marketplaceListing.update({
       where: { id: listingId },
-      data: { salesCount: { increment: 1 } },
+      data: { 
+        salesCount: { increment: 1 },
+        totalRevenue: { increment: purchase.priceUsd },
+        totalPlatformFee: { increment: purchase.platformFeeUsd },
+        totalSellerEarnings: { increment: purchase.sellerEarningUsd }
+      },
     });
 
     // 5. Credit the seller's balance

@@ -13,8 +13,11 @@ export default async function NewListingPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) redirect("/sign-in");
+
   const strategies = await prisma.strategy.findMany({
-    where: { userId },
+    where: { userId: user.id },
     select: { id: true, name: true, kind: true },
     orderBy: { createdAt: "desc" },
   });
@@ -35,7 +38,7 @@ export default async function NewListingPage() {
         </p>
       </header>
 
-      <CreateListingForm strategies={strategies} />
+      <CreateListingForm strategies={strategies} userPlan={user.plan} />
     </div>
   );
 }

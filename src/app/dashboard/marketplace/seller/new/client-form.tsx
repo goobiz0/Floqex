@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { createListing } from "../../actions";
 import { CaretDown, CurrencyDollar, Hash, ListDashes, Tag, TextAa, Textbox } from "@phosphor-icons/react";
 
-export function CreateListingForm({ strategies }: { strategies: { id: string; name: string }[] }) {
+export function CreateListingForm({ strategies, userPlan }: { strategies: { id: string; name: string }[], userPlan: string }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -32,9 +32,16 @@ export function CreateListingForm({ strategies }: { strategies: { id: string; na
       setError("Description must be between 20 and 5000 characters.");
       return;
     }
-    if (price < 5 || price > 999) {
-      setError("Price must be between $5 and $999.");
-      return;
+    if (userPlan === "FREE") {
+      if (price > 0) {
+        setError("Free users can only list free strategies. Upgrade to sell.");
+        return;
+      }
+    } else {
+      if (price < 0 || price > 999) {
+        setError("Price must be between $0 and $999.");
+        return;
+      }
     }
 
     startTransition(async () => {
@@ -122,17 +129,19 @@ export function CreateListingForm({ strategies }: { strategies: { id: string; na
           </div>
         </Field>
 
-        <Field id="priceUsd" label="Price (USD)" hint="One-time purchase price (between $5 and $999).">
+        <Field id="priceUsd" label="Price (USD)" hint={userPlan === "FREE" ? "Free plan users can only list free strategies ($0)." : "One-time purchase price (between $0 and $999)."}>
           <Input
             id="priceUsd"
             name="priceUsd"
             type="number"
             step="1"
-            min={5}
-            max={999}
+            min={0}
+            max={userPlan === "FREE" ? 0 : 999}
             required
-            placeholder="99"
+            placeholder={userPlan === "FREE" ? "0" : "99"}
             icon={<CurrencyDollar />}
+            disabled={userPlan === "FREE"}
+            defaultValue={userPlan === "FREE" ? 0 : undefined}
           />
         </Field>
 
