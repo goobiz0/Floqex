@@ -3,16 +3,18 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { formatUSD } from "@/lib/utils";
-import { Star, ShieldCheck, Handshake, CodeBlock, TrendUp } from "@phosphor-icons/react";
+import { Star, ShieldCheck, Handshake, CodeBlock, TrendUp, Flag, LockKey } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ReviewDialog } from "@/components/marketplace/ReviewDialog";
+import { reportListing } from "./actions";
 
 export function ListingPageClient({ listing, hasPurchased, isOwner }: any) {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
   const router = useRouter();
 
   async function handleCheckout() {
@@ -36,6 +38,19 @@ export function ListingPageClient({ listing, hasPurchased, isOwner }: any) {
     } catch (err: any) {
       toast.error("Checkout failed", { description: err.message });
       setIsCheckingOut(false);
+    }
+  }
+
+  async function handleReport() {
+    if (!confirm("Are you sure you want to report this listing? Our team will review it.")) return;
+    try {
+      setIsReporting(true);
+      await reportListing(listing.id, "User reported listing via UI");
+      toast.success("Listing reported", { description: "Thank you for keeping Floqex safe." });
+    } catch (err) {
+      toast.error("Failed to report listing");
+    } finally {
+      setIsReporting(false);
     }
   }
 
@@ -170,16 +185,67 @@ export function ListingPageClient({ listing, hasPurchased, isOwner }: any) {
         </div>
 
         {/* Right Column: Seller Info */}
-        <div>
-          <h2 className="text-sm font-medium uppercase tracking-widest text-fg-subtle mb-6">Creator</h2>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-line flex items-center justify-center text-lg font-medium">
-              {(listing.seller.firstName?.[0] || "A").toUpperCase()}
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-sm font-medium uppercase tracking-widest text-fg-subtle mb-6">Creator</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-line flex items-center justify-center text-lg font-medium">
+                  {(listing.seller.firstName?.[0] || "A").toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-medium">{listing.seller.firstName || "Anonymous"} {listing.seller.lastName || ""}</div>
+                  <div className="text-xs text-fg-muted">Strategy Creator</div>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-fg-muted hover:text-red-400"
+                onClick={handleReport}
+                disabled={isReporting}
+              >
+                <Flag size={16} className="mr-1" />
+                Report
+              </Button>
             </div>
-            <div>
-              <div className="font-medium">{listing.seller.firstName || "Anonymous"} {listing.seller.lastName || ""}</div>
-              <div className="text-xs text-fg-muted">Strategy Creator</div>
-            </div>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-medium uppercase tracking-widest text-fg-subtle mb-6">Strategy Details</h2>
+            {listing.strategy?.params?.hidden ? (
+              <div className="relative overflow-hidden rounded-xl border border-line bg-elevated p-6 flex flex-col items-center justify-center text-center">
+                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-overlay"></div>
+                <div className="absolute inset-0 backdrop-blur-[2px]"></div>
+                <div className="relative z-10 flex flex-col items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-surface border border-line flex items-center justify-center text-fg-muted">
+                    <LockKey size={20} />
+                  </div>
+                  <h3 className="font-medium">Details Locked</h3>
+                  <p className="text-sm text-fg-muted max-w-[200px]">
+                    Purchase this strategy to reveal its source code and engine parameters.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-line bg-elevated overflow-hidden">
+                <div className="px-4 py-3 bg-surface border-b border-line text-xs font-medium uppercase tracking-widest text-fg-subtle flex items-center gap-2">
+                  <CodeBlock size={14} />
+                  Parameters
+                </div>
+                <div className="p-4 space-y-3">
+                  {listing.strategy?.params && Object.entries(listing.strategy.params).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between text-sm">
+                      <span className="text-fg-muted font-mono">{key}</span>
+                      <span className="font-medium">{String(value)}</span>
+                    </div>
+                  ))}
+                  {!listing.strategy?.params && (
+                    <div className="text-sm text-fg-muted italic">No custom parameters provided.</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

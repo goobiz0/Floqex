@@ -45,7 +45,7 @@ export default async function SellerDashboard() {
             <p className="text-sm text-emerald-500">Free users can list strategies for $0. Upgrade to Pro to sell paid strategies.</p>
           )}
         </div>
-        <Button href="/dashboard/marketplace/seller/new" className="bg-emerald-500 hover:bg-emerald-600 text-white">
+        <Button href="/dashboard/marketplace/seller/new" variant="primary">
           Create Listing
         </Button>
       </header>

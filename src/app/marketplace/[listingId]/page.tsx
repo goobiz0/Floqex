@@ -55,9 +55,26 @@ export default async function ListingPage(props: { params: Promise<{ listingId: 
     }
   }
 
+  // Scrub strategy details if not purchased/owner and price > 0
+  if (Number(listing.priceUsd) > 0 && !hasPurchased && !isOwner) {
+    (listing.strategy as any).code = null;
+    (listing.strategy as any).params = { hidden: true };
+  }
+
+  // Convert dates to strings for Next.js Client Component boundary
+  const safeListing = {
+    ...listing,
+    createdAt: listing.createdAt.toISOString(),
+    updatedAt: listing.updatedAt.toISOString(),
+    reviews: listing.reviews.map(r => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+    }))
+  };
+
   return (
     <ListingPageClient 
-      listing={listing} 
+      listing={safeListing} 
       hasPurchased={hasPurchased} 
       isOwner={isOwner} 
     />

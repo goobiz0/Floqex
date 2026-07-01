@@ -4,10 +4,12 @@ import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Storefront, User, Star } from "@phosphor-icons/react/dist/ssr";
+import { Button } from "@/components/ui/button";
 
 import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 
-export default async function MarketplacePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+export default async function MarketplacePage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const searchParams = await props.searchParams;
   const category = searchParams.category as string;
   const sort = searchParams.sort as string;
 
@@ -45,22 +47,18 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-3">
-          <Link 
-            href="/dashboard/marketplace/purchases"
-            className="inline-flex items-center justify-center rounded-[var(--radius-button)] bg-surface border border-line px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-elevated"
-          >
+          <Button href="/dashboard/marketplace/purchases" variant="secondary">
             My Purchases
-          </Link>
-          <Link 
-            href="/dashboard/marketplace/seller"
-            className="inline-flex items-center justify-center rounded-[var(--radius-button)] bg-fg px-4 py-2 text-sm font-medium text-bg transition-transform hover:scale-[0.98] active:scale-95"
-          >
+          </Button>
+          <Button href="/dashboard/marketplace/seller" variant="primary">
             Become a Seller
-          </Link>
+          </Button>
         </div>
       </header>
 
-      <MarketplaceFilters />
+      <Suspense fallback={<div className="h-16 border-b border-line mb-8"></div>}>
+        <MarketplaceFilters />
+      </Suspense>
 
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {listings.map((listing) => (

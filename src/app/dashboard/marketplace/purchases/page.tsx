@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatUSD } from "@/lib/utils";
 import { ShoppingBag, ArrowRight } from "@phosphor-icons/react/dist/ssr";
@@ -48,12 +49,9 @@ export default async function PurchasesPage() {
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-3">
-          <Link 
-            href="/dashboard/marketplace"
-            className="inline-flex items-center justify-center rounded-[var(--radius-button)] bg-surface border border-line px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-elevated"
-          >
+          <Button href="/dashboard/marketplace" variant="secondary">
             Browse Marketplace
-          </Link>
+          </Button>
         </div>
       </header>
 
@@ -66,12 +64,9 @@ export default async function PurchasesPage() {
           <p className="text-fg-subtle max-w-sm text-center mb-2">
             You haven't bought any strategies from the marketplace. Head over to the marketplace to discover algorithmic edges.
           </p>
-          <Link 
-            href="/dashboard/marketplace"
-            className="inline-flex items-center justify-center rounded-[var(--radius-button)] bg-fg px-5 py-2.5 text-sm font-medium text-bg transition-transform hover:scale-[0.98] active:scale-95"
-          >
+          <Button href="/dashboard/marketplace" variant="primary">
             Explore strategies
-          </Link>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

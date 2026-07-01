@@ -4,6 +4,32 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
+export async function reportListing(listingId: string, reason: string) {
+  const { userId: clerkId } = await auth();
+  
+  const listing = await prisma.marketplaceListing.findUnique({
+    where: { id: listingId },
+    include: { seller: true }
+  });
+
+  if (!listing) throw new Error("Listing not found");
+
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (webhookUrl) {
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `🚨 **New Listing Report**\n**Listing:** ${listing.title} (${listingId})\n**Seller:** ${listing.seller.firstName} ${listing.seller.lastName} (${listing.seller.email})\n**Reported By (Clerk ID):** ${clerkId || "Anonymous"}\n**Reason:** ${reason}`
+        })
+      });
+    } catch (e) {
+      console.error("Failed to send report to Discord:", e);
+    }
+  }
+}
+
 export async function submitReview(listingId: string, rating: number, title: string, body: string) {
   const { userId: clerkId } = await auth();
   if (!clerkId) throw new Error("Unauthorized");
