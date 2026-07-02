@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { JournalView } from "@/components/dashboard/journal-view";
 import { Card } from "@/components/ui/card";
-import { getTradeData } from "@/lib/queries";
+import { getTradeData, ALL_ACCOUNTS_ID } from "@/lib/queries";
 import { DashboardError } from "@/components/dashboard/states";
+import { AllAccountsBadge } from "@/components/dashboard/all-accounts-badge";
 
 export const metadata: Metadata = { title: "Journal" };
 
@@ -13,7 +14,10 @@ export default async function JournalPage(props: { searchParams: Promise<{ accou
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">Journal</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold tracking-tight text-fg">Journal</h1>
+          {searchParams.account === ALL_ACCOUNTS_ID && <AllAccountsBadge />}
+        </div>
         <p className="text-sm text-fg-subtle">
           Daily P&L and a record of every trade with the bot’s reasoning.
         </p>

@@ -22,6 +22,7 @@ import { Sparkline } from "@/components/dashboard/charts/sparkline";
 import { DashboardError } from "@/components/dashboard/states";
 import { AssetPnlChart } from "@/components/dashboard/asset-pnl-chart";
 
+import { AllAccountsBadge } from "@/components/dashboard/all-accounts-badge";
 import { WidgetGrid, WidgetItem } from "@/components/dashboard/widget-grid";
 import { WidgetConfigDialog } from "@/components/dashboard/widget-config-dialog";
 import { WidgetLibraryDialog } from "@/components/dashboard/widget-library-dialog";
@@ -114,10 +115,12 @@ interface DashboardPageClientProps {
   initialTemplates?: DashboardTemplate[];
   userPlan?: string;
   marketAsxEnabled?: boolean;
+  isAllAccounts?: boolean;
+  accountCount?: number;
 }
 
-export function DashboardPageClient({ 
-  balance, 
+export function DashboardPageClient({
+  balance,
   recent,
   hasAccount,
   hasBot,
@@ -130,7 +133,9 @@ export function DashboardPageClient({
   accountId = null,
   initialTemplates = [],
   userPlan = "FREE",
-  marketAsxEnabled = true
+  marketAsxEnabled = true,
+  isAllAccounts = false,
+  accountCount = 1,
 }: DashboardPageClientProps) {
   const { user } = useUser();
   const nickname = user?.firstName || user?.emailAddresses[0]?.emailAddress?.split("@")[0] || "User";
@@ -372,7 +377,9 @@ export function DashboardPageClient({
           <div className={cn("absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl opacity-40 pointer-events-none", isProfit ? "bg-accent/20" : "bg-negative/15")} />
           <div className="relative z-10 flex items-center gap-2 text-fg-subtle">
             <Wallet size={15} weight="fill" className="text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Active Capital</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              {isAllAccounts ? "Active Capital · All Accounts" : "Active Capital"}
+            </span>
           </div>
           <div className="relative z-10 mt-3">
             <span className="text-[34px] font-semibold leading-none tracking-tight text-fg tnum">
@@ -441,7 +448,14 @@ export function DashboardPageClient({
                   >
                     <div className="mt-0.5 shrink-0"><EventIcon kind={event.kind} /></div>
                     <div>
-                      <p className="text-[11px] font-mono text-fg-faint">{event.t}</p>
+                      <p className="flex items-center gap-1.5 text-[11px] font-mono text-fg-faint">
+                        {event.t}
+                        {isAllAccounts && event.accountNickname && (
+                          <span className="rounded-[var(--radius-pill)] bg-surface px-1.5 py-0.5 font-sans text-[9px] font-semibold uppercase tracking-wide text-fg-subtle">
+                            {event.accountNickname}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-[11px] text-fg-subtle leading-tight">{event.message}</p>
                     </div>
                   </motion.div>
@@ -528,7 +542,12 @@ export function DashboardPageClient({
                     <div className={cn("flex h-8 w-8 items-center justify-center rounded-[8px]", isProfit ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
                       {isProfit ? <TrendUp size={16} /> : <TrendDown size={16} />}
                     </div>
-                    <div><p className="text-[12px] font-medium text-fg">{trade.direction} {trade.instrument}</p></div>
+                    <div>
+                      <p className="text-[12px] font-medium text-fg">{trade.direction} {trade.instrument}</p>
+                      {isAllAccounts && trade.accountNickname && (
+                        <p className="text-[10px] text-fg-faint">{trade.accountNickname}</p>
+                      )}
+                    </div>
                   </div>
                   <div className={cn("rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-semibold tnum", isProfit ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
                     <DisplayValue type="PNL" money={netPnlNum} />
@@ -693,7 +712,7 @@ export function DashboardPageClient({
 
     // Fallback
     return <div className="p-6 text-sm text-fg-subtle">Unknown Widget</div>;
-  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus, trades, summaries]);
+  }, [todayPnl, hasAccount, liveBalance, liveEngineStatus, hasBot, liveEvents, live.connected, winRate, recent, assetEntries, liveBotStatus, trades, summaries, isAllAccounts]);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -703,6 +722,7 @@ export function DashboardPageClient({
         <div className="flex items-center gap-3">
           <Image src={avatarUrl} alt={nickname} width={40} height={40} className="privacy-blur-avatar rounded-full border border-line object-cover" />
           <h1 className="text-lg font-medium tracking-tight text-fg">Dashboard</h1>
+          {isAllAccounts && <AllAccountsBadge count={accountCount} />}
         </div>
 
         <div className="flex items-center gap-3">

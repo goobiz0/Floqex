@@ -369,6 +369,12 @@ export function CalendarView({ summaries, trades }: { summaries: DailyRow[]; tra
                                     <span className="tnum">{new Date(t.openedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                                     <span className="h-1 w-1 rounded-[var(--radius-pill)] bg-line-strong" />
                                     <span>{t.session}</span>
+                                    {t.accountNickname && (
+                                      <>
+                                        <span className="h-1 w-1 rounded-[var(--radius-pill)] bg-line-strong" />
+                                        <span className="truncate">{t.accountNickname}</span>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="shrink-0 text-right">

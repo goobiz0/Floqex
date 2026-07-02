@@ -188,8 +188,9 @@ export function JournalView({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-fg">{t.instrument}</p>
-                    <p className="text-xs text-fg-subtle">
+                    <p className="truncate text-xs text-fg-subtle">
                       {dateOf(t)} · {timeOf(t.openedAt)}
+                      {t.accountNickname && <> · {t.accountNickname}</>}
                     </p>
                   </div>
                   <div className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold tnum")}>
@@ -252,6 +253,9 @@ function TradeDetail({ trade, onClose }: { trade: TradeRow | null; onClose: () =
                 </Badge>
                 <span className="text-sm font-medium text-fg">{trade.instrument}</span>
                 <span className="text-xs text-fg-subtle">{trade.session}</span>
+                {trade.accountNickname && (
+                  <Badge tone="neutral">{trade.accountNickname}</Badge>
+                )}
               </div>
               <button
                 type="button"

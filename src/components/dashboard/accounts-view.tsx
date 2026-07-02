@@ -22,10 +22,12 @@ import {
   Lightning,
   X,
   Robot,
+  Stack,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ALL_ACCOUNTS_ID } from "@/lib/account-scope";
 import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/ui/dropdown";
 import { DisplayValue } from "@/components/ui/display-value";
@@ -282,6 +284,15 @@ function PortfolioSummary({
           />
         </div>
       </div>
+
+      {accounts.length > 1 && (
+        <div className="relative mt-4 flex justify-end">
+          <Button href={`/dashboard?account=${ALL_ACCOUNTS_ID}`} variant="secondary" size="sm">
+            <Stack size={14} weight="bold" />
+            View combined dashboard
+          </Button>
+        </div>
+      )}
 
       {accounts.length > 1 && totals.balance > 0 && (
         <AllocationBar accounts={accounts} total={totals.balance} />

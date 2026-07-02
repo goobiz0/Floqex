@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Gear, Star, Question } from "@phosphor-icons/react/dist/ssr";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
@@ -8,6 +9,7 @@ import { TopbarUser } from "@/components/dashboard/topbar-user";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { EStopWidget } from "@/components/dashboard/e-stop-widget";
+import { AccountScopeSwitcher } from "@/components/dashboard/account-scope-switcher";
 import { dashboardUrl } from "@/lib/urls";
 import { PLAN_ORDER, type Plan } from "@/lib/plans";
 
@@ -111,6 +113,18 @@ export async function Topbar() {
           >
             <Wordmark />
           </Link>
+          {user?.accounts && user.accounts.length > 0 && (
+            <Suspense fallback={<div className="h-8 w-32 animate-pulse rounded-[var(--radius-pill)] bg-surface" />}>
+              <AccountScopeSwitcher
+                accounts={user.accounts.map((a) => ({
+                  id: a.id,
+                  nickname: a.nickname,
+                  balance: Number(a.balance),
+                  mode: a.mode,
+                }))}
+              />
+            </Suspense>
+          )}
           <div className="hidden sm:block">
             <CommandPalette />
           </div>
@@ -209,6 +223,7 @@ async function getTopBarUserMeta() {
       where: { clerkId: userId },
       include: {
         accounts: {
+          orderBy: { createdAt: "asc" },
           include: { bot: true }
         }
       }

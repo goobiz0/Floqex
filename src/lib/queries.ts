@@ -9,6 +9,8 @@ import type { CopySizingMode, CopyLinkStatus, CopyFilterMode } from "./copy-trad
 import { getMarketForInstrument, type MarketKind } from "./market";
 import { getForwardTests, type ForwardTestRow } from "./engine/forward-test";
 export type { ForwardTestRow };
+import { ALL_ACCOUNTS_ID } from "./account-scope";
+export { ALL_ACCOUNTS_ID };
 
 /**
  * Server-only data access for the dashboard, scoped to the signed-in Clerk user.
@@ -25,6 +27,10 @@ export type OverviewAccount = {
   mode: string;
   balance: number;
   currency: string;
+  /** True for the synthetic "All Accounts" aggregate, never a real account. */
+  isAggregate?: boolean;
+  /** Number of real accounts folded into this row (aggregate only). */
+  accountCount?: number;
 };
 
 export type OverviewBot = {
@@ -40,6 +46,8 @@ export type AgentEventRow = {
   t: string;
   kind: AgentEventKind;
   message: string;
+  /** Set only in the "All Accounts" aggregate view, to attribute the event. */
+  accountNickname?: string;
 };
 
 export type OverviewData = {
@@ -84,6 +92,7 @@ function numOrNull(d: unknown): number | null {
 
 type DbTrade = {
   id: string;
+  accountId: string;
   instrument: string;
   direction: string;
   session: string;
@@ -146,6 +155,71 @@ function serializeSummary(s: DbSummary): DailyRow {
   };
 }
 
+/** Trade row tagged with the account it belongs to, for the "All Accounts" view. */
+function serializeTradeTagged(t: DbTrade, nameById: Map<string, string>): TradeRow {
+  return {
+    ...serializeTrade(t),
+    accountId: t.accountId,
+    accountNickname: nameById.get(t.accountId) ?? "",
+  };
+}
+
+const dateKey = (d: Date) => d.toISOString().slice(0, 10);
+
+/**
+ * Combine each account's daily summaries into one portfolio-wide equity curve.
+ * Real multi-account NAV combination: on any date where an account has no
+ * summary of its own (not yet created, or simply no activity that day), its
+ * last known end balance carries forward flat (no P&L contribution) rather
+ * than being fabricated or dropped, so the combined balance line always
+ * reflects the true sum of live account balances.
+ */
+function combineDailySummaries(perAccount: DbSummary[][]): DailyRow[] {
+  const accounts = perAccount.map((rows) => [...rows].sort((a, b) => a.date.getTime() - b.date.getTime()));
+
+  const dateSet = new Set<string>();
+  for (const rows of accounts) for (const r of rows) dateSet.add(dateKey(r.date));
+  const dates = Array.from(dateSet).sort();
+
+  const cursors = accounts.map(() => 0);
+  const lastEnd: (number | null)[] = accounts.map(() => null);
+
+  const out: DailyRow[] = [];
+  for (const date of dates) {
+    let netPnl = 0;
+    let tradeCount = 0;
+    let winCount = 0;
+    let lossCount = 0;
+    let startBalance = 0;
+    let endBalance = 0;
+
+    for (let i = 0; i < accounts.length; i++) {
+      const rows = accounts[i];
+      let todaysRow: DbSummary | null = null;
+      while (cursors[i] < rows.length && dateKey(rows[cursors[i]].date) <= date) {
+        const row = rows[cursors[i]];
+        lastEnd[i] = num(row.endBalance);
+        if (dateKey(row.date) === date) todaysRow = row;
+        cursors[i] += 1;
+      }
+      if (todaysRow) {
+        netPnl += num(todaysRow.netPnl);
+        tradeCount += todaysRow.tradeCount;
+        winCount += todaysRow.winCount;
+        lossCount += todaysRow.lossCount;
+        startBalance += num(todaysRow.startBalance);
+        endBalance += num(todaysRow.endBalance);
+      } else if (lastEnd[i] != null) {
+        startBalance += lastEnd[i]!;
+        endBalance += lastEnd[i]!;
+      }
+    }
+
+    out.push({ date, netPnl, tradeCount, winCount, lossCount, startBalance, endBalance });
+  }
+  return out;
+}
+
 /**
  * Latest narrated decisions for the live agent feed, oldest-first for a
  * terminal-log read. Guarded on its own so an unmigrated agent_events table
@@ -171,6 +245,28 @@ async function getAgentEvents(accountId: string): Promise<AgentEventRow[]> {
   }
 }
 
+/** Same as {@link getAgentEvents}, merged across every account for the "All Accounts" feed. */
+async function getAgentEventsAll(accountIds: string[], nameById: Map<string, string>): Promise<AgentEventRow[]> {
+  try {
+    const rows = await prisma.agentEvent.findMany({
+      where: { accountId: { in: accountIds } },
+      orderBy: { ts: "desc" },
+      take: 40,
+    });
+    return rows
+      .reverse()
+      .map((e) => ({
+        id: e.id,
+        t: e.ts.toISOString().slice(11, 19),
+        kind: e.kind as AgentEventKind,
+        message: e.message,
+        accountNickname: nameById.get(e.accountId) ?? "",
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getOverviewData(accountId?: string): Promise<OverviewData> {
   try {
     const { userId } = await auth();
@@ -188,7 +284,67 @@ export async function getOverviewData(accountId?: string): Promise<OverviewData>
 
     if (!user || user.accounts.length === 0) return EMPTY_OVERVIEW;
 
-    const account = accountId 
+    if (accountId === ALL_ACCOUNTS_ID) {
+      const accountIds = user.accounts.map((a) => a.id);
+      const nameById = new Map(user.accounts.map((a) => [a.id, a.nickname]));
+
+      const [trades, perAccountSummaries, openTrades, agentEvents] = await Promise.all([
+        prisma.trade.findMany({
+          where: { accountId: { in: accountIds }, status: "CLOSED" },
+          orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
+          take: 250,
+        }),
+        Promise.all(
+          accountIds.map((id) =>
+            prisma.dailySummary.findMany({ where: { accountId: id }, orderBy: { date: "asc" }, take: 400 }),
+          ),
+        ),
+        prisma.trade.findMany({
+          where: { accountId: { in: accountIds }, status: "OPEN" },
+          orderBy: { openedAt: "desc" },
+        }),
+        getAgentEventsAll(accountIds, nameById),
+      ]);
+      const openTrade = openTrades[0] ?? null;
+
+      const bots = user.accounts.map((a) => a.bot).filter((b): b is NonNullable<typeof b> => Boolean(b));
+      const runningBot = bots.find((b) => b.status === "RUNNING");
+      const waitingBot = bots.find((b) => b.status === "WAITING");
+      const latestHeartbeat = bots.reduce<Date | null>((latest, b) => {
+        if (!b.lastHeartbeat) return latest;
+        return !latest || b.lastHeartbeat > latest ? b.lastHeartbeat : latest;
+      }, null);
+
+      const modes = new Set(user.accounts.map((a) => a.mode));
+
+      return {
+        account: {
+          id: ALL_ACCOUNTS_ID,
+          nickname: "All Accounts",
+          broker: `${user.accounts.length} accounts`,
+          mode: modes.size === 1 ? [...modes][0] : "MIXED",
+          balance: user.accounts.reduce((s, a) => s + num(a.balance), 0),
+          currency: user.accounts[0]?.currency ?? "USD",
+          isAggregate: true,
+          accountCount: user.accounts.length,
+        },
+        userPlan: (user.plan as Plan) || "FREE",
+        bot: bots.length > 0
+          ? {
+              status: runningBot ? "RUNNING" : waitingBot ? "WAITING" : "STOPPED",
+              lastHeartbeat: latestHeartbeat ? latestHeartbeat.toISOString() : null,
+            }
+          : null,
+        trades: trades.map((t) => serializeTradeTagged(t, nameById)),
+        summaries: combineDailySummaries(perAccountSummaries),
+        openTrade: openTrade ? serializeTradeTagged(openTrade, nameById) : null,
+        openTrades: openTrades.map((t) => serializeTradeTagged(t, nameById)),
+        agentEvents,
+        error: false,
+      };
+    }
+
+    const account = accountId
       ? user.accounts.find(a => a.id === accountId) || user.accounts[0]
       : user.accounts[0];
 
@@ -257,7 +413,32 @@ export async function getTradeData(accountId?: string): Promise<TradeData> {
 
     if (!user || user.accounts.length === 0) return EMPTY_TRADES;
 
-    const account = accountId 
+    if (accountId === ALL_ACCOUNTS_ID) {
+      const accountIds = user.accounts.map((a) => a.id);
+      const nameById = new Map(user.accounts.map((a) => [a.id, a.nickname]));
+
+      const [trades, perAccountSummaries] = await Promise.all([
+        prisma.trade.findMany({
+          where: { accountId: { in: accountIds }, status: "CLOSED" },
+          orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }],
+          take: 1000,
+        }),
+        Promise.all(
+          accountIds.map((id) =>
+            prisma.dailySummary.findMany({ where: { accountId: id }, orderBy: { date: "asc" }, take: 400 }),
+          ),
+        ),
+      ]);
+
+      return {
+        hasAccount: true,
+        trades: trades.map((t) => serializeTradeTagged(t, nameById)),
+        summaries: combineDailySummaries(perAccountSummaries),
+        error: false,
+      };
+    }
+
+    const account = accountId
       ? user.accounts.find(a => a.id === accountId) || user.accounts[0]
       : user.accounts[0];
 
@@ -313,6 +494,32 @@ export async function getExecutionData(accountId?: string): Promise<ExecutionDat
       include: { accounts: { orderBy: { createdAt: "asc" } } },
     });
     if (!user || user.accounts.length === 0) return EMPTY_EXECUTION;
+
+    if (accountId === ALL_ACCOUNTS_ID) {
+      const accountIds = user.accounts.map((a) => a.id);
+      const [fills, missedSignals, bots] = await Promise.all([
+        prisma.trade.findMany({
+          where: { accountId: { in: accountIds }, status: "CLOSED" },
+          orderBy: { closedAt: "desc" },
+          take: 1000,
+          select: { entrySlippageBps: true, exitSlippageBps: true, entryLatencyMs: true },
+        }),
+        prisma.agentEvent.count({ where: { accountId: { in: accountIds }, kind: "RISK" } }),
+        prisma.bot.findMany({ where: { accountId: { in: accountIds } }, select: { status: true, lastHeartbeat: true } }),
+      ]);
+
+      return {
+        hasAccount: true,
+        fills: fills.map((f) => ({
+          entrySlippageBps: numOrNull(f.entrySlippageBps),
+          exitSlippageBps: numOrNull(f.exitSlippageBps),
+          entryLatencyMs: f.entryLatencyMs ?? null,
+        })),
+        missedSignals,
+        heartbeats: bots.map((b) => ({ status: b.status, lastHeartbeat: b.lastHeartbeat ? b.lastHeartbeat.toISOString() : null })),
+        error: false,
+      };
+    }
 
     const account = accountId ? user.accounts.find((a) => a.id === accountId) || user.accounts[0] : user.accounts[0];
     if (!account) return EMPTY_EXECUTION;

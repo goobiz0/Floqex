@@ -27,6 +27,8 @@ function liveToRow(t: LiveTrade): TradeRow {
     closedAt: t.closedAt,
     narrative: null,
     screenshotUrl: null,
+    accountId: t.accountId,
+    accountNickname: t.accountNickname,
   };
 }
 

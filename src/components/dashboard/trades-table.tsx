@@ -12,6 +12,7 @@ const fmtDateTime = (iso: string) =>
 
 export function TradesTable({ trades }: { trades: TradeRow[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const showAccountCol = trades.some((t) => t.accountNickname);
 
   if (trades.length === 0) {
     return (
@@ -33,6 +34,7 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
         <thead>
           <tr className="border-b border-line bg-base/50 text-fg-subtle text-[11px] uppercase tracking-wider font-semibold">
             <th className="py-4 pl-6 pr-3">Date</th>
+            {showAccountCol && <th className="py-4 px-3">Account</th>}
             <th className="py-4 px-3">Instrument</th>
             <th className="py-4 px-3">Dir</th>
             <th className="py-4 px-3 text-right">Entry</th>
@@ -64,6 +66,13 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
                     <span className="text-fg-faint">{dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                   </span>
                 </td>
+                {showAccountCol && (
+                  <td className="py-3 px-3 text-[12px] text-fg-subtle">
+                    <span className="inline-flex items-center rounded-[var(--radius-pill)] bg-surface px-2 py-0.5 text-[11px] font-medium">
+                      {trade.accountNickname || "—"}
+                    </span>
+                  </td>
+                )}
                 <td className="py-3 px-3 font-medium text-fg text-[13px]">{trade.instrument}</td>
                 <td className="py-3 px-3">
                   <span className={cn("inline-flex items-center rounded-[var(--radius-pill)] px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase", trade.direction === "LONG" ? "bg-profit/10 text-profit" : "bg-negative-soft text-negative")}>
@@ -101,6 +110,7 @@ export function TradesTable({ trades }: { trades: TradeRow[] }) {
               className="overflow-hidden border-t border-line bg-base/40"
             >
               <div className="grid grid-cols-1 gap-x-6 gap-y-4 p-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {trade.accountNickname && <Detail label="Account" value={trade.accountNickname} />}
                 <Detail label="Status" value={trade.status === "OPEN" ? "Open" : "Closed"} />
                 <Detail label="Session" value={trade.session} />
                 <Detail label="Opened" value={fmtDateTime(trade.openedAt)} />
