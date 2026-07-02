@@ -31,6 +31,9 @@ export type TradeRow = {
   closedAt: string | null;
   narrative: string | null;
   screenshotUrl: string | null;
+  /** Set only in the "All Accounts" aggregate view, to attribute the row. */
+  accountId?: string;
+  accountNickname?: string;
 };
 
 export type DailyRow = {

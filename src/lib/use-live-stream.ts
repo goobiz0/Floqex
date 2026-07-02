@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export type LiveAgentEvent = { id: string; t: string; kind: string; message: string };
+export type LiveAgentEvent = { id: string; t: string; kind: string; message: string; accountNickname?: string };
 export type LivePosition = {
   id: string;
   instrument: string;
@@ -25,6 +25,8 @@ export type LiveTrade = {
   rMultiple: number | null;
   openedAt: string;
   closedAt: string | null;
+  accountId?: string;
+  accountNickname?: string;
 };
 
 export type LiveState = {

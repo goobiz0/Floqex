@@ -32,12 +32,14 @@ import {
   Calculator,
   FlowArrow,
   Storefront,
+  Stack,
   type Icon,
 } from "@phosphor-icons/react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { DisplayValue } from "@/components/ui/display-value";
 import type { NavAccount } from "@/lib/queries";
+import { ALL_ACCOUNTS_ID } from "@/lib/account-scope";
 
 type NavItem = { href: string; label: string; icon: Icon; pro?: boolean };
 
@@ -199,6 +201,45 @@ function AccountRow({ account, isActive }: { account: NavAccount; isActive: bool
   );
 }
 
+/** Pinned "All Accounts" row: combined balance across every real account. */
+function AllAccountsRow({ totalBalance, count, isActive }: { totalBalance: number; count: number; isActive: boolean }) {
+  const pathname = usePathname();
+  const href = `${pathname}?account=${ALL_ACCOUNTS_ID}`;
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group relative flex items-center justify-between rounded-[var(--radius-pill)] min-h-[44px] py-2 pl-3 pr-4 transition-colors hover:text-fg",
+        isActive ? "text-fg" : "text-fg-subtle",
+        !isActive && "hover:bg-surface/50"
+      )}
+    >
+      {isActive && (
+        <motion.div
+          layoutId="account-active-pill"
+          className="absolute inset-0 rounded-[var(--radius-pill)] bg-surface"
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        />
+      )}
+      <div className="relative z-10 flex items-center gap-3 min-w-0">
+        <span className={cn("flex items-center justify-center transition-colors", isActive ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")}>
+          <Stack size={18} weight={isActive ? "fill" : "regular"} />
+        </span>
+        <span className="truncate text-[13px] font-medium">
+          All Accounts
+        </span>
+        <span className="shrink-0 rounded-[var(--radius-pill)] bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-fg-faint">
+          {count}
+        </span>
+      </div>
+      <span className={cn("relative z-10 tnum shrink-0 text-[12px] font-medium", isActive ? "text-accent font-bold" : "text-accent/70")}>
+        <DisplayValue type="BALANCE" money={totalBalance} />
+      </span>
+    </Link>
+  );
+}
+
 /** Desktop sidebar, resizable at lg+. */
 export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
   const isActiveRoute = useIsActive();
@@ -261,6 +302,13 @@ export function Sidebar({ accounts = [] }: { accounts?: NavAccount[] }) {
         </Section>
 
         <Section label="Accounts">
+          {accounts.length > 1 && (
+            <AllAccountsRow
+              totalBalance={accounts.reduce((s, a) => s + a.balance, 0)}
+              count={accounts.length}
+              isActive={activeAccountId === ALL_ACCOUNTS_ID}
+            />
+          )}
           {accounts.map((a) => (
             <AccountRow key={a.id} account={a} isActive={a.id === activeAccountId} />
           ))}

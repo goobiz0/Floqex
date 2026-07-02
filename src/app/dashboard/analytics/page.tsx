@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { HBars, VBars, Histogram, LineMini } from "@/components/dashboard/charts";
-import { getTradeData, getExecutionData } from "@/lib/queries";
+import { getTradeData, getExecutionData, ALL_ACCOUNTS_ID } from "@/lib/queries";
+import { AllAccountsBadge } from "@/components/dashboard/all-accounts-badge";
 import {
   summaryMetrics,
   byInstrument,
@@ -32,7 +33,10 @@ export default async function AnalyticsPage(props: { searchParams: Promise<{ acc
 
   const header = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-fg">Analytics</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold tracking-tight text-fg">Analytics</h1>
+        {searchParams.account === ALL_ACCOUNTS_ID && <AllAccountsBadge />}
+      </div>
       <p className="text-sm text-fg-subtle">
         Where the edge comes from, broken down by instrument and session.
       </p>

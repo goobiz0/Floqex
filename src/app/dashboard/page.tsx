@@ -36,9 +36,9 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
   const hasAccount = !!data.account;
   const hasBot = !!data.bot;
 
-  return <DashboardPageClient 
-    balance={balance} 
-    recent={recent} 
+  return <DashboardPageClient
+    balance={balance}
+    recent={recent}
     hasAccount={hasAccount}
     hasBot={hasBot}
     summaries={data.summaries}
@@ -51,6 +51,8 @@ export default async function DashboardPage(props: { searchParams: Promise<{ acc
     initialTemplates={templates}
     userPlan={userPlan}
     marketAsxEnabled={marketAsxEnabled}
+    isAllAccounts={data.account?.isAggregate ?? false}
+    accountCount={data.account?.accountCount ?? 1}
   />;
 }
 

@@ -1,6 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import type { User } from "@prisma/client";
+import { ALL_ACCOUNTS_ID } from "./account-scope";
+export { ALL_ACCOUNTS_ID };
 
 /**
  * The database User for the current Clerk session, created on demand if the
@@ -37,9 +39,11 @@ export async function getOrCreateUser(): Promise<User | null> {
 
 /**
  * Resolve and authorize an account for the current session. Returns the account
- * id only if it belongs to the signed-in user. When no accountId is supplied,
- * falls back to the user's first account. Returns null if unauthenticated or the
- * account is not owned by the user. Used to gate live streams and market lookups.
+ * id only if it belongs to the signed-in user, or the `ALL_ACCOUNTS_ID` sentinel
+ * when the caller explicitly asked for the combined view. When no accountId is
+ * supplied, falls back to the user's first account. Returns null if
+ * unauthenticated or the account is not owned by the user. Used to gate live
+ * streams and market lookups.
  */
 export async function getOwnedAccountId(accountId?: string | null): Promise<string | null> {
   const { userId: clerkId } = await auth();
@@ -50,6 +54,18 @@ export async function getOwnedAccountId(accountId?: string | null): Promise<stri
   });
   const ids = user?.accounts.map((a) => a.id) ?? [];
   if (ids.length === 0) return null;
+  if (accountId === ALL_ACCOUNTS_ID) return ALL_ACCOUNTS_ID;
   if (accountId) return ids.includes(accountId) ? accountId : null;
   return ids[0];
+}
+
+/** Every account id the signed-in user owns, oldest first. Empty when signed out. */
+export async function getOwnedAccountIds(): Promise<string[]> {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return [];
+  const user = await prisma.user.findUnique({
+    where: { clerkId },
+    select: { accounts: { orderBy: { createdAt: "asc" }, select: { id: true } } },
+  });
+  return user?.accounts.map((a) => a.id) ?? [];
 }
